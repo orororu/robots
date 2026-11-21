@@ -23,9 +23,46 @@ pub fn starter_robots_only_use_catalog_components_test() {
   assert list.all(used, list.contains(names, _))
 }
 
-pub fn non_damage_roles_are_rated_above_damage_test() {
-  let damage = efficiency.target(efficiency.Damage)
-  assert efficiency.target(efficiency.Weaken) >. damage
-  assert efficiency.target(efficiency.Strengthen) >. damage
-  assert efficiency.target(efficiency.Repair) >. damage
+const costs = [0.5, 0.6, 0.8, 1.0, 1.5, 2.0]
+
+const roles = [
+  efficiency.Damage,
+  efficiency.Weaken,
+  efficiency.Strengthen,
+  efficiency.Repair,
+]
+
+pub fn bigger_cards_are_more_efficient_in_every_role_test() {
+  list.each(roles, fn(role) {
+    list.window_by_2(costs)
+    |> list.each(fn(pair) {
+      assert efficiency.goal_for(role, pair.1)
+        >. efficiency.goal_for(role, pair.0)
+    })
+  })
+}
+
+pub fn defence_buffs_and_repair_beat_attacks_of_the_same_cost_test() {
+  list.each(list.drop(costs, 1), fn(cost) {
+    let attack = efficiency.goal_for(efficiency.Damage, cost)
+    assert efficiency.goal_for(efficiency.Weaken, cost) >. attack
+    assert efficiency.goal_for(efficiency.Strengthen, cost) >. attack
+    assert efficiency.goal_for(efficiency.Repair, cost) >. attack
+  })
+}
+
+pub fn the_margin_over_attacks_grows_with_cost_test() {
+  let margin = fn(cost) {
+    efficiency.goal_for(efficiency.Weaken, cost)
+    -. efficiency.goal_for(efficiency.Damage, cost)
+  }
+  assert margin(1.5) >. margin(1.0)
+  assert margin(1.0) >. margin(0.6)
+}
+
+pub fn cheap_defence_does_not_outperform_attacks_test() {
+  // So fast, small defences can't stall the round.
+  let cheap = efficiency.bonus_pivot_cost
+  assert efficiency.goal_for(efficiency.Weaken, cheap)
+    == efficiency.goal_for(efficiency.Damage, cheap)
 }

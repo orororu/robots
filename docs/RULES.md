@@ -138,11 +138,25 @@ after playtesting:
   several moves per second, so energy income, not reaction speed, limits play.
   Rule of thumb: energy rate × 4 s ≈ average card cost.
 - **Match length:** about **2 minutes** (~30 moves per player).
-- **Defence, buffs and repair are more efficient than attacks.** Target value
-  per cost: damage 1.0, repair 1.2, weaken 1.3, strengthen 1.3. Cards that hit
-  `all(...)` are rated as if they hit 2 cards. If damage were the best use of
-  energy, every build would be a glass cannon with the single best attack.
-  A test checks every catalog card against these bands (±0.1).
+- **Bigger cards are more efficient**, in every role. Big cards are riskier:
+  they wait longer on the table, attract defence, and cost more to clear once
+  zeroed. Without a reward nobody would play them.
+- **Defence, buffs and repair beat attacks of the same cost**, by a margin that
+  **grows with cost**. Cheap ones get no margin, so fast small defences can't
+  stall the round. Big ones always outclass attacks of the same cost, so no
+  attack is ever big enough to beat defence, and builds aren't glass cannons.
+- Target value per cost (`robots/efficiency.gleam`):
+  `1.0 + 0.5 × (cost − 1) + bonus × max(0, cost − 0.5)`, with bonus 0 for
+  damage, 0.4 for weaken and strengthen, and 0.3 for repair. Cards hitting
+  `all(...)` are rated as if they hit 2 cards. A test checks every catalog card
+  against its goal (±0.1).
+
+  | Cost (shown) | 5 | 6 | 8 | 10 | 16 |
+  |---|---|---|---|---|---|
+  | Damage | 0.75 | 0.80 | 0.90 | 1.00 | 1.30 |
+  | Weaken / strengthen | 0.75 | 0.84 | 1.02 | 1.20 | 1.74 |
+  | Repair | 0.75 | 0.83 | 0.99 | 1.15 | 1.63 |
+
 - **Robots should play differently.** Variety of builds, robots assembled from
   components that each add several cards, is the main attraction (to be designed).
 - **Measure with the balance report:** `cd core && gleam run -m balance` plays

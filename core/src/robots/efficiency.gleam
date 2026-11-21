@@ -1,11 +1,18 @@
 //// Design rules for card strength: how much a card delivers per energy.
 ////
-//// Defence, buffs and repair are rated *above* attacks on purpose: if pure
-//// damage were the most efficient thing to spend energy on, every build would
-//// be a glass cannon with the single best attack. A card's real effect can
-//// still fall short of its rating (a defence's extra value is wasted, a buff
-//// with no target does nothing), which the balance report measures.
+//// Two rules shape every card's target efficiency (`goal`):
+////
+//// - Bigger cards are more efficient, whatever their role (`cost_slope`).
+//// - Defence, buffs and repair beat attacks of the same cost, by a margin
+////   that grows with cost (`role_bonus`). Cheap ones get no margin, so fast
+////   small defences can't stall the round; big ones always outclass attacks
+////   of the same cost, so no build is a glass cannon.
+////
+//// A card's real effect can still fall short of its rating (a defence's extra
+//// value is wasted, a buff with no target does nothing), which the balance
+//// report measures.
 
+import gleam/float
 import robots/card.{type Card, All, Hp, Opponent, Self}
 
 pub type Role {
@@ -30,14 +37,39 @@ pub fn role(card: Card) -> Role {
   }
 }
 
-/// Target value-per-cost for each role.
-pub fn target(role: Role) -> Float {
+/// Every card gets this much more efficiency per unit of cost above the base
+/// cost (1.0). Big cards are riskier (they wait longer on the table and cost
+/// more to lose) and must be rewarded, or nobody plays them.
+pub const cost_slope = 0.5
+
+/// Below this cost no role gets a bonus over attacks, so cheap, fast defences
+/// and buffs can't outperform attacks and stall the round.
+pub const bonus_pivot_cost = 0.5
+
+/// Extra efficiency per unit of cost above `bonus_pivot_cost`, by role.
+/// Defence, buffs and repair beat attacks of the same cost, and the gap grows
+/// with cost, so no attack is ever big enough to outclass defence.
+pub fn role_bonus(role: Role) -> Float {
   case role {
-    Damage -> 1.0
-    Repair -> 1.2
-    Weaken -> 1.3
-    Strengthen -> 1.3
+    Damage -> 0.0
+    Weaken -> 0.4
+    Strengthen -> 0.4
+    Repair -> 0.3
   }
+}
+
+/// Target value-per-cost for a card of this role and cost.
+pub fn goal_for(role: Role, cost: Float) -> Float {
+  1.0
+  +. cost_slope
+  *. { cost -. 1.0 }
+  +. role_bonus(role)
+  *. float.max(0.0, cost -. bonus_pivot_cost)
+}
+
+/// Target value-per-cost for this particular card.
+pub fn goal(card: Card) -> Float {
+  goal_for(role(card), card.cost)
 }
 
 /// The card's printed value per cost, counting `All` cards as hitting
@@ -51,7 +83,7 @@ pub fn rating(card: Card) -> Float {
 }
 
 pub fn within_band(card: Card) -> Bool {
-  let goal = target(role(card))
+  let goal = goal(card)
   let r = rating(card)
   r >=. goal -. tolerance && r <=. goal +. tolerance
 }

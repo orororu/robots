@@ -168,6 +168,7 @@ fn card_table(robots: List(#(Robot, List(Seat))), matches: Int) -> Nil {
     <> pad("role", 11)
     <> lpad("cost", 5)
     <> lpad("value", 6)
+    <> lpad("goal", 6)
     <> lpad("rating", 8)
     <> lpad("plays/m", 9)
     <> lpad("avg eff", 9)
@@ -187,7 +188,7 @@ fn card_table(robots: List(#(Robot, List(Seat))), matches: Int) -> Nil {
     "\n  rating = printed value/cost (All counts "
     <> f1(efficiency.expected_all_targets)
     <> " targets); real/c = achieved effect per cost"
-    <> "\n  role targets: damage 1.0, repair 1.2, weaken 1.3, strengthen 1.3",
+    <> "\n  goal = target rating for the card's role and cost (see robots/efficiency)",
   )
 }
 
@@ -227,6 +228,7 @@ fn card_row(bot: Robot, stats: CardStats, matches: Int) -> Nil {
     <> pad(efficiency.role_name(efficiency.role(c)), 11)
     <> lpad(int.to_string(scale.cost(s, c.cost)), 5)
     <> lpad(int.to_string(scale.value(s, c.value)), 6)
+    <> lpad(f2(efficiency.goal(c)), 6)
     <> lpad(f2(efficiency.rating(c)), 8)
     <> lpad(f1(plays /. int.to_float(matches)), 9)
     <> lpad(f1(avg *. s.value), 9)
