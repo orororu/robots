@@ -344,6 +344,17 @@ fn print_armor(results: List(#(Build, Score))) -> Nil {
   io.println(
     "   much more armor at the top → card parts are too weak for their weight",
   )
+  let cards = fn(rs: List(#(Build, Score))) {
+    average(list.map(rs, fn(r) { int.to_float(build_search.deck_size(r.0)) }))
+  }
+  io.println(
+    "\n== Deck size: top 10% "
+    <> f1(cards(list.take(results, n / 10)))
+    <> " · all "
+    <> f1(cards(results))
+    <> " · bottom 10% "
+    <> f1(cards(list.drop(results, n - n / 10))),
+  )
 }
 
 // HELPERS ---------------------------------------------------------------------

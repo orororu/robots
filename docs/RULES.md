@@ -179,8 +179,8 @@ after playtesting:
 1. **Hidden tags:** which tags are hidden, and can they be revealed (e.g. a
    scanner card)?
 2. **Multi-target buffs:** should they exist, with a lower value like Jump?
-3. **Minimum deck size:** 4 cards for now. Chassis cards keep decks above it,
-   so small decks are no longer an exploit (see docs/BUILDER.md).
+3. **Once-per-match cards** (e.g. Missiles: very strong, removed from the game
+   after one use). Possible now that decks have 16-20 cards.
 4. **Counter cards** against strong builds, e.g. Smoke lowering every `range`
    attack, so expensive chassis like Tank + Cannon can be answered.
 

@@ -77,7 +77,7 @@ pub type BuildError {
   Overweight(total: Float, capacity: Float)
   TooManyWeapons(count: Int, mounts: Int)
   WeaponTooHeavy(weapon: String, weight: Float, mount_limit: Float)
-  DeckTooSmall(cards: Int, minimum: Int)   // the table needs 4 cards
+  DeckTooSmall(cards: Int, minimum: Int)   // at least 16 cards
   NoWeapon
   NoBattery
 }
@@ -141,6 +141,15 @@ Chosen to get started; each can change:
 - Batteries add no cards. Everything else does (see below).
 - **At least one weapon** is required (`NoWeapon`). Chassis attacks (Kick,
   Ram) alone made weaponless builds that caused 75% of tournament stalls.
+- **Decks of 16-20 cards.** Every part has 4-5 cards: variants of its base
+  card, cheaper and weaker or pricier and stronger, priced by the efficiency
+  bands (Laser: Pulse 8/7, Laser 10/10 ×2, Focused beam 13/15, Overcharge
+  16/21). A robot needs **at least 16 cards**, chassis, parts and armor
+  together, so no one can just repeat their best combo. Without the minimum,
+  thin builds still won (Tank + Cannon + armor, 9 cards); with it, winners
+  mix weapons with defences and buffs, and stalemates fell from ~10% to ~6%.
+  Stronger armor was tried instead and made it worse (thin armored builds
+  stayed on top, stalls rose).
 - No maximum deck size: weight is the limit.
 
 ### Every robot's deck is diluted (why carry a second weapon?)

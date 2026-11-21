@@ -13,8 +13,9 @@ import robots/card.{type Card, All, One, Opponent, OpponentHp, Self}
 import robots/part.{type Component, Battery, Body, Weapon}
 import robots/robot.{type Robot}
 
-/// The table needs this many cards.
-pub const minimum_deck = 4
+/// Every robot needs at least this many cards (chassis, parts and armor
+/// together), so decks vary and no one can just repeat their best combo.
+pub const minimum_deck = 16
 
 pub type Chassis {
   Chassis(
@@ -195,7 +196,7 @@ pub fn describe_error(error: BuildError) -> String {
     DeckTooSmall(cards:, minimum:) ->
       "Only "
       <> int.to_string(cards)
-      <> " cards; the table needs "
+      <> " cards; a robot needs at least "
       <> int.to_string(minimum)
   }
 }
