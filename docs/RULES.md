@@ -149,14 +149,15 @@ after playtesting:
   attack is ever big enough to beat defence, and builds aren't glass cannons.
 - Target value per cost (`robots/efficiency.gleam`):
   `1.0 + 0.5 × (cost − 1) + bonus × max(0, cost − 0.5)`, with bonus 0 for
-  damage and 0.4 for weaken and strengthen. Cards hitting
+  damage, 0.6 for weaken (defence) and 0.4 for strengthen (buffs). Cards hitting
   `all(...)` are rated as if they hit 2 cards. A test checks every catalog card
   against its goal (±0.1).
 
   | Cost (shown) | 5 | 6 | 8 | 10 | 16 |
   |---|---|---|---|---|---|
   | Damage | 0.75 | 0.80 | 0.90 | 1.00 | 1.30 |
-  | Weaken / strengthen | 0.75 | 0.84 | 1.02 | 1.20 | 1.74 |
+  | Weaken | 0.75 | 0.86 | 1.08 | 1.30 | 1.96 |
+  | Strengthen | 0.75 | 0.84 | 1.02 | 1.20 | 1.74 |
 
 - **Robots should play differently.** Variety of builds, robots assembled from
   components that each add several cards, is the main attraction (to be designed).
@@ -171,7 +172,10 @@ after playtesting:
 1. **Hidden tags:** which tags are hidden, and can they be revealed (e.g. a
    scanner card)?
 2. **Multi-target buffs:** should they exist, with a lower value like Jump?
-3. **Minimum deck size** when building a robot, so the table can always be filled.
+3. **Minimum deck size:** 4 cards for now. Chassis cards keep decks above it,
+   so small decks are no longer an exploit (see docs/BUILDER.md).
+4. **Counter cards** against strong builds, e.g. Smoke lowering every `range`
+   attack, so expensive chassis like Tank + Cannon can be answered.
 
 ## Implementation
 

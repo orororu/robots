@@ -10,6 +10,9 @@ import gleam/string
 import robots/card.{type Card, Card}
 
 pub type Kind {
+  /// The chassis' own cards (mobility and the like). Comes with the chassis;
+  /// not bought or installed separately.
+  Body
   Weapon
   Defence
   Armor
@@ -139,6 +142,7 @@ pub fn display_name(component: Component) -> String {
 
 pub fn kind_name(kind: Kind) -> String {
   case kind {
+    Body -> "chassis"
     Weapon -> "weapon"
     Defence -> "defence"
     Armor -> "armor"

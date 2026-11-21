@@ -44,7 +44,6 @@ fn buff(
   Card(name:, tags: [Buff, ..tags], cost:, value:, target: Self(scope))
 }
 
-/// Restores your own HP.
 /// Every component, for tests, the balance report and (later) the robot builder.
 pub fn components() -> List(Component) {
   [
@@ -54,7 +53,6 @@ pub fn components() -> List(Component) {
     shield_emitter(),
     deflector(),
     sword(),
-    servo_legs(),
     targeting_computer(),
     hydraulics(),
     reactor(),
@@ -112,25 +110,19 @@ pub fn machine_gun() -> Component {
 // WEAKEN (opponent's table) ---------------------------------------------------
 
 pub fn shield_emitter() -> Component {
-  let shield = defence("Energy shield", [Energy], 1.0, 1.2, One([Attack]))
+  let shield = defence("Energy shield", [Energy], 1.0, 1.3, One([Attack]))
   part.new("Shield emitter", part.Defence, 2.0, [shield, shield])
 }
 
 pub fn deflector() -> Component {
-  let deflect = defence("Deflect", [Kinetic], 0.7, 0.6, One([Attack]))
+  let deflect = defence("Deflect", [Kinetic], 0.7, 0.68, One([Attack]))
   part.new("Deflector", part.Defence, 1.0, [deflect, deflect])
 }
 
 /// Parry hits one melee attack, hard.
 pub fn sword() -> Component {
-  let parry = defence("Parry", [Melee], 0.8, 0.8, One([Attack, Melee]))
+  let parry = defence("Parry", [Melee], 0.8, 0.86, One([Attack, Melee]))
   part.new("Sword", part.Defence, 1.0, [parry, parry])
-}
-
-/// Jump hits every melee attack, so its value per card is low.
-pub fn servo_legs() -> Component {
-  let jump = defence("Jump", [Mobility], 0.8, 0.4, All([Attack, Melee]))
-  part.new("Servo legs", part.Defence, 2.0, [jump, jump])
 }
 
 // STRENGTHEN (own table) ------------------------------------------------------
@@ -166,48 +158,73 @@ pub fn big_battery() -> Component {
 }
 
 // ARMOR (HP) ------------------------------------------------------------------
-// Spare weight goes into armor, so its HP per weight (1.25) is the exchange
-// rate for weight in general.
+// Armor adds HP and a weak Block card per 2 weight. Block is deliberately
+// below its efficiency band: armor-heavy decks fill up with weak cards, so
+// armor isn't free. Defence parts must beat armor per weight.
+
+/// Below the weaken band on purpose (see above).
+pub fn block() -> Card {
+  defence("Block", [Kinetic], 0.5, 0.3, One([Attack]))
+}
 
 pub fn plating() -> Component {
-  part.armor("Plating", 2.0, 2.5, [])
+  part.armor("Plating", 2.0, 2.5, [block()])
 }
 
 pub fn heavy_plating() -> Component {
-  part.armor("Heavy plating", 4.0, 5.0, [])
+  part.armor("Heavy plating", 4.0, 5.0, [block(), block()])
 }
 
 // CHASSIS ---------------------------------------------------------------------
+// Each chassis brings its own cards: mobility and identity. Mobility lives
+// here rather than in parts, and can be strong: the chassis' price pays for it.
 
-/// All-rounder: two medium weapons.
+/// All-rounder: two medium weapons, a sidestep and a kick.
 pub fn frame() -> Chassis {
-  Chassis("Frame", hp: 8.5, capacity: 12.0, weapon_mounts: [4.0, 4.0])
+  let sidestep = defence("Sidestep", [Mobility], 0.7, 0.68, One([Attack]))
+  let kick = attack("Kick", [Melee, Kinetic], 0.6, 0.48)
+  Chassis("Frame", hp: 9.0, capacity: 12.0, weapon_mounts: [4.0, 4.0], cards: [
+    sidestep,
+    kick,
+  ])
 }
 
-/// Tough, with one medium and one small weapon.
+/// Tough, with one medium and one small weapon. Rams rather than dodges.
 pub fn brute() -> Chassis {
-  Chassis("Brute", hp: 7.0, capacity: 12.0, weapon_mounts: [4.0, 2.0])
+  let ram = attack("Ram", [Melee, Kinetic], 0.8, 0.72)
+  Chassis("Brute", hp: 7.0, capacity: 12.0, weapon_mounts: [4.0, 2.0], cards: [
+    ram,
+    ram,
+  ])
 }
 
-/// One big gun and plenty of capacity.
+/// One big gun and plenty of capacity. Slow: almost no mobility.
 pub fn tank() -> Chassis {
-  Chassis("Tank", hp: 9.0, capacity: 16.0, weapon_mounts: [8.0])
+  let brace = defence("Brace", [Kinetic], 0.6, 0.52, One([Attack]))
+  Chassis("Tank", hp: 9.0, capacity: 16.0, weapon_mounts: [8.0], cards: [brace])
 }
 
-/// Fragile and light, but four small weapons.
+/// Fragile and light, four small weapons, and the best mobility: hard to hit.
 pub fn scout() -> Chassis {
-  Chassis("Scout", hp: 4.0, capacity: 10.0, weapon_mounts: [2.0, 2.0, 2.0, 2.0])
+  let jump = defence("Jump", [Mobility], 0.8, 0.47, All([Attack, Melee]))
+  let dodge = defence("Dodge", [Mobility], 0.7, 0.74, One([Attack]))
+  Chassis(
+    "Scout",
+    hp: 8.0,
+    capacity: 12.0,
+    weapon_mounts: [2.0, 2.0, 2.0, 2.0],
+    cards: [jump, jump, dodge, dodge],
+  )
 }
 
 // ROBOTS ----------------------------------------------------------------------
 
-/// The player's starter robot: ranged attacks, energy shields, Jump against melee.
+/// The player's starter robot: ranged attacks, energy shields, sidesteps.
 pub fn tinker() -> Robot {
   starter("Tinker", frame(), [
     laser(),
     shield_emitter(),
     targeting_computer(),
-    servo_legs(),
     battery(),
     plating(),
   ])

@@ -50,7 +50,7 @@ pub const bonus_pivot_cost = 0.5
 pub fn role_bonus(role: Role) -> Float {
   case role {
     Damage -> 0.0
-    Weaken -> 0.4
+    Weaken -> 0.6
     Strengthen -> 0.4
   }
 }

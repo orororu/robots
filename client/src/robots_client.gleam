@@ -180,7 +180,10 @@ fn view(model: Model) -> Element(Msg) {
 fn status_panel(label: String, c: Combatant, s: Scale, now: Int) -> String {
   let bot = c.robot
   let current = energy.at(c.energy, now)
-  let parts = bot.components |> list.map(part.display_name)
+  let parts =
+    bot.components
+    |> list.filter(fn(p) { p.kind != part.Body })
+    |> list.map(part.display_name)
   [
     string.pad_end(label, 7, " ") <> bot.name <> " (" <> bot.chassis <> ")",
     "  HP      "

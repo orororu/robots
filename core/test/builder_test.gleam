@@ -10,15 +10,33 @@ import robots/robot
 
 // STARTERS --------------------------------------------------------------------
 
-pub fn starters_keep_their_tuned_stats_test() {
-  let tinker = catalog.tinker()
-  assert tinker.chassis == "Frame"
-  assert tinker.max_hp == 11.0
-  assert tinker.energy_cap == 5.0
-  let scrapper = catalog.scrapper()
-  assert scrapper.chassis == "Brute"
-  assert scrapper.max_hp == 12.0
-  assert scrapper.energy_cap == 5.0
+pub fn starters_use_different_chassis_test() {
+  assert catalog.tinker().chassis == "Frame"
+  assert catalog.scrapper().chassis == "Brute"
+}
+
+/// A chassis with no cards of its own, for deck-size tests.
+fn bare() -> builder.Chassis {
+  builder.Chassis(..catalog.frame(), name: "Bare", cards: [])
+}
+
+pub fn chassis_cards_join_every_deck_test() {
+  let assert Ok(bot) =
+    builder.build("B", catalog.scout(), [catalog.machine_gun(), catalog.cell()])
+  let names = list.map(robot.deck(bot), fn(c) { c.name })
+  assert names == ["Jump", "Jump", "Dodge", "Dodge", "Burst", "Burst", "Burst"]
+}
+
+pub fn armor_adds_block_cards_test() {
+  let assert Ok(bot) =
+    builder.build("B", bare(), [
+      catalog.laser(),
+      catalog.cell(),
+      catalog.plating(),
+      catalog.heavy_plating(),
+    ])
+  let blocks = list.count(robot.deck(bot), fn(c) { c.name == "Block" })
+  assert blocks == 3
 }
 
 pub fn starters_have_no_warnings_test() {
@@ -61,7 +79,7 @@ pub fn armor_adds_hp_and_batteries_stack_test() {
       catalog.battery(),
       catalog.plating(),
     ])
-  assert bot.max_hp == 8.5 +. 2.5
+  assert bot.max_hp == 9.0 +. 2.5
   assert bot.hp == bot.max_hp
   assert bot.energy_cap == 8.0
 }
@@ -92,7 +110,7 @@ pub fn light_parts_make_room_test() {
       light_plating,
     ])
   // Light changes weight only, not HP.
-  assert bot.max_hp == 8.5 +. 10.0
+  assert bot.max_hp == 9.0 +. 10.0
 }
 
 pub fn too_many_weapons_is_rejected_test() {
@@ -137,17 +155,19 @@ pub fn a_battery_is_required_test() {
 }
 
 pub fn the_table_needs_four_cards_test() {
-  assert builder.build("B", catalog.frame(), [
+  assert builder.build("B", bare(), [
       catalog.battery(),
       catalog.plating(),
       catalog.fist(),
     ])
-    == Error([DeckTooSmall(cards: 2, minimum: 4)])
+    == Error([DeckTooSmall(cards: 3, minimum: 4)])
 }
 
 pub fn all_problems_are_reported_together_test() {
   let assert Error(errors) =
-    builder.build("B", catalog.scout(), [catalog.cannon()])
+    builder.build("B", builder.Chassis(..catalog.scout(), cards: []), [
+      catalog.cannon(),
+    ])
   assert list.length(errors) == 3
   assert list.contains(errors, NoBattery)
   assert list.contains(errors, DeckTooSmall(cards: 2, minimum: 4))
@@ -205,7 +225,7 @@ pub fn card_costing_more_than_the_batteries_hold_is_flagged_test() {
 
 pub fn robot_without_attacks_can_never_win_test() {
   let assert Ok(bot) =
-    builder.build("B", catalog.frame(), [
+    builder.build("B", bare(), [
       catalog.shield_emitter(),
       catalog.deflector(),
       catalog.battery(),

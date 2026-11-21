@@ -21,7 +21,7 @@ import robots/robot.{type Robot}
 import robots/scale
 import robots/simulation
 
-const limits = build_search.Limits(max_card_parts: 4, max_copies: 2)
+const limits = build_search.Limits(max_card_parts: 4, max_copies: 4)
 
 const gauntlet_size = 24
 
@@ -96,6 +96,7 @@ pub fn main() -> Nil {
   print_top(phase2)
   print_starters(phase1)
   print_chassis(phase1)
+  print_weapon_counts(phase1)
   print_parts(phase1, builds)
   print_armor(phase1)
 }
@@ -224,6 +225,42 @@ fn print_chassis(results: List(#(Build, Score))) -> Nil {
       <> lpad(pct(median(mine)), 8)
       <> lpad(int.to_string(in_top * 100 / int.max(top_n, 1)) <> "%", 12),
     )
+  })
+}
+
+/// Best build per chassis, then average score by number of weapons: does a
+/// second weapon pay for the armor it replaces?
+fn print_weapon_counts(results: List(#(Build, Score))) -> Nil {
+  io.println("\n== By chassis and weapon count (phase 1 avg score, builds)")
+  list.each(catalog.chassis(), fn(ch) {
+    let mine = list.filter(results, fn(r) { { r.0 }.chassis == ch })
+    let counts =
+      list.repeat(0, list.length(ch.weapon_mounts))
+      |> list.index_map(fn(_, i) { i + 1 })
+      |> list.filter_map(fn(n) {
+        let rs =
+          list.filter(mine, fn(r) {
+            list.count({ r.0 }.parts, fn(p) { p.kind == part.Weapon }) == n
+          })
+        case rs {
+          [] -> Error(Nil)
+          _ ->
+            Ok(
+              int.to_string(n)
+              <> " weapon: "
+              <> pct(average(list.map(rs, fn(r) { { r.1 }.score })))
+              <> " ("
+              <> int.to_string(list.length(rs))
+              <> ")",
+            )
+        }
+      })
+    io.println("   " <> pad(ch.name, 7) <> string.join(counts, " · "))
+    case mine {
+      [#(best, s), ..] ->
+        io.println("          best " <> pct(s.score) <> ": " <> best.label)
+      [] -> Nil
+    }
   })
 }
 

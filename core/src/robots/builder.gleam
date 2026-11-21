@@ -10,7 +10,7 @@ import gleam/list
 import gleam/order
 import robots/amount
 import robots/card.{type Card, All, One, Opponent, OpponentHp, Self}
-import robots/part.{type Component, Battery, Weapon}
+import robots/part.{type Component, Battery, Body, Weapon}
 import robots/robot.{type Robot}
 
 /// The table needs this many cards.
@@ -25,6 +25,10 @@ pub type Chassis {
     capacity: Float,
     /// One entry per weapon mount: the heaviest weapon it can hold.
     weapon_mounts: List(Float),
+    /// Cards every robot on this chassis has, whatever is installed: its
+    /// mobility and identity. They also keep one-weapon builds from having
+    /// decks made only of attacks.
+    cards: List(Card),
   )
 }
 
@@ -56,7 +60,7 @@ pub fn build(
       check_weight(chassis, parts),
       check_weapons(chassis, parts),
       check_battery(parts),
-      check_deck(parts),
+      check_deck([body(chassis), ..parts]),
     ])
   case errors {
     [] -> Ok(assemble(name, chassis, parts))
@@ -72,8 +76,13 @@ fn assemble(name: String, chassis: Chassis, parts: List(Component)) -> Robot {
     chassis: chassis.name,
     max_hp: chassis.hp +. armor,
     energy_cap:,
-    components: parts,
+    components: [body(chassis), ..parts],
   )
+}
+
+/// The chassis' own cards, as a weightless part.
+pub fn body(chassis: Chassis) -> Component {
+  part.new(chassis.name, Body, 0.0, chassis.cards)
 }
 
 // CHECKS ----------------------------------------------------------------------

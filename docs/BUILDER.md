@@ -137,14 +137,39 @@ pub type Modifier {
 Chosen to get started; each can change:
 
 - No limits besides weight, capacity and weapon mounts.
-- Parts may add no cards (batteries and armor currently add none).
+- Batteries add no cards. Everything else does (see below).
 - No maximum deck size: weight is the limit.
+
+### Every robot's deck is diluted (why carry a second weapon?)
+
+The energy rate is global, so energy alone can't make two weapons fire
+faster. Instead, deck composition sets your attack rate: with no discard and
+a table that's always full, every card is eventually played or blocks a slot,
+so over a match your energy is spent roughly in proportion to your deck.
+
+- **Chassis cards:** each chassis brings fixed cards, its mobility and
+  identity. Frame: Sidestep, Kick. Brute: Ram ×2. Tank: Brace. Scout: Jump ×2,
+  Dodge ×2 (the best mobility, to make up for low HP). Jump moved here from
+  the Servo legs part, which is gone.
+- **Armor adds a Block card** per 2 weight: a weak defence, deliberately
+  below its efficiency band. Stacking armor fills the deck with weak cards.
+- So a one-weapon robot plays mostly non-attack cards, and each extra weapon
+  raises its attack share. The tournament confirms it: on Frame, 2-weapon
+  builds average 73% vs 51% for 1 weapon; on Brute 59% vs 46%.
+- Defence parts compete with armor for weight, so they must beat it per
+  weight. The tournament's "armor share" line checks this.
 - Starters use **different chassis**: Tinker on Frame, Scrapper on Brute.
 - Several modifiers per part. Light = −25% weight, Overclocked = +15% to card
   values, armor HP and battery capacity.
 - Weights for now: weapons 1–6 (Fist 1, Laser and Saw arm 3, Cannon 6),
   defences and utilities 1–2, Cell 1 (cap 30), Battery 2 (50), Big battery 4
-  (90), Plating 2 (+25 HP), Heavy plating 4 (+50 HP). Shown at display scale ×10.
+  (90), Plating 2 (+25 HP, 1 Block), Heavy plating 4 (+50 HP, 2 Blocks).
+  Chassis HP / capacity: Frame 90/12, Brute 70/12, Tank 90/16, Scout 80/12.
+  Shown at display scale ×10.
+- Chassis may be unequal: better chassis will cost more, and counter cards
+  (e.g. Smoke against `range`) can keep strong builds in check. Tank + Cannon
+  currently tops the tournament; Scout is weakest (it lacks good light
+  weapons).
 
 ## Open questions
 
