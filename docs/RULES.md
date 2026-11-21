@@ -126,19 +126,15 @@ after playtesting:
 2. **Multi-target buffs:** should they exist, with a lower value like Jump?
 3. **Minimum deck size** when building a robot, so the table can always be filled.
 
-## Effect on the current code
+## Implementation
 
-The current `core` has a hidden hand, a draw timer, and plays every card
-instantly with a list of effects. Expected changes:
+These rules are implemented in `core/`:
 
-- `card.Card` gets `value: Int` and `tags: List(Tag)`. What it does follows
-  from its main tag rather than from a stored list of effects.
-- `game.Combatant`: `hand` becomes `table`, with 4 slots visible to both sides.
-- **The draw timer goes away:** `next_draw_at`, `draw_interval_ms` and the
-  draws in `Tick` are removed. Playing a card refills its slot immediately.
-- `PlayCard(side, slot, at)` stays target-free: targeting is automatic, a pure
-  function `(card, opponent table, seed) -> #(opponent table, seed)`, easy to
-  unit-test. The random pick uses the game's existing seeded RNG.
-- No discard message is needed.
-- The AI gets more interesting: it can see the player's table and decide
-  whether to defend or attack.
+- `card.gleam`: tags, `Reach` (which table cards a defence or buff targets), relative `cost` and `value`.
+- `table.gleam`: table slots with current values, and automatic targeting (`affect`).
+- `game.gleam`: playing a card, resolving it, discarding it, and refilling the slot.
+- `scale.gleam`: the display scale (default ×10 for costs and values).
+- `catalog.gleam`: starter cards, components and robots, all placeholder numbers.
+
+`core/test/simulation_test.gleam` plays full AI-vs-AI matches to catch
+stalemates and extreme balance problems.

@@ -4,6 +4,7 @@
 
 import gleam/float
 import gleam/int
+import robots/amount
 
 pub type Energy {
   Energy(base: Float, since: Int, rate: Float, cap: Float)
@@ -26,10 +27,10 @@ pub fn at(energy: Energy, now: Int) -> Float {
 }
 
 /// Spend energy, or fail with the amount currently available.
-pub fn spend(energy: Energy, amount: Float, now: Int) -> Result(Energy, Float) {
+pub fn spend(energy: Energy, cost: Float, now: Int) -> Result(Energy, Float) {
   let current = at(energy, now)
-  case current >=. amount {
-    True -> Ok(rebase(energy, current -. amount, now))
+  case amount.at_least(current, cost) {
+    True -> Ok(rebase(energy, amount.subtract(current, cost), now))
     False -> Error(current)
   }
 }

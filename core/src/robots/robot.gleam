@@ -1,5 +1,5 @@
-import gleam/int
 import gleam/list
+import robots/amount
 import robots/card.{type Card}
 
 /// A component installed on a robot. Every component contributes its cards
@@ -8,12 +8,12 @@ pub type Component {
   Component(name: String, cards: List(Card))
 }
 
+/// `hp` and `max_hp` are relative, on the same scale as card values.
 pub type Robot {
   Robot(
     name: String,
-    max_hp: Int,
-    hp: Int,
-    shield: Int,
+    max_hp: Float,
+    hp: Float,
     slots: Int,
     components: List(Component),
   )
@@ -23,8 +23,8 @@ pub type InstallError {
   NoFreeSlot
 }
 
-pub fn new(name: String, max_hp max_hp: Int, slots slots: Int) -> Robot {
-  Robot(name:, max_hp:, hp: max_hp, shield: 0, slots:, components: [])
+pub fn new(name: String, max_hp max_hp: Float, slots slots: Int) -> Robot {
+  Robot(name:, max_hp:, hp: max_hp, slots:, components: [])
 }
 
 pub fn install(
@@ -42,20 +42,10 @@ pub fn deck(robot: Robot) -> List(Card) {
   list.flat_map(robot.components, fn(component) { component.cards })
 }
 
-pub fn take_damage(robot: Robot, amount: Int) -> Robot {
-  let absorbed = int.min(robot.shield, amount)
-  let hp = int.max(0, robot.hp - { amount - absorbed })
-  Robot(..robot, shield: robot.shield - absorbed, hp:)
-}
-
-pub fn add_shield(robot: Robot, amount: Int) -> Robot {
-  Robot(..robot, shield: robot.shield + amount)
-}
-
-pub fn repair(robot: Robot, amount: Int) -> Robot {
-  Robot(..robot, hp: int.min(robot.max_hp, robot.hp + amount))
+pub fn take_damage(robot: Robot, amount: Float) -> Robot {
+  Robot(..robot, hp: amount.subtract(robot.hp, amount))
 }
 
 pub fn is_destroyed(robot: Robot) -> Bool {
-  robot.hp <= 0
+  amount.is_zero(robot.hp)
 }

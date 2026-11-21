@@ -1,6 +1,9 @@
 //// Text-mode browser client. This is the "imperative shell": it reads the
 //// clock and the keyboard, feeds messages into the pure core, and renders.
 //// Swapping this text view for sprites later doesn't touch the game rules.
+////
+//// The core works in relative amounts (1.0 = base). Every number shown here
+//// goes through `robots/scale`, so the whole game can be rescaled in one place.
 
 import gleam/float
 import gleam/int
@@ -13,15 +16,18 @@ import lustre/element.{type Element}
 import lustre/element/html
 import lustre/event
 import robots/ai
+import robots/amount
 import robots/card.{type Card}
 import robots/catalog
 import robots/energy
 import robots/game.{type Combatant, type Game, P1, P2}
+import robots/scale.{type Scale}
+import robots/table.{type Slot}
 import robots_client/browser
 
 const frame_ms = 50
 
-const ai_think_ms = 1400
+const ai_think_ms = 1600
 
 const flash_ms = 1500
 
@@ -34,7 +40,14 @@ pub fn main() -> Nil {
 // MODEL -----------------------------------------------------------------------
 
 type Model {
-  Model(game: Game, brain: ai.Brain, now: Int, flash: String, flash_until: Int)
+  Model(
+    game: Game,
+    brain: ai.Brain,
+    scale: Scale,
+    now: Int,
+    flash: String,
+    flash_until: Int,
+  )
 }
 
 fn new_match(now: Int) -> Model {
@@ -49,6 +62,7 @@ fn new_match(now: Int) -> Model {
   Model(
     game: state,
     brain: ai.new(P2, think_ms: ai_think_ms, now:),
+    scale: scale.default(),
     now:,
     flash: "",
     flash_until: 0,
@@ -69,15 +83,13 @@ fn init(_: Nil) -> #(Model, Effect(Msg)) {
 type Msg {
   Frame(now: Int)
   KeyDown(key: String)
-  Play(index: Int)
-  Restart
+  Play(slot: Int)
 }
 
 fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   let model = case msg {
     Frame(now) -> advance(model, now)
-    Play(index) -> play(model, index)
-    Restart -> new_match(browser.now())
+    Play(slot) -> play(model, slot)
     KeyDown("r") | KeyDown("R") -> new_match(browser.now())
     KeyDown(key) ->
       case int.parse(key) {
@@ -88,39 +100,35 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   #(model, effect.none())
 }
 
-/// Let time pass for the core and give the AI a chance to act.
+/// Let time pass and give the AI a chance to act.
 fn advance(model: Model, now: Int) -> Model {
-  let state = case game.update(model.game, game.Tick(now)) {
-    Ok(state) -> state
-    Error(_) -> model.game
-  }
-  let #(brain, state) = ai.act(model.brain, state, now)
+  let #(brain, state) = ai.act(model.brain, model.game, now)
   Model(..model, game: state, brain:, now:)
 }
 
-fn play(model: Model, index: Int) -> Model {
+fn play(model: Model, slot: Int) -> Model {
   // Use a fresh timestamp: the last frame may be up to 50ms old.
   let model = advance(model, browser.now())
-  case game.update(model.game, game.PlayCard(P1, index, model.now)) {
+  case game.update(model.game, game.PlayCard(P1, slot, model.now)) {
     Ok(state) -> Model(..model, game: state, flash: "")
     Error(rejection) ->
       Model(
         ..model,
-        flash: describe_rejection(rejection),
+        flash: describe_rejection(model.scale, rejection),
         flash_until: model.now + flash_ms,
       )
   }
 }
 
-fn describe_rejection(rejection: game.Rejection) -> String {
+fn describe_rejection(s: Scale, rejection: game.Rejection) -> String {
   case rejection {
     game.GameOver -> "The match is over. Press R to play again."
     game.NoSuchCard -> "No card in that slot."
     game.NotEnoughEnergy(cost:, available:) ->
       "Not enough energy: need "
-      <> int.to_string(cost)
+      <> int.to_string(scale.cost(s, cost))
       <> ", have "
-      <> one_decimal(available)
+      <> int.to_string(scale.energy(s, available))
   }
 }
 
@@ -128,93 +136,81 @@ fn describe_rejection(rejection: game.Rejection) -> String {
 
 fn view(model: Model) -> Element(Msg) {
   let state = model.game
-  let me = state.p1
-  let available = energy.at(me.energy, model.now)
+  let s = model.scale
+  let available = energy.at(state.p1.energy, model.now)
   html.div([attribute.class("screen")], [
     html.style([], css),
     html.pre([], [
-      element.text("ROBOTS · text mode         [1-5] play card   [R] restart"),
+      element.text("ROBOTS · text mode          [1-4] play card   [R] restart"),
     ]),
     html.pre([attribute.class("foe")], [
-      element.text(combatant_panel("ENEMY", state.p2, model.now, True)),
+      element.text(
+        status_panel("ENEMY", state.p2, s, model.now)
+        <> "\n"
+        <> {
+          state.p2.table
+          |> list.map(fn(slot) { "      " <> slot_text(s, slot) })
+          |> string.join("\n")
+        },
+      ),
     ]),
-    html.pre([attribute.class("dim")], [element.text(string.repeat("─", 60))]),
+    html.pre([attribute.class("dim")], [element.text(string.repeat("─", 64))]),
     html.pre([attribute.class("ally")], [
-      element.text(combatant_panel("YOU", me, model.now, False)),
+      element.text(status_panel("YOU", state.p1, s, model.now)),
     ]),
     html.div(
-      [attribute.class("hand")],
-      list.index_map(me.hand, fn(card, index) {
-        hand_card(card, index, available)
+      [attribute.class("table")],
+      list.index_map(state.p1.table, fn(slot, index) {
+        table_card(s, slot, index, available)
       }),
     ),
     html.pre([attribute.class("banner")], [element.text(banner(model))]),
     html.pre([attribute.class("dim")], [
       element.text(
         "LOG\n"
-        <> state.log |> list.map(fn(line) { "  " <> line }) |> string.join("\n"),
+        <> state.log
+        |> list.map(fn(event) { "  " <> describe_event(state, s, event) })
+        |> string.join("\n"),
       ),
     ]),
   ])
 }
 
-fn combatant_panel(
-  label: String,
-  c: Combatant,
-  now: Int,
-  is_enemy: Bool,
-) -> String {
+fn status_panel(label: String, c: Combatant, s: Scale, now: Int) -> String {
   let bot = c.robot
   let current = energy.at(c.energy, now)
-  let draw_in = int.max(0, c.next_draw_at - now)
   let parts = bot.components |> list.map(fn(part) { part.name })
-  let hand_line = case is_enemy {
-    True -> "hand " <> int.to_string(list.length(c.hand)) <> " · "
-    False -> ""
-  }
   [
     string.pad_end(label, 7, " ") <> bot.name,
     "  HP      "
-      <> bar(int.to_float(bot.hp), int.to_float(bot.max_hp), 20)
+      <> bar(bot.hp, bot.max_hp, 20)
       <> " "
-      <> int.to_string(bot.hp)
+      <> int.to_string(scale.value(s, bot.hp))
       <> "/"
-      <> int.to_string(bot.max_hp)
-      <> case bot.shield {
-      0 -> ""
-      s -> "   shield " <> int.to_string(s)
-    },
+      <> int.to_string(scale.value(s, bot.max_hp)),
     "  energy  "
       <> bar(current, c.energy.cap, 20)
       <> " "
-      <> one_decimal(current)
+      <> int.to_string(scale.energy(s, current))
       <> "/"
-      <> int.to_string(float.round(c.energy.cap)),
-    "  "
-      <> hand_line
-      <> "deck "
+      <> int.to_string(scale.cost(s, c.energy.cap)),
+    "  deck "
       <> int.to_string(list.length(c.deck))
       <> " · discard "
       <> int.to_string(list.length(c.discard))
-      <> " · next draw "
-      <> one_decimal(int.to_float(draw_in) /. 1000.0)
-      <> "s",
-    "  parts   " <> string.join(parts, ", "),
+      <> " · parts: "
+      <> string.join(parts, ", "),
   ]
   |> string.join("\n")
 }
 
-fn hand_card(card: Card, index: Int, available: Float) -> Element(Msg) {
-  let affordable = int.to_float(card.cost) <=. available
-  let label =
-    "["
-    <> int.to_string(index + 1)
-    <> "] "
-    <> string.pad_end(card.name, 9, " ")
-    <> " ("
-    <> int.to_string(card.cost)
-    <> ")  "
-    <> card.describe(card)
+fn table_card(
+  s: Scale,
+  slot: Slot,
+  index: Int,
+  available: Float,
+) -> Element(Msg) {
+  let affordable = amount.at_least(available, slot.card.cost)
   html.button(
     [
       attribute.class(case affordable {
@@ -223,8 +219,65 @@ fn hand_card(card: Card, index: Int, available: Float) -> Element(Msg) {
       }),
       event.on_click(Play(index)),
     ],
-    [element.text(label)],
+    [
+      element.text(
+        "[" <> int.to_string(index + 1) <> "] " <> slot_text(s, slot),
+      ),
+    ],
   )
+}
+
+/// "Laser          3 (10)  cost 10  [attack,range,beam]"
+fn slot_text(s: Scale, slot: Slot) -> String {
+  let card = slot.card
+  let shown = scale.value(s, slot.value)
+  let printed = scale.value(s, card.value)
+  let value = case shown == printed {
+    True -> int.to_string(shown)
+    False -> int.to_string(shown) <> " (" <> int.to_string(printed) <> ")"
+  }
+  string.pad_end(card.name, 14, " ")
+  <> string.pad_end(value, 9, " ")
+  <> "cost "
+  <> string.pad_end(int.to_string(scale.cost(s, card.cost)), 4, " ")
+  <> card.tags_text(card.tags)
+  <> reach_text(card)
+}
+
+fn reach_text(c: Card) -> String {
+  case c.reach {
+    card.NoReach -> ""
+    card.One(tags) -> " → one " <> card.tags_text(tags)
+    card.All(tags) -> " → all " <> card.tags_text(tags)
+  }
+}
+
+fn describe_event(state: Game, s: Scale, event: game.Event) -> String {
+  let name = fn(side) { game.combatant_of(state, side).robot.name }
+  case event {
+    game.Started -> "Fight!"
+    game.Destroyed(side) -> name(side) <> " is destroyed!"
+    game.Played(side:, card: c, value:, targets:) -> {
+      let shown = int.to_string(scale.value(s, value))
+      name(side)
+      <> " plays "
+      <> c.name
+      <> case card.kind(c), targets {
+        card.AttackCard, _ -> " for " <> shown <> " damage"
+        card.DefenceCard, 0 | card.BuffCard, 0 -> ": no target"
+        card.DefenceCard, n -> ": -" <> shown <> " on " <> cards(n)
+        card.BuffCard, n -> ": +" <> shown <> " on " <> cards(n)
+        card.Inert, _ -> ""
+      }
+    }
+  }
+}
+
+fn cards(n: Int) -> String {
+  case n {
+    1 -> "1 card"
+    _ -> int.to_string(n) <> " cards"
+  }
 }
 
 fn banner(model: Model) -> String {
@@ -241,28 +294,23 @@ fn banner(model: Model) -> String {
 
 fn bar(value: Float, max: Float, width: Int) -> String {
   let filled =
-    float.round(value /. max *. int.to_float(width))
+    float.truncate(value /. max *. int.to_float(width))
     |> int.clamp(0, width)
   "[" <> string.repeat("#", filled) <> string.repeat(".", width - filled) <> "]"
-}
-
-fn one_decimal(x: Float) -> String {
-  let tenths = float.truncate(x *. 10.0)
-  int.to_string(tenths / 10) <> "." <> int.to_string(tenths % 10)
 }
 
 const css =
   "
 body { margin: 0; background: #101214; color: #c8d0c8; }
 .screen { font-family: ui-monospace, 'JetBrains Mono', Menlo, Consolas, monospace;
-  font-size: 15px; max-width: 46rem; margin: 0 auto; padding: 1.5rem 1rem; }
+  font-size: 15px; max-width: 52rem; margin: 0 auto; padding: 1.5rem 1rem; }
 pre { margin: 0 0 0.75rem; white-space: pre-wrap; font: inherit; }
 .foe { color: #e08a7a; }
 .ally { color: #8fd18f; }
 .dim { opacity: 0.45; }
 .banner { color: #f0d060; min-height: 1.3em; }
-.hand { display: flex; flex-direction: column; gap: 2px; margin-bottom: 0.75rem; }
+.table { display: flex; flex-direction: column; gap: 2px; margin-bottom: 0.75rem; }
 .card { font: inherit; color: inherit; background: none; border: none;
-  text-align: left; padding: 2px 4px; cursor: pointer; }
+  text-align: left; padding: 2px 4px; cursor: pointer; white-space: pre; }
 .card:hover { background: #1f2a1f; }
 "
