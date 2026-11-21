@@ -82,7 +82,7 @@ pub fn components() -> List(Component) {
     machine_gun(),
     missile_rack(),
     drone_bay(),
-    flak_gun(),
+    point_defence(),
     cell(),
     battery(),
     big_battery(),
@@ -181,27 +181,38 @@ pub fn drone() -> Card {
   )
 }
 
-/// Two drones (once per match each) and two ordinary stings.
+/// Four drones, each launched once per match.
 pub fn drone_bay() -> Component {
   let launch =
     Card(
       name: "Launch drone",
-      tags: [Drone],
-      cost: 1.4,
+      // Not tagged Drone: only a launched drone soaks attacks.
+      tags: [],
+      cost: 1.0,
       value: 0.0,
       target: card.Launch(drone()),
       traits: [card.Once],
     )
-  let sting = attack("Sting", [Range, Energy], 0.6, 0.48)
-  part.new("Drone bay", part.Weapon, 3.0, [launch, launch, sting, sting])
+  part.new("Drone bay", part.Weapon, 3.0, [launch, launch, launch, launch])
 }
 
-/// Anti-drone: Flak burst hits every enemy drone, cheaply, and does nothing
-/// without drones. Flak shells are ordinary attacks (which hit drones too).
-pub fn flak_gun() -> Component {
-  let burst = defence("Flak burst", [Range, Explosive], 0.6, 1.0, All([Drone]))
-  let shell = attack("Flak shell", [Range, Explosive], 0.6, 0.48)
-  part.new("Flak gun", part.Weapon, 2.0, [burst, burst, shell, shell])
+/// Anti-drone, as a defence part: it takes weight, not a weapon mount.
+/// Shoot down destroys a drone, even fully grown. A specialist part: dead
+/// cards against builds without drones, the right pick against builds that
+/// rely on them. Cheap (cost 3) so a dead card is cheap to clear. Checked
+/// with `gleam run -m counter_check`; costlier versions, or two Intercepts
+/// (against Missiles, which are fired before they can be intercepted),
+/// were no better than a Shield emitter even against drones.
+/// (It used to be a Flak gun weapon: no one gave up a weapon mount for it,
+/// and against drones it was no better than a Laser.)
+pub fn point_defence() -> Component {
+  let shoot_down = defence("Shoot down", [Range], 0.3, 3.0, One([Drone]))
+  part.new("Point defence", part.Defence, 2.0, [
+    shoot_down,
+    shoot_down,
+    shoot_down,
+    shoot_down,
+  ])
 }
 
 // WEAKEN (opponent's table) ---------------------------------------------------

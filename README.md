@@ -33,6 +33,7 @@ cd core   && gleam test                         # tests on BEAM
 cd core   && gleam test --target javascript     # same tests on JS
 cd core   && gleam run -m balance               # AI-vs-AI balance report
 cd core   && gleam run -m tournament            # every legal build vs each other (~35 s)
+cd core   && gleam run -m counter_check         # does Point defence beat drone builds? (~1 min)
 cd client && gleam run -m lustre/dev start      # dev server with live reload
 cd client && gleam run -m lustre/dev build      # production bundle in client/dist
 ```

@@ -84,7 +84,7 @@ pub type Event {
   /// An attack hit one of `side`'s drones instead of the robot. Damage
   /// beyond the drone's value is lost.
   DroneHit(side: Side, drone: Card, damage: Float, destroyed: Bool)
-  /// One of `side`'s drones was lowered to 0 by a table effect (e.g. Flak).
+  /// One of `side`'s drones was lowered to 0 by a table effect (e.g. Shoot down).
   DroneDestroyed(side: Side, drone: Card)
   Destroyed(side: Side)
 }

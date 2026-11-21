@@ -69,10 +69,6 @@ pub fn goal_for(role: Role, cost: Float) -> Float {
 /// played a single time per match.
 pub const once_bonus = 1.6
 
-/// Cards that only affect drones are rated this much higher: they do
-/// nothing against a robot without drones.
-pub const drone_only_bonus = 2.0
-
 /// Target value-per-cost for this particular card. A launch card is rated by
 /// its drone: launch plus strike cost, against the drone's full value.
 pub fn goal(card: Card) -> Float {
@@ -81,10 +77,7 @@ pub fn goal(card: Card) -> Float {
     True -> base *. once_bonus
     False -> base
   }
-  case drone_only(card) {
-    True -> base *. drone_only_bonus
-    False -> base
-  }
+  base
 }
 
 fn total_cost(card: Card) -> Float {
@@ -94,12 +87,27 @@ fn total_cost(card: Card) -> Float {
   }
 }
 
-fn drone_only(card: Card) -> Bool {
+/// Cards balanced by matchups and the tournament instead of the band:
+/// narrow counters (below), and drone launches, whose drones are worth more
+/// than their strike because they also soak the opponent's attacks.
+pub fn outside_band(card: Card) -> Bool {
+  case card.target {
+    Launch(_) -> True
+    _ -> narrow_counter(card)
+  }
+}
+
+/// Narrow counters only affect drones (or explosive attacks): dead cards
+/// against everything else, decisive against their targets. They're balanced
+/// by matchups (a counter part should beat a general one against its
+/// targets, and lose elsewhere), not by the efficiency band.
+pub fn narrow_counter(card: Card) -> Bool {
   case card.target {
     Opponent(One(tags))
     | Opponent(All(tags))
     | Self(One(tags))
-    | Self(All(tags)) -> list.contains(tags, card.Drone)
+    | Self(All(tags)) ->
+      list.contains(tags, card.Drone) || list.contains(tags, card.Explosive)
     _ -> False
   }
 }
@@ -107,13 +115,11 @@ fn drone_only(card: Card) -> Bool {
 /// The card's printed value per cost, counting `All` cards as hitting
 /// `expected_all_targets` cards.
 pub fn rating(card: Card) -> Float {
-  case card.target, drone_only(card) {
-    Launch(drone), _ -> full_value(drone) /. total_cost(card)
-    // Few drones are up at once: rate as hitting one.
-    _, True -> card.value /. card.cost
-    Opponent(All(_)), False | Self(All(_)), False ->
+  case card.target {
+    Launch(drone) -> full_value(drone) /. total_cost(card)
+    Opponent(All(_)) | Self(All(_)) ->
       card.value *. expected_all_targets /. card.cost
-    _, False -> card.value /. card.cost
+    _ -> card.value /. card.cost
   }
 }
 

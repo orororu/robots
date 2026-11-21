@@ -356,11 +356,11 @@ pub fn shields_do_not_affect_drones_test() {
   assert list.map(g.p1.table, fn(s) { s.value }) == [2.0]
 }
 
-pub fn flak_destroys_every_weak_drone_test() {
-  let assert [burst, ..] = catalog.flak_gun().cards
+pub fn shoot_down_destroys_a_full_drone_test() {
+  let assert [shoot_down, ..] = catalog.point_defence().cards
   let g =
-    arena([], [burst])
-    |> with_tables([drone_at(0.5), slot(laser()), drone_at(0.8)], [slot(burst)])
+    arena([], [shoot_down])
+    |> with_tables([drone_at(3.0), slot(laser())], [slot(shoot_down)])
   let assert Ok(g) = game.update(g, PlayCard(P2, 0, 0))
   assert list.map(g.p1.table, fn(s) { s.card.name }) == ["Laser"]
 }
@@ -486,4 +486,15 @@ fn rng_seed(n: Int) {
     seed: n,
     now: 0,
   ).seed
+}
+
+pub fn an_unlaunched_drone_does_not_soak_attacks_test() {
+  let assert [launch, ..] = catalog.drone_bay().cards
+  let g =
+    arena([], [laser()])
+    |> with_tables([slot(launch)], [slot(laser())])
+  let assert Ok(g) = game.update(g, PlayCard(P2, 0, 0))
+  // The Laser hits the robot; the Launch card is still on the table.
+  assert g.p1.robot.hp == 4.0
+  assert list.map(g.p1.table, fn(s) { s.card.name }) == ["Launch drone"]
 }

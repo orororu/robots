@@ -144,19 +144,34 @@ after playtesting:
   afterwards the card leaves the game instead of going to the discard pile.
   Example: **Missile** (Missile rack: 2 Missiles, cost 15, 30 damage, plus 2
   ordinary Micro rockets). Once cards are rated ×1.6 above their role's goal.
-- **Drones.** A Drone bay (weapon) has 2 `Launch drone` cards (once per
-  match). Launching puts a **Drone** card into the same table slot. It
+- **Drones.** A Drone bay (weapon) has 4 `Launch drone` cards (each once
+  per match) and nothing else. A robot whose only weapon is a Drone bay runs
+  out of attacks and may stall; that's allowed: not every build has to be
+  able to beat every enemy. Launching puts a **Drone** card into the same table slot. It
   **grows** while it waits (15 → 30 over 15 s) and you play it to **strike**
-  for its current value; then it's gone. Launch costs 14, the strike only 1:
+  for its current value; then it's gone. Launch costs 10, the strike only 1:
   the drone is paid for at launch.
+  - Launches are outside the efficiency band (a drone also soaks attacks);
+    their cost is tuned by the tournament. At 10 the best drone builds come
+    close to the best Tank + Cannon build; at 14 they were a tier below.
   - While you have drones, **the opponent's attacks hit a random drone
     instead of your robot**; damage beyond the drone's value is lost. A drone
     at 0 is destroyed and its slot refills from the deck.
   - Drones are tagged `drone`, not `attack`: shields and attack buffs don't
     affect them. Buffs or defences targeting `[drone]` can.
-  - **Flak gun** (weapon): Flak burst lowers **every** enemy drone by 10 for
-    cost 6, and does nothing without drones. Cards that only affect drones are
-    rated ×2 above their band.
+  - **Point defence** (a defence part: weight 2, no weapon mount): 4 Shoot
+    down, each destroying one drone, even fully grown (lowers it by 30, cost 3).
+  - It's a **specialist part**: dead cards against builds without drones,
+    the right pick against builds with them. `gleam run -m counter_check`
+    swaps a Shield emitter for it in 60 builds: against drone builds ~18% →
+    51–62% (better in 50–55 of 60), against other builds ~48% → 34–38%.
+  - **Narrow counters** (cards that only affect drones) are outside the
+    efficiency band; they're balanced by matchups. At cost 5–10, or with 2
+    Intercepts against Missiles instead of Shoot downs, Point defence was no
+    better than a Shield emitter even against drones: its dead cards clogged
+    the table, and Missiles are fired before they can be intercepted.
+  - It replaced a Flak gun weapon: no one gave up a weapon mount for it, and
+    against drones it was no better than a Laser.
   - Values are timed like energy: a slot remembers when its value was last
     set, and the game settles growth at each play (`game.settle`).
   - The AI waits until a drone is fully grown before striking (unless the
@@ -201,9 +216,16 @@ after playtesting:
 1. **Hidden tags:** which tags are hidden, and can they be revealed (e.g. a
    scanner card)?
 2. **Multi-target buffs:** should they exist, with a lower value like Jump?
-3. **Flak gun is never chosen** in the tournament (few opponents bring drones).
-   Fine for a counter, but maybe give it a better non-drone card.
-4. **Counter cards** against strong builds, e.g. Smoke lowering every `range`
+3. **Counters:** players will own several robots and pick one before a
+   fight, so a build only needs to be good against some opponents. The
+   tournament plays random opponents, so it undervalues counters; check a
+   counter against its targets instead (`counter_check`). Design rule: the
+   best all-round build should lose to some specialized build. Today the
+   top Tank + Cannon builds lose only to near-copies.
+4. **Missile counter:** Intercept didn't work, since the AI fires a Missile as
+   soon as it can afford it. A counter would need to act on launch (e.g. a
+   passive part) or on the rack's other cards.
+5. **Counter cards** against strong builds, e.g. Smoke lowering every `range`
    attack, so expensive chassis like Tank + Cannon can be answered.
 
 ## Implementation

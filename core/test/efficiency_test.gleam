@@ -15,7 +15,9 @@ pub fn every_catalog_card_is_within_its_band_test() {
   let chassis_cards = list.flat_map(catalog.chassis(), fn(ch) { ch.cards })
   let outliers =
     list.append(part_cards, chassis_cards)
-    |> list.filter(fn(card) { !efficiency.within_band(card) })
+    |> list.filter(fn(card) {
+      !efficiency.outside_band(card) && !efficiency.within_band(card)
+    })
     |> list.map(fn(card) { card.name })
   assert outliers == []
 }
