@@ -190,7 +190,7 @@ pub fn drone_bay() -> Component {
       name: "Launch drone",
       // Not tagged Drone: only a launched drone soaks attacks.
       tags: [],
-      cost: 1.0,
+      cost: 1.4,
       value: 0.0,
       target: card.Launch(drone()),
       traits: [card.Once],

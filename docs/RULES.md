@@ -150,11 +150,16 @@ after playtesting:
   out of attacks and may stall; that's allowed: not every build has to be
   able to beat every enemy. Launching puts a **Drone** card into the same table slot. It
   **grows** while it waits (15 → 30 over 15 s) and you play it to **strike**
-  for its current value; then it's gone. Launch costs 10, the strike only 1:
+  for its current value; then it's gone. Launch costs 14, the strike only 1:
   the drone is paid for at launch.
   - Launches are outside the efficiency band (a drone also soaks attacks);
-    their cost is tuned by the tournament. At 10 the best drone builds come
-    close to the best Tank + Cannon build; at 14 they were a tier below.
+    their cost is tuned by the tournament. The meta flips sharply between
+    13 and 14: at 13 or less drone builds fill the whole top 9 (Frame:
+    Hydraulics, Drone bay ×2 wins ~100%); at 14 Tank + Cannon leads (90%),
+    drone builds follow (82–83%), and most top builds carry Point defence.
+  - Tagging drones `melee` so a Buckler could parry them was tried and
+    rolled back: it had unexpected consequences, and Parry (9) barely
+    delays a drone that regrows to 30.
   - While you have drones, **the opponent's attacks hit a random drone
     instead of your robot**; damage beyond the drone's value is lost. A drone
     at 0 is destroyed and its slot refills from the deck.
