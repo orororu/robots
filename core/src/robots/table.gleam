@@ -2,11 +2,11 @@
 //// A card's value on the table can be lowered (opponent defence) or raised
 //// (own buffs) before it's played.
 ////
-//// Targeting is automatic and pure: given a reach, a change and a seed,
+//// Targeting is automatic and pure: given a scope, a change and a seed,
 //// `affect` returns the new table. Random picks use the game's seeded RNG.
 
 import gleam/list
-import robots/card.{type Card, type Reach, All, NoReach, One}
+import robots/card.{type Card, type Scope, All, Hp, One}
 import robots/rng.{type Seed}
 
 pub type Slot {
@@ -18,19 +18,20 @@ pub fn slot(card: Card) -> Slot {
   Slot(card:, value: card.value)
 }
 
-/// Apply `change` to the table cards that `reach` targets. Returns the new
+/// Apply `change` to the table cards that `scope` selects. Returns the new
 /// table and how many cards were affected (0 = the card had no target).
 ///
 /// A single-target card only considers cards the change would actually alter,
 /// so a defence never "wastes" itself on a card that is already at 0.
 pub fn affect(
   table: List(Slot),
-  reach: Reach,
+  scope: Scope,
   change: fn(Float) -> Float,
   seed: Seed,
 ) -> #(List(Slot), Int, Seed) {
-  case reach {
-    NoReach -> #(table, 0, seed)
+  case scope {
+    // HP isn't on the table; `game` handles it.
+    Hp -> #(table, 0, seed)
     All(tags) -> {
       let targets =
         table

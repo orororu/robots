@@ -11,7 +11,7 @@ core/     pure game logic (Gleam, runs on JavaScript and BEAM): no IO, no clock
   src/robots/
     game.gleam      update(game, msg) -> Result(Game, Rejection)
     table.gleam     the 4 visible table slots and automatic targeting
-    card.gleam      cards, tags, reach; relative costs and values
+    card.gleam      cards, tags, target + scope; relative costs and values
     scale.gleam     display scale: relative amounts -> shown numbers
     energy.gleam    energy computed from timestamps, never ticked
     robot.gleam     robots, components, install, damage

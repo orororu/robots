@@ -46,16 +46,31 @@ Status: **draft**. Agreed ideas are in "Rules". Undecided points are in "Open qu
   e.g. Laser = `[attack, range, beam]`, Energy shield = `[defence, energy]`.
 - Tags are **not necessarily visible** to players. Some may be hidden, to be
   decided later.
-- The main tags decide what a card does when played:
+- Tags only **describe** cards. They don't decide what a card does; its
+  **target** does (below). Tags matter because targets select cards by tag.
 
-| Main tag | When played |
-|---|---|
-| `attack` | Damages the **opponent's HP** by the card's current value. |
-| `defence` | Lowers the **value of cards on the opponent's table** by the defence's value. |
-| `buff` | Raises the **value of cards on your own table**. |
+### Target and scope
 
-Other tags (`range`, `beam`, `energy`, `melee`, …) decide which cards a defence
-or buff affects (see "Targeting").
+Every card has a **target**: a **side** and a **scope**.
+
+- **Side:** `opponent` **lowers** by the card's current value, and `self` **raises** by it.
+- **Scope:** what on that side is affected:
+  - `hp`: the robot's HP. Damage for opponent; repair for self, never above max HP.
+  - `one(tags)`: one random table card that has all these tags.
+  - `all(tags)`: every table card that has all these tags. Should have a lower value.
+
+| Target | Effect | Example |
+|---|---|---|
+| `opponent(hp)` | damage the opponent | Laser, Punch |
+| `self(hp)` | repair your robot | Patch |
+| `opponent(one(tags))` | lower one opponent card | Parry `one[attack,melee]`, Energy shield `one[attack]` |
+| `opponent(all(tags))` | lower all matching opponent cards | Jump `all[attack,melee]` |
+| `self(one(tags))` | raise one of your cards | Lock on `one[attack,range]` |
+| `self(all(tags))` | raise all your matching cards | Overclock `all[attack]` |
+
+The `attack`, `defence` and `buff` tags are just names for common kinds of
+cards. A card tagged `defence` usually targets `opponent(one(...))`, but the
+target is what counts.
 
 ### Defence is played before the attack
 
@@ -109,8 +124,6 @@ value** than single-target ones:
 These are placeholders so the game can be built and played. Each can change
 after playtesting:
 
-- Each defence and buff lists the **tags its targets must have**
-  (e.g. Parry: `attack` + `melee`; Energy shield: any `attack`).
 - **Extra value is wasted.** Energy shield 12 against Laser 10 leaves the Laser
   at 0, and the extra 2 does nothing.
 - **Defence lowers attack cards only.**
@@ -130,8 +143,8 @@ after playtesting:
 
 These rules are implemented in `core/`:
 
-- `card.gleam`: tags, `Reach` (which table cards a defence or buff targets), relative `cost` and `value`.
-- `table.gleam`: table slots with current values, and automatic targeting (`affect`).
+- `card.gleam`: tags, `Target` (side) and `Scope` (hp / one / all), relative `cost` and `value`.
+- `table.gleam`: table slots with current values, and automatic `one`/`all` targeting (`affect`).
 - `game.gleam`: playing a card, resolving it, discarding it, and refilling the slot.
 - `scale.gleam`: the display scale (default ×10 for costs and values).
 - `catalog.gleam`: starter cards, components and robots, all placeholder numbers.

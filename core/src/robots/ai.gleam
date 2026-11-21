@@ -6,7 +6,7 @@ import gleam/float
 import gleam/int
 import gleam/list
 import robots/amount
-import robots/card.{type Card, All, NoReach, One}
+import robots/card.{type Scope, All, Hp, One}
 import robots/energy
 import robots/game.{type Game, type Side, PlayCard, Running}
 import robots/table.{type Slot}
@@ -107,30 +107,30 @@ fn result_index(pair: Result(#(Int, Slot), Nil)) -> Result(Int, Nil) {
 fn score(state: Game, side: Side, slot: Slot) -> Float {
   let foe = game.combatant_of(state, game.other(side))
   let me = game.combatant_of(state, side)
-  case card.kind(slot.card) {
-    card.AttackCard ->
+  case slot.card.target {
+    card.Opponent(Hp) ->
       case amount.at_least(slot.value, foe.robot.hp) {
         // A finishing blow beats everything.
         True -> 100.0
         False -> slot.value
       }
-    card.DefenceCard ->
-      reach_score(foe.table, slot.card, fn(target) {
+    card.Self(Hp) -> float.min(slot.value, me.robot.max_hp -. me.robot.hp)
+    card.Opponent(scope) ->
+      scope_score(foe.table, scope, fn(target) {
         float.min(target.value, slot.value)
       })
-    card.BuffCard -> reach_score(me.table, slot.card, fn(_) { slot.value })
-    card.Inert -> 0.0
+    card.Self(scope) -> scope_score(me.table, scope, fn(_) { slot.value })
   }
 }
 
 /// Total effect for `All`, expected (average) effect for `One`.
-fn reach_score(
+fn scope_score(
   targets: List(Slot),
-  played: Card,
+  scope: Scope,
   effect: fn(Slot) -> Float,
 ) -> Float {
-  let gains = case played.reach {
-    NoReach -> []
+  let gains = case scope {
+    Hp -> []
     All(tags) | One(tags) ->
       targets
       |> list.filter(fn(s) { card.matches(s.card, tags) })
@@ -138,7 +138,7 @@ fn reach_score(
       |> list.filter(fn(gain) { gain >. 0.0 })
   }
   let total = float.sum(gains)
-  case played.reach, gains {
+  case scope, gains {
     One(_), [_, ..] -> total /. int.to_float(list.length(gains))
     _, _ -> total
   }

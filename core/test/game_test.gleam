@@ -1,8 +1,8 @@
 import gleam/list
 import robots/ai
 import robots/card.{
-  type Card, All, Attack, Beam, Buff, Card, Defence, Energy, Melee, NoReach, One,
-  Range,
+  type Card, All, Attack, Beam, Buff, Card, Defence, Energy, Hp, Melee, One,
+  Opponent, Range, Self,
 }
 import robots/catalog
 import robots/energy
@@ -17,27 +17,33 @@ import robots/table.{Slot}
 // CARDS -----------------------------------------------------------------------
 
 fn laser() -> Card {
-  Card("Laser", [Attack, Range, Beam], cost: 1.0, value: 1.0, reach: NoReach)
+  Card(
+    "Laser",
+    [Attack, Range, Beam],
+    cost: 1.0,
+    value: 1.0,
+    target: Opponent(Hp),
+  )
 }
 
 fn punch() -> Card {
-  Card("Punch", [Attack, Melee], cost: 0.5, value: 0.5, reach: NoReach)
+  Card("Punch", [Attack, Melee], cost: 0.5, value: 0.5, target: Opponent(Hp))
 }
 
 fn energy_shield(value: Float) -> Card {
-  Card("Energy shield", [Defence, Energy], 0.8, value, One([Attack]))
+  Card("Energy shield", [Defence, Energy], 0.8, value, Opponent(One([Attack])))
 }
 
 fn parry() -> Card {
-  Card("Parry", [Defence, Melee], 0.6, 0.8, One([Attack, Melee]))
+  Card("Parry", [Defence, Melee], 0.6, 0.8, Opponent(One([Attack, Melee])))
 }
 
 fn jump() -> Card {
-  Card("Jump", [Defence], 0.8, 0.3, All([Attack, Melee]))
+  Card("Jump", [Defence], 0.8, 0.3, Opponent(All([Attack, Melee])))
 }
 
 fn lock_on() -> Card {
-  Card("Lock on", [Buff, Range], 0.5, 0.4, One([Attack, Range]))
+  Card("Lock on", [Buff, Range], 0.5, 0.4, Self(One([Attack, Range])))
 }
 
 // SETUP -----------------------------------------------------------------------
@@ -221,6 +227,44 @@ pub fn buff_raises_own_matching_card_test() {
   assert values(g.p1) == [4, 5, 14]
 }
 
+pub fn buff_all_raises_every_matching_own_card_test() {
+  let overclock = Card("Overclock", [Buff], 0.9, 0.2, Self(All([Attack])))
+  let g = arena([overclock, punch(), laser()], [laser()])
+  let assert Ok(g) = game.update(g, PlayCard(P1, 0, 0))
+  assert values(g.p1) == [2, 7, 12]
+}
+
+// REPAIR ----------------------------------------------------------------------
+
+fn patch() -> Card {
+  Card("Patch", [Buff], 0.6, 1.5, Self(Hp))
+}
+
+pub fn repair_restores_own_hp_test() {
+  let g = arena([patch()], [laser()])
+  let g =
+    Game(..g, p1: Combatant(..g.p1, robot: robot.Robot(..g.p1.robot, hp: 2.0)))
+  let assert Ok(g) = game.update(g, PlayCard(P1, 0, 0))
+  assert g.p1.robot.hp == 3.5
+}
+
+pub fn repair_never_exceeds_max_hp_test() {
+  let g = arena([patch()], [laser()])
+  let g =
+    Game(..g, p1: Combatant(..g.p1, robot: robot.Robot(..g.p1.robot, hp: 4.5)))
+  let assert Ok(g) = game.update(g, PlayCard(P1, 0, 0))
+  assert g.p1.robot.hp == 5.0
+}
+
+pub fn ai_repairs_only_missing_hp_test() {
+  // At full HP, Patch is worth nothing; a Punch is worth its damage.
+  let g = arena([laser()], [patch(), punch()])
+  assert ai.choose(g, P2, 0) == Ok(1)
+  let hurt =
+    Game(..g, p2: Combatant(..g.p2, robot: robot.Robot(..g.p2.robot, hp: 2.0)))
+  assert ai.choose(hurt, P2, 0) == Ok(0)
+}
+
 // ENERGY AND ERRORS -----------------------------------------------------------
 
 pub fn not_enough_energy_is_rejected_test() {
@@ -239,7 +283,7 @@ pub fn invalid_slot_is_rejected_test() {
 }
 
 pub fn destroying_the_robot_wins_test() {
-  let nuke = Card("Nuke", [Attack], 0.0, 9.0, NoReach)
+  let nuke = Card("Nuke", [Attack], 0.0, 9.0, Opponent(Hp))
   let assert Ok(g) = game.update(arena([nuke], [laser()]), PlayCard(P1, 0, 0))
   assert g.status == Won(P1)
   assert g.p2.robot.hp == 0.0

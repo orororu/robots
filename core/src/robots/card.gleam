@@ -1,15 +1,18 @@
 //// Cards. Costs and values are *relative*: 1.0 is the base amount. How big
 //// they look to players is decided by `robots/scale`, never here.
+////
+//// What a card does is decided by its `target` alone: targeting the opponent
+//// lowers (damage, weaken), targeting yourself raises (repair, buff), always
+//// by the card's current value. Tags only describe cards, so that scopes like
+//// `One([Attack, Melee])` can select them.
 
 import gleam/list
 import gleam/string
 
 pub type Tag {
-  // Main tags: decide what a card does when played.
   Attack
   Defence
   Buff
-  // Descriptive tags: decide what a defence or buff can target.
   Melee
   Range
   Beam
@@ -18,36 +21,24 @@ pub type Tag {
   Mobility
 }
 
-/// Which table cards a defence (opponent's table) or buff (own table) affects.
-/// A target must have *all* the listed tags.
-pub type Reach {
-  /// Attack cards don't touch the table; they hit the opponent's HP.
-  NoReach
-  /// One random matching card.
+/// Whose side a card affects. `Opponent` lowers, `Self` raises.
+pub type Target {
+  Opponent(scope: Scope)
+  Self(scope: Scope)
+}
+
+/// What on that side is affected.
+pub type Scope {
+  /// The robot's HP (damage for `Opponent`, repair up to max HP for `Self`).
+  Hp
+  /// One random table card having all these tags.
   One(matching: List(Tag))
-  /// Every matching card (multi-target cards should have a lower value).
+  /// Every table card having all these tags. Should have a lower value.
   All(matching: List(Tag))
 }
 
 pub type Card {
-  Card(name: String, tags: List(Tag), cost: Float, value: Float, reach: Reach)
-}
-
-pub type Kind {
-  AttackCard
-  DefenceCard
-  BuffCard
-  /// A card with no main tag does nothing when played.
-  Inert
-}
-
-pub fn kind(card: Card) -> Kind {
-  case has(card, Attack), has(card, Defence), has(card, Buff) {
-    True, _, _ -> AttackCard
-    False, True, _ -> DefenceCard
-    False, False, True -> BuffCard
-    False, False, False -> Inert
-  }
+  Card(name: String, tags: List(Tag), cost: Float, value: Float, target: Target)
 }
 
 pub fn has(card: Card, tag: Tag) -> Bool {

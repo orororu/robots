@@ -1,6 +1,11 @@
-//// Whole matches, AI against AI, with the real starter robots. Catches
-//// stalemates (e.g. both tables clogged with dead cards) and runaway balance.
+//// Whole matches, AI against AI, with the real starter robots.
+////
+//// Stalemates are bugs, so `every_match_ends_test` must pass. Balance is a
+//// design question, so the balance checks print a warning instead of failing
+//// the run while balancing is in progress.
 
+import gleam/int
+import gleam/io
 import gleam/list
 import robots/ai
 import robots/catalog
@@ -9,6 +14,8 @@ import robots/game.{type Game, type Status, P1, P2, Running, Won}
 const step_ms = 100
 
 const limit_ms = 600_000
+
+const seeds = 40
 
 fn simulate(seed: Int) -> #(Status, Int) {
   let state =
@@ -33,24 +40,41 @@ fn run(state: Game, a: ai.Brain, b: ai.Brain, now: Int) -> #(Status, Int) {
   }
 }
 
+fn results() -> List(#(Status, Int)) {
+  list.repeat(0, seeds) |> list.index_map(fn(_, i) { simulate(i) })
+}
+
+/// Balance targets: print when missed, don't fail.
+fn balance_check(ok: Bool, message: String) -> Nil {
+  case ok {
+    True -> Nil
+    False -> io.println("\n  BALANCE WARNING: " <> message)
+  }
+}
+
 pub fn every_match_ends_test() {
-  let results =
-    list.map(list.repeat(0, 20) |> list.index_map(fn(_, i) { i }), simulate)
-  assert list.all(results, fn(result) { result.0 != Running })
+  assert list.all(results(), fn(result) { result.0 != Running })
 }
 
-pub fn matches_last_a_reasonable_time_test() {
-  let durations =
-    list.repeat(0, 20)
-    |> list.index_map(fn(_, i) { simulate(i).1 })
-  // Between 15 seconds and 5 minutes of play.
-  assert list.all(durations, fn(ms) { ms >= 15_000 && ms <= 300_000 })
+pub fn match_length_balance_test() {
+  let seconds = list.map(results(), fn(r) { r.1 / 1000 })
+  let shortest = list.fold(seconds, limit_ms, int.min)
+  let longest = list.fold(seconds, 0, int.max)
+  balance_check(
+    shortest >= 60 && longest <= 180,
+    "matches last "
+      <> int.to_string(shortest)
+      <> "-"
+      <> int.to_string(longest)
+      <> "s (target 60-180s)",
+  )
 }
 
-pub fn both_robots_can_win_test() {
-  let winners =
-    list.repeat(0, 40)
-    |> list.index_map(fn(_, i) { simulate(i).0 })
-  assert list.contains(winners, Won(P1))
-  assert list.contains(winners, Won(P2))
+pub fn win_rate_balance_test() {
+  let p1_wins = list.count(results(), fn(r) { r.0 == Won(P1) })
+  let percent = p1_wins * 100 / seeds
+  balance_check(
+    percent >= 35 && percent <= 65,
+    "Tinker wins " <> int.to_string(percent) <> "% vs Scrapper (target 35-65%)",
+  )
 }

@@ -6,33 +6,39 @@
 
 import gleam/list
 import robots/card.{
-  type Card, type Reach, type Tag, All, Attack, Beam, Buff, Card, Defence,
-  Energy, Kinetic, Melee, Mobility, NoReach, One, Range,
+  type Card, type Scope, type Tag, All, Attack, Beam, Buff, Card, Defence,
+  Energy, Hp, Kinetic, Melee, Mobility, One, Opponent, Range, Self,
 }
 import robots/robot.{type Component, type Robot, Component}
 
+// Shorthands. The tags `attack`, `defence` and `buff` are descriptive only:
+// what a card does comes from its target.
+
+/// Damages the opponent's HP.
 fn attack(name: String, tags: List(Tag), cost: Float, value: Float) -> Card {
-  Card(name:, tags: [Attack, ..tags], cost:, value:, reach: NoReach)
+  Card(name:, tags: [Attack, ..tags], cost:, value:, target: Opponent(Hp))
 }
 
+/// Lowers cards on the opponent's table.
 fn defence(
   name: String,
   tags: List(Tag),
   cost: Float,
   value: Float,
-  reach: Reach,
+  scope: Scope,
 ) -> Card {
-  Card(name:, tags: [Defence, ..tags], cost:, value:, reach:)
+  Card(name:, tags: [Defence, ..tags], cost:, value:, target: Opponent(scope))
 }
 
+/// Raises cards on your own table.
 fn buff(
   name: String,
   tags: List(Tag),
   cost: Float,
   value: Float,
-  reach: Reach,
+  scope: Scope,
 ) -> Card {
-  Card(name:, tags: [Buff, ..tags], cost:, value:, reach:)
+  Card(name:, tags: [Buff, ..tags], cost:, value:, target: Self(scope))
 }
 
 // ATTACK COMPONENTS -----------------------------------------------------------

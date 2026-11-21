@@ -1,3 +1,4 @@
+import gleam/float
 import gleam/list
 import robots/amount
 import robots/card.{type Card}
@@ -44,6 +45,11 @@ pub fn deck(robot: Robot) -> List(Card) {
 
 pub fn take_damage(robot: Robot, amount: Float) -> Robot {
   Robot(..robot, hp: amount.subtract(robot.hp, amount))
+}
+
+/// Restore HP, never above max HP.
+pub fn repair(robot: Robot, amount: Float) -> Robot {
+  Robot(..robot, hp: float.min(robot.max_hp, robot.hp +. amount))
 }
 
 pub fn is_destroyed(robot: Robot) -> Bool {

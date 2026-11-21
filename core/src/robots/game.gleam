@@ -43,7 +43,13 @@ pub type Config {
 }
 
 pub fn default_config() -> Config {
-  Config(table_size: 4, starting_energy: 2.0, energy_rate: 0.5, energy_cap: 5.0)
+  Config(
+    table_size: 4,
+    starting_energy: 2.0,
+    // Relative cost units per second: 0.5 / 3 shows as ~1.7/s at scale x10.
+    energy_rate: 0.5 /. 3.0,
+    energy_cap: 5.0,
+  )
 }
 
 pub type Combatant {
@@ -64,8 +70,8 @@ pub type Status {
 /// What happened, as data. The client decides how to word and scale it.
 pub type Event {
   Started
-  /// `value` is the card's value when played; `targets` is how many table
-  /// cards it affected (0 for a defence or buff with nothing to hit).
+  /// `value` is the card's value when played; `targets` is how many things
+  /// it affected: 1 for HP, the number of table cards otherwise (0 = no match).
   Played(side: Side, card: Card, value: Float, targets: Int)
   Destroyed(side: Side)
 }
@@ -182,31 +188,30 @@ fn play(
 
 fn resolve(game: Game, side: Side, played: Slot) -> #(Game, Int) {
   let value = played.value
-  case card.kind(played.card) {
-    card.AttackCard -> {
-      let foe = combatant_of(game, other(side))
-      let hit = Combatant(..foe, robot: robot.take_damage(foe.robot, value))
-      #(put(game, other(side), hit), 0)
-    }
-    card.DefenceCard ->
-      affect_table(game, other(side), played.card.reach, amount.subtract(
-        _,
-        value,
-      ))
-    card.BuffCard ->
-      affect_table(game, side, played.card.reach, fn(v) { v +. value })
-    card.Inert -> #(game, 0)
+  // Opponent lowers, Self raises; the scope says what.
+  case played.card.target {
+    card.Opponent(card.Hp) ->
+      map_robot(game, other(side), robot.take_damage(_, value))
+    card.Self(card.Hp) -> map_robot(game, side, robot.repair(_, value))
+    card.Opponent(scope) ->
+      affect_table(game, other(side), scope, amount.subtract(_, value))
+    card.Self(scope) -> affect_table(game, side, scope, fn(v) { v +. value })
   }
+}
+
+fn map_robot(game: Game, side: Side, f: fn(Robot) -> Robot) -> #(Game, Int) {
+  let c = combatant_of(game, side)
+  #(put(game, side, Combatant(..c, robot: f(c.robot))), 1)
 }
 
 fn affect_table(
   game: Game,
   side: Side,
-  reach: card.Reach,
+  scope: card.Scope,
   change: fn(Float) -> Float,
 ) -> #(Game, Int) {
   let c = combatant_of(game, side)
-  let #(table, targets, seed) = table.affect(c.table, reach, change, game.seed)
+  let #(table, targets, seed) = table.affect(c.table, scope, change, game.seed)
   #(Game(..game, seed:) |> put(side, Combatant(..c, table:)), targets)
 }
 

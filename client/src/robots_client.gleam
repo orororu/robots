@@ -241,14 +241,21 @@ fn slot_text(s: Scale, slot: Slot) -> String {
   <> "cost "
   <> string.pad_end(int.to_string(scale.cost(s, card.cost)), 4, " ")
   <> card.tags_text(card.tags)
-  <> reach_text(card)
+  <> "  → "
+  <> target_text(card)
 }
 
-fn reach_text(c: Card) -> String {
-  case c.reach {
-    card.NoReach -> ""
-    card.One(tags) -> " → one " <> card.tags_text(tags)
-    card.All(tags) -> " → all " <> card.tags_text(tags)
+/// "foe hp", "foe one [attack,melee]", "self all [attack]", ...
+fn target_text(c: Card) -> String {
+  let #(side, scope) = case c.target {
+    card.Opponent(scope) -> #("foe ", scope)
+    card.Self(scope) -> #("self ", scope)
+  }
+  side
+  <> case scope {
+    card.Hp -> "hp"
+    card.One(tags) -> "one " <> card.tags_text(tags)
+    card.All(tags) -> "all " <> card.tags_text(tags)
   }
 }
 
@@ -262,12 +269,12 @@ fn describe_event(state: Game, s: Scale, event: game.Event) -> String {
       name(side)
       <> " plays "
       <> c.name
-      <> case card.kind(c), targets {
-        card.AttackCard, _ -> " for " <> shown <> " damage"
-        card.DefenceCard, 0 | card.BuffCard, 0 -> ": no target"
-        card.DefenceCard, n -> ": -" <> shown <> " on " <> cards(n)
-        card.BuffCard, n -> ": +" <> shown <> " on " <> cards(n)
-        card.Inert, _ -> ""
+      <> case c.target, targets {
+        card.Opponent(card.Hp), _ -> " for " <> shown <> " damage"
+        card.Self(card.Hp), _ -> ": repairs " <> shown
+        _, 0 -> ": no target"
+        card.Opponent(_), n -> ": -" <> shown <> " on " <> cards(n)
+        card.Self(_), n -> ": +" <> shown <> " on " <> cards(n)
       }
     }
   }
