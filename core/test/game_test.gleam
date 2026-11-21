@@ -1,3 +1,5 @@
+import gleam/float
+import gleam/int
 import gleam/list
 import robots/ai
 import robots/card.{
@@ -497,4 +499,22 @@ pub fn an_unlaunched_drone_does_not_soak_attacks_test() {
   // The Laser hits the robot; the Launch card is still on the table.
   assert g.p1.robot.hp == 4.0
   assert list.map(g.p1.table, fn(s) { s.card.name }) == ["Launch drone"]
+}
+
+pub fn smoke_lowers_range_attacks_on_both_tables_test() {
+  let assert [smoke, ..] = catalog.smoke_launcher().cards
+  let assert [jab, ..] = catalog.fist().cards
+  let g =
+    arena([smoke, laser(), jab], [laser()])
+    |> with_tables([slot(smoke), slot(laser()), slot(jab)], [slot(laser())])
+  let assert Ok(g) = game.update(g, PlayCard(P1, 0, 0))
+  // Both Lasers (1.0) drop to 0; the melee Jab is untouched. (Slot 0
+  // is refilled from the deck.)
+  let values = fn(t: List(Slot)) {
+    list.map(t, fn(s) {
+      #(s.card.name, int.to_float(float.round(s.value *. 100.0)) /. 100.0)
+    })
+  }
+  assert list.drop(values(g.p1.table), 1) == [#("Laser", 0.0), #("Jab", 0.38)]
+  assert values(g.p2.table) == [#("Laser", 0.0)]
 }

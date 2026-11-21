@@ -157,6 +157,14 @@ fn score(state: Game, side: Side, slot: Slot) -> Float {
         -. game.lowered(target, slot.value, state.config.defence_floor)
       })
     card.Self(scope) -> scope_score(me.table, scope, fn(_) { slot.value })
+    // Worth what it takes off their cards, minus what it takes off ours.
+    card.Both(scope) -> {
+      let cut = fn(target: Slot) {
+        target.value
+        -. game.lowered(target, slot.value, state.config.defence_floor)
+      }
+      scope_score(foe.table, scope, cut) -. scope_score(me.table, scope, cut)
+    }
   }
 }
 

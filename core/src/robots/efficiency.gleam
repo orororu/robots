@@ -14,7 +14,9 @@
 
 import gleam/float
 import gleam/list
-import robots/card.{type Card, All, Launch, One, Opponent, OpponentHp, Self}
+import robots/card.{
+  type Card, All, Both, Launch, One, Opponent, OpponentHp, Self,
+}
 
 pub type Role {
   Damage
@@ -31,7 +33,7 @@ pub const tolerance = 0.1
 pub fn role(card: Card) -> Role {
   case card.target {
     OpponentHp | Launch(_) -> Damage
-    Opponent(_) -> Weaken
+    Opponent(_) | Both(_) -> Weaken
     Self(_) -> Strengthen
   }
 }
@@ -89,10 +91,12 @@ fn total_cost(card: Card) -> Float {
 
 /// Cards balanced by matchups and the tournament instead of the band:
 /// narrow counters (below), and drone launches, whose drones are worth more
-/// than their strike because they also soak the opponent's attacks.
+/// than their strike because they also soak the opponent's attacks, and
+/// Smoke, which hurts both sides.
 pub fn outside_band(card: Card) -> Bool {
   case card.target {
-    Launch(_) -> True
+    // Smoke also lowers your own cards: its worth depends on the matchup.
+    Launch(_) | Both(_) -> True
     _ -> narrow_counter(card)
   }
 }

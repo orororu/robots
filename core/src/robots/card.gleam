@@ -2,8 +2,8 @@
 //// they look to players is decided by `robots/scale`, never here.
 ////
 //// What a card does is decided by its `target` alone: damage the opponent's
-//// HP, lower the opponent's table cards (weaken), or raise your own (buff),
-//// always by the card's current value. Tags only describe cards, so that
+//// HP, lower the opponent's table cards (weaken), raise your own (buff), or
+//// lower both tables (Smoke), always by the card's current value. Tags only describe cards, so that
 //// scopes like `One([Attack, Melee])` can select them.
 ////
 //// There is no healing during a match: no target can raise HP. Robots are
@@ -35,6 +35,8 @@ pub type Target {
   Opponent(scope: Scope)
   /// Raise cards on your own table.
   Self(scope: Scope)
+  /// Lower cards on both tables, yours too (Smoke blocks everyone's view).
+  Both(scope: Scope)
   /// Put this drone card into the played card's table slot.
   Launch(drone: Card)
 }

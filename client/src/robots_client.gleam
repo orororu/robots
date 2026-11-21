@@ -264,6 +264,7 @@ fn target_text(c: Card) -> String {
     card.OpponentHp -> "foe hp"
     card.Opponent(scope) -> "foe " <> scope_text(scope)
     card.Self(scope) -> "self " <> scope_text(scope)
+    card.Both(scope) -> "both " <> scope_text(scope)
     card.Launch(drone) -> "launch " <> drone.name
   }
 }
@@ -305,6 +306,7 @@ fn describe_event(state: Game, s: Scale, event: game.Event) -> String {
         _, 0 -> ": no target"
         card.Opponent(_), n -> ": -" <> shown <> " on " <> cards(n)
         card.Self(_), n -> ": +" <> shown <> " on " <> cards(n)
+        card.Both(_), n -> ": -" <> shown <> " on " <> cards(n) <> ", both sides"
       }
     }
   }

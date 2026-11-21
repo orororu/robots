@@ -83,6 +83,7 @@ pub fn components() -> List(Component) {
     missile_rack(),
     drone_bay(),
     point_defence(),
+    smoke_launcher(),
     cell(),
     battery(),
     big_battery(),
@@ -194,6 +195,22 @@ pub fn drone_bay() -> Component {
       traits: [card.Once],
     )
   part.new("Drone bay", part.Weapon, 3.0, [launch, launch, launch, launch])
+}
+
+/// Smoke lowers every range attack on *both* tables: it blinds you too. A
+/// specialist part for melee builds fighting range builds. Balanced by
+/// matchups (`counter_check`), outside the efficiency band.
+pub fn smoke_launcher() -> Component {
+  let smoke =
+    Card(
+      name: "Smoke",
+      tags: [Defence, Mobility],
+      cost: 0.6,
+      value: 1.6,
+      target: card.Both(All([Attack, Range])),
+      traits: [],
+    )
+  part.new("Smoke launcher", part.Defence, 2.0, [smoke, smoke, smoke, smoke])
 }
 
 /// Anti-drone, as a defence part: it takes weight, not a weapon mount.

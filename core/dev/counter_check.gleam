@@ -2,11 +2,11 @@
 ////
 ////     cd core && gleam run -m counter_check
 ////
-//// Takes builds that carry a Shield emitter (a general defence part, also
-//// weight 2), swaps it for Point defence, and plays both versions against
-//// drone builds and against other builds, on three random samples. A
-//// working counter is better against drone builds and may be worse against
-//// the rest.
+//// For each counter part: take builds that would use it and carry a Shield
+//// emitter (a general defence part, also weight 2), swap the Shield emitter
+//// for the counter, and play both versions against the counter's targets
+//// and against other builds, on three random samples. A working counter is
+//// better against its targets and may be worse against the rest.
 
 import gleam/float
 import gleam/int
@@ -36,23 +36,67 @@ fn parallel_map(items: List(a), f: fn(a) -> b) -> List(b) {
   list.map(items, f)
 }
 
-pub fn main() -> Nil {
-  let builds = build_search.all(catalog.chassis(), catalog.components(), limits)
-  list.each([7, 11, 13], check(builds, _))
+type Check {
+  Check(
+    counter: Component,
+    /// Builds that would carry this counter.
+    users: fn(Build) -> Bool,
+    users_name: String,
+    /// What it counters.
+    targets: fn(Build) -> Bool,
+    targets_name: String,
+  )
 }
 
-fn check(builds: List(Build), sample: Int) -> Nil {
+const melee_weapons = ["Saw arm", "Fist"]
+
+const range_weapons = ["Laser", "Cannon", "Machine gun", "Missile rack"]
+
+pub fn main() -> Nil {
+  let builds = build_search.all(catalog.chassis(), catalog.components(), limits)
+  let checks = [
+    Check(
+      counter: catalog.point_defence(),
+      users: fn(_) { True },
+      users_name: "builds",
+      targets: uses(_, "Drone bay"),
+      targets_name: "drone builds",
+    ),
+    Check(
+      counter: catalog.smoke_launcher(),
+      users: fn(b) { !uses_any(b, range_weapons) },
+      users_name: "builds without range weapons",
+      targets: fn(b) {
+        uses_any(b, range_weapons) && !uses_any(b, melee_weapons)
+      },
+      targets_name: "range-only builds",
+    ),
+  ]
+  list.each(checks, fn(c) {
+    io.println(
+      "== "
+      <> c.counter.name
+      <> " · "
+      <> c.users_name
+      <> " with a Shield emitter, and the same with "
+      <> c.counter.name
+      <> " instead",
+    )
+    list.each([7, 11, 13], check(builds, c, _))
+  })
+}
+
+fn check(builds: List(Build), c: Check, sample: Int) -> Nil {
   let #(shuffled, _) = rng.shuffle(builds, rng.new(sample))
-  let drone_builds =
-    shuffled |> list.filter(uses(_, "Drone bay")) |> list.take(opponents)
-  let other_builds =
+  let targets = shuffled |> list.filter(c.targets) |> list.take(opponents)
+  let others =
     shuffled
-    |> list.filter(fn(b) { !uses(b, "Drone bay") })
+    |> list.filter(fn(b) { !c.targets(b) })
     |> list.take(opponents)
   let #(swapped, _) =
     builds
-    |> list.filter(uses(_, "Shield emitter"))
-    |> list.filter_map(swap(_, "Shield emitter", catalog.point_defence()))
+    |> list.filter(fn(b) { c.users(b) && uses(b, "Shield emitter") })
+    |> list.filter_map(swap(_, "Shield emitter", c.counter))
     |> rng.shuffle(rng.new(sample))
   let swapped = list.take(swapped, pairs)
 
@@ -60,30 +104,32 @@ fn check(builds: List(Build), sample: Int) -> Nil {
     parallel_map(swapped, fn(pair) {
       let #(general, counter) = pair
       [
-        #(score(general, drone_builds), score(counter, drone_builds)),
-        #(score(general, other_builds), score(counter, other_builds)),
+        #(score(general, targets), score(counter, targets)),
+        #(score(general, others), score(counter, others)),
       ]
     })
   io.println(
-    "POINT DEFENCE CHECK (sample "
+    "   sample "
     <> int.to_string(sample)
-    <> ") · "
+    <> " ("
     <> int.to_string(list.length(results))
-    <> " builds with a Shield emitter, and the same builds with Point defence instead",
+    <> " builds)",
   )
-  list.index_map(["drone builds", "other builds"], fn(group, i) {
+  list.index_map([c.targets_name, "other builds"], fn(group, i) {
     let rows = list.filter_map(results, fn(r) { list.drop(r, i) |> list.first })
     let average = fn(pick: fn(#(Float, Float)) -> Float) {
       float.sum(list.map(rows, pick)) /. int.to_float(list.length(rows))
     }
     io.println(
-      "   vs "
+      "     vs "
       <> int.to_string(opponents)
       <> " "
       <> group
       <> ": Shield emitter "
       <> pct(average(fn(r) { r.0 }))
-      <> " → Point defence "
+      <> " → "
+      <> c.counter.name
+      <> " "
       <> pct(average(fn(r) { r.1 }))
       <> "  (better in "
       <> int.to_string(list.count(rows, fn(r) { r.1 >. r.0 }))
@@ -93,6 +139,10 @@ fn check(builds: List(Build), sample: Int) -> Nil {
     )
   })
   Nil
+}
+
+fn uses_any(b: Build, names: List(String)) -> Bool {
+  list.any(names, uses(b, _))
 }
 
 /// The build, and the same build with one `name` part replaced.

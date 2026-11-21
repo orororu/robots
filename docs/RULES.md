@@ -66,6 +66,7 @@ which cards:
 | `opponent(all(tags))` | lower all matching opponent cards | Jump `all[attack,melee]` |
 | `self(one(tags))` | raise one of your cards | Lock on `one[attack,range]` |
 | `self(all(tags))` | raise all your matching cards | Overclock `all[attack]` |
+| `both(scope)` | lower matching cards on **both** tables, yours too | Smoke `all[attack,range]` |
 
 The `attack`, `defence` and `buff` tags are just names for common kinds of
 cards. A card tagged `defence` usually targets `opponent(one(...))`, but the
@@ -172,6 +173,19 @@ after playtesting:
     the table, and Missiles are fired before they can be intercepted.
   - It replaced a Flak gun weapon: no one gave up a weapon mount for it, and
     against drones it was no better than a Laser.
+- **Smoke.** A Smoke launcher (defence part, weight 2) has 4 Smoke cards
+  (cost 6, value 16): each lowers **every range attack on both tables**,
+  yours too. A specialist part for melee builds against range builds, and
+  the answer to Tank + Cannon.
+  - Against the top 3 Tank + Cannon builds, the best melee builds win 4–8%
+    without Smoke; with it, 42–50% at value 13 and 100% at value 20.
+  - `counter_check`, melee builds swapping a Shield emitter for it: against
+    range-only builds 56–66% → 66–71%; against other builds 55–62% → 40–50%.
+  - Smoke doesn't touch drones, so stronger Smoke pushes the meta from Tank +
+    Cannon toward drone builds: at value 20 no Cannon build made the top 9.
+  - Smoke is outside the efficiency band (it hurts both sides; its worth
+    depends on the matchup). The AI scores it as what it takes off the
+    opponent's cards minus what it takes off its own.
   - Values are timed like energy: a slot remembers when its value was last
     set, and the game settles growth at each play (`game.settle`).
   - The AI waits until a drone is fully grown before striking (unless the
@@ -220,13 +234,13 @@ after playtesting:
    fight, so a build only needs to be good against some opponents. The
    tournament plays random opponents, so it undervalues counters; check a
    counter against its targets instead (`counter_check`). Design rule: the
-   best all-round build should lose to some specialized build. Today the
-   top Tank + Cannon builds lose only to near-copies.
+   best all-round build should lose to some specialized build. Counters so
+   far: Point defence (drones), Smoke (range, including Tank + Cannon).
+   Drone builds now top the tournament (Frame: Hydraulics, Drone bay ×2,
+   92%); their counter is Point defence.
 4. **Missile counter:** Intercept didn't work, since the AI fires a Missile as
    soon as it can afford it. A counter would need to act on launch (e.g. a
    passive part) or on the rack's other cards.
-5. **Counter cards** against strong builds, e.g. Smoke lowering every `range`
-   attack, so expensive chassis like Tank + Cannon can be answered.
 
 ## Implementation
 

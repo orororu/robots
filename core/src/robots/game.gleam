@@ -231,6 +231,14 @@ fn resolve(game: Game, side: Side, played: Slot) -> #(Game, Int, Float) {
       ))
     card.Self(scope) ->
       affect_table(game, side, scope, fn(s: Slot) { s.value +. value })
+    card.Both(scope) -> {
+      let lower = lowered(_, value, game.config.defence_floor)
+      let #(game, foe_targets, foe_effect) =
+        affect_table(game, other(side), scope, lower)
+      let #(game, own_targets, own_effect) =
+        affect_table(game, side, scope, lower)
+      #(game, foe_targets + own_targets, foe_effect +. own_effect)
+    }
     card.Launch(_) -> #(game, 1, 0.0)
   }
 }
