@@ -9,7 +9,7 @@ import gleam/int
 import gleam/list
 import gleam/order
 import robots/amount
-import robots/card.{type Card, All, One, Opponent, OpponentHp, Self}
+import robots/card.{type Card, All, Launch, One, Opponent, OpponentHp, Self}
 import robots/part.{type Component, Battery, Body, Weapon}
 import robots/robot.{type Robot}
 
@@ -149,7 +149,15 @@ fn check_deck(parts: List(Component)) -> List(BuildError) {
 
 /// Each distinct problem once, in deck order.
 pub fn warnings(bot: Robot) -> List(Warning) {
-  let deck = robot.deck(bot)
+  // Launched drones are on the table too, so buffs may target them.
+  let deck =
+    robot.deck(bot)
+    |> list.flat_map(fn(c) {
+      case c.target {
+        Launch(drone) -> [c, drone]
+        _ -> [c]
+      }
+    })
   list.flat_map(deck, fn(c) {
     let unaffordable = case amount.at_least(bot.energy_cap, c.cost) {
       True -> []
@@ -170,7 +178,7 @@ fn can_ever_affect(c: Card, deck: List(Card)) -> Bool {
   case c.target {
     Self(One(tags)) | Self(All(tags)) ->
       list.any(deck, fn(other) { other != c && card.matches(other, tags) })
-    OpponentHp | Opponent(_) -> True
+    OpponentHp | Opponent(_) | Launch(_) -> True
   }
 }
 

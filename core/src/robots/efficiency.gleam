@@ -13,7 +13,8 @@
 //// report measures.
 
 import gleam/float
-import robots/card.{type Card, All, Opponent, OpponentHp, Self}
+import gleam/list
+import robots/card.{type Card, All, Launch, One, Opponent, OpponentHp, Self}
 
 pub type Role {
   Damage
@@ -29,7 +30,7 @@ pub const tolerance = 0.1
 
 pub fn role(card: Card) -> Role {
   case card.target {
-    OpponentHp -> Damage
+    OpponentHp | Launch(_) -> Damage
     Opponent(_) -> Weaken
     Self(_) -> Strengthen
   }
@@ -68,23 +69,60 @@ pub fn goal_for(role: Role, cost: Float) -> Float {
 /// played a single time per match.
 pub const once_bonus = 1.6
 
-/// Target value-per-cost for this particular card.
+/// Cards that only affect drones are rated this much higher: they do
+/// nothing against a robot without drones.
+pub const drone_only_bonus = 2.0
+
+/// Target value-per-cost for this particular card. A launch card is rated by
+/// its drone: launch plus strike cost, against the drone's full value.
 pub fn goal(card: Card) -> Float {
-  let base = goal_for(role(card), card.cost)
-  case card.has_trait(card, card.Once) {
+  let base = goal_for(role(card), total_cost(card))
+  let base = case card.has_trait(card, card.Once) {
     True -> base *. once_bonus
     False -> base
+  }
+  case drone_only(card) {
+    True -> base *. drone_only_bonus
+    False -> base
+  }
+}
+
+fn total_cost(card: Card) -> Float {
+  case card.target {
+    Launch(drone) -> card.cost +. drone.cost
+    _ -> card.cost
+  }
+}
+
+fn drone_only(card: Card) -> Bool {
+  case card.target {
+    Opponent(One(tags))
+    | Opponent(All(tags))
+    | Self(One(tags))
+    | Self(All(tags)) -> list.contains(tags, card.Drone)
+    _ -> False
   }
 }
 
 /// The card's printed value per cost, counting `All` cards as hitting
 /// `expected_all_targets` cards.
 pub fn rating(card: Card) -> Float {
-  let hits = case card.target {
-    Opponent(All(_)) | Self(All(_)) -> expected_all_targets
-    _ -> 1.0
+  case card.target, drone_only(card) {
+    Launch(drone), _ -> full_value(drone) /. total_cost(card)
+    // Few drones are up at once: rate as hitting one.
+    _, True -> card.value /. card.cost
+    Opponent(All(_)), False | Self(All(_)), False ->
+      card.value *. expected_all_targets /. card.cost
+    _, False -> card.value /. card.cost
   }
-  card.value *. hits /. card.cost
+}
+
+/// A drone's value once fully grown.
+fn full_value(drone: Card) -> Float {
+  case card.growth(drone) {
+    Ok(#(_, cap)) -> cap
+    Error(Nil) -> drone.value
+  }
 }
 
 pub fn within_band(card: Card) -> Bool {

@@ -144,6 +144,23 @@ after playtesting:
   afterwards the card leaves the game instead of going to the discard pile.
   Example: **Missile** (Missile rack: 2 Missiles, cost 15, 30 damage, plus 2
   ordinary Micro rockets). Once cards are rated ×1.6 above their role's goal.
+- **Drones.** A Drone bay (weapon) has 2 `Launch drone` cards (once per
+  match). Launching puts a **Drone** card into the same table slot. It
+  **grows** while it waits (15 → 30 over 15 s) and you play it to **strike**
+  for its current value (cost 5); then it's gone.
+  - While you have drones, **the opponent's attacks hit a random drone
+    instead of your robot**; damage beyond the drone's value is lost. A drone
+    at 0 is destroyed and its slot refills from the deck.
+  - Drones are tagged `drone`, not `attack`: shields and attack buffs don't
+    affect them. Buffs or defences targeting `[drone]` can.
+  - **Flak gun** (weapon): Flak burst lowers **every** enemy drone by 10 for
+    cost 6, and does nothing without drones. Cards that only affect drones are
+    rated ×2 above their band.
+  - Values are timed like energy: a slot remembers when its value was last
+    set, and the game settles growth at each play (`game.settle`).
+  - The AI lets a drone grow, but strikes early when an enemy attack on the
+    table could destroy it. A slower drone (start 5, +0.5/s) was almost
+    always shot down before striking.
 
 ## Balance principles
 
@@ -183,9 +200,8 @@ after playtesting:
 1. **Hidden tags:** which tags are hidden, and can they be revealed (e.g. a
    scanner card)?
 2. **Multi-target buffs:** should they exist, with a lower value like Jump?
-3. **Drones** (next): a card that, once paid for, turns into a drone card on the
-   table whose value grows over time up to a limit, and which the opponent's
-   weapons can destroy.
+3. **Flak gun is never chosen** in the tournament (few opponents bring drones).
+   Fine for a counter, but maybe give it a better non-drone card.
 4. **Counter cards** against strong builds, e.g. Smoke lowering every `range`
    attack, so expensive chassis like Tank + Cannon can be answered.
 

@@ -136,7 +136,8 @@ fn describe_rejection(s: Scale, rejection: game.Rejection) -> String {
 // VIEW ------------------------------------------------------------------------
 
 fn view(model: Model) -> Element(Msg) {
-  let state = model.game
+  // Show current values: drones grow between plays.
+  let state = game.settle(model.game, model.now)
   let s = model.scale
   let available = energy.at(state.p1.energy, model.now)
   html.div([attribute.class("screen")], [
@@ -249,6 +250,10 @@ fn slot_text(s: Scale, slot: Slot) -> String {
     True -> " once"
     False -> ""
   }
+  <> case card.growth(card) {
+    Ok(#(_, cap)) -> " grows to " <> int.to_string(scale.value(s, cap))
+    Error(Nil) -> ""
+  }
   <> "  → "
   <> target_text(card)
 }
@@ -259,6 +264,7 @@ fn target_text(c: Card) -> String {
     card.OpponentHp -> "foe hp"
     card.Opponent(scope) -> "foe " <> scope_text(scope)
     card.Self(scope) -> "self " <> scope_text(scope)
+    card.Launch(drone) -> "launch " <> drone.name
   }
 }
 
@@ -274,6 +280,19 @@ fn describe_event(state: Game, s: Scale, event: game.Event) -> String {
   case event {
     game.Started -> "Fight!"
     game.Destroyed(side) -> name(side) <> " is destroyed!"
+    game.DroneHit(side:, drone:, damage:, destroyed:) ->
+      "  → hits "
+      <> name(side)
+      <> "'s "
+      <> drone.name
+      <> " for "
+      <> int.to_string(scale.value(s, damage))
+      <> case destroyed {
+        True -> ": destroyed!"
+        False -> ""
+      }
+    game.DroneDestroyed(side:, drone:) ->
+      "  → " <> name(side) <> "'s " <> drone.name <> " is destroyed!"
     game.Played(side:, card: c, targets:, effect:, ..) -> {
       // The amount actually changed, so wasted extra value isn't shown.
       let shown = int.to_string(scale.value(s, effect))
@@ -282,6 +301,7 @@ fn describe_event(state: Game, s: Scale, event: game.Event) -> String {
       <> c.name
       <> case c.target, targets {
         card.OpponentHp, _ -> " for " <> shown <> " damage"
+        card.Launch(drone), _ -> ": launches a " <> drone.name
         _, 0 -> ": no target"
         card.Opponent(_), n -> ": -" <> shown <> " on " <> cards(n)
         card.Self(_), n -> ": +" <> shown <> " on " <> cards(n)

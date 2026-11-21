@@ -23,6 +23,8 @@ pub type Tag {
   Kinetic
   Mobility
   Explosive
+  /// Drones are not attacks: shields and attack buffs don't affect them.
+  Drone
 }
 
 /// What a card affects.
@@ -33,6 +35,8 @@ pub type Target {
   Opponent(scope: Scope)
   /// Raise cards on your own table.
   Self(scope: Scope)
+  /// Put this drone card into the played card's table slot.
+  Launch(drone: Card)
 }
 
 /// Which table cards are affected.
@@ -61,6 +65,19 @@ pub type Trait {
   /// going to the discard pile. Rated above normal efficiency to make up
   /// for it.
   Once
+  /// The card's value grows by `per_second` while it waits on the table, up
+  /// to `cap` (drones).
+  Grows(per_second: Float, cap: Float)
+}
+
+/// A drone's growth, if the card has any.
+pub fn growth(card: Card) -> Result(#(Float, Float), Nil) {
+  list.find_map(card.traits, fn(t) {
+    case t {
+      Grows(per_second:, cap:) -> Ok(#(per_second, cap))
+      _ -> Error(Nil)
+    }
+  })
 }
 
 pub fn has_trait(card: Card, trait: Trait) -> Bool {
@@ -87,6 +104,7 @@ pub fn tag_name(tag: Tag) -> String {
     Kinetic -> "kinetic"
     Mobility -> "mobility"
     Explosive -> "explosive"
+    Drone -> "drone"
   }
 }
 

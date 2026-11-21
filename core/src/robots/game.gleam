@@ -19,7 +19,7 @@ import robots/card.{type Card}
 import robots/energy.{type Energy}
 import robots/rng.{type Seed}
 import robots/robot.{type Robot}
-import robots/table.{type Slot}
+import robots/table.{type Slot, Slot}
 
 pub type Side {
   P1
@@ -81,6 +81,11 @@ pub type Event {
   /// `effect` is the total amount actually changed: damage dealt, HP
   /// or table value lowered/raised (extra value is not counted).
   Played(side: Side, card: Card, value: Float, targets: Int, effect: Float)
+  /// An attack hit one of `side`'s drones instead of the robot. Damage
+  /// beyond the drone's value is lost.
+  DroneHit(side: Side, drone: Card, damage: Float, destroyed: Bool)
+  /// One of `side`'s drones was lowered to 0 by a table effect (e.g. Flak).
+  DroneDestroyed(side: Side, drone: Card)
   Destroyed(side: Side)
 }
 
@@ -161,12 +166,22 @@ pub fn update(game: Game, msg: Msg) -> Result(Game, Rejection) {
 
 // PLAYING CARDS ---------------------------------------------------------------
 
+/// Bring every table value up to date at `now` (drones grow with time).
+/// Everything that reads table values should look at a settled game.
+pub fn settle(game: Game, now: Int) -> Game {
+  let settle_side = fn(c: Combatant) {
+    Combatant(..c, table: list.map(c.table, table.settle(_, now)))
+  }
+  Game(..game, p1: settle_side(game.p1), p2: settle_side(game.p2))
+}
+
 fn play(
   game: Game,
   side: Side,
   index: Int,
   now: Int,
 ) -> Result(Game, Rejection) {
+  let game = settle(game, now)
   let c = combatant_of(game, side)
   use #(played, rest) <- result.try(
     take_at(c.table, index) |> result.replace_error(NoSuchCard),
@@ -184,7 +199,16 @@ fn play(
   let game =
     put(game, side, Combatant(..c, table: rest, energy: spent, discard:))
   let #(game, targets, effect) = resolve(game, side, played)
-  let #(refilled, seed) = refill(combatant_of(game, side), index, game.seed)
+  let #(refilled, seed) = case played.card.target {
+    // A launched drone takes the slot of the card that launched it.
+    card.Launch(drone) -> {
+      let c = combatant_of(game, side)
+      let #(before, after) = list.split(c.table, index)
+      let table = list.flatten([before, [table.placed(drone, now)], after])
+      #(Combatant(..c, table:), game.seed)
+    }
+    _ -> refill(combatant_of(game, side), index, game.seed)
+  }
   Game(..game, seed:)
   |> put(side, refilled)
   |> log(Played(side, played.card, played.value, targets, effect))
@@ -198,7 +222,7 @@ fn resolve(game: Game, side: Side, played: Slot) -> #(Game, Int, Float) {
   let value = played.value
   // Opponent lowers, Self raises; the scope says what.
   case played.card.target {
-    card.OpponentHp -> map_robot(game, other(side), robot.take_damage(_, value))
+    card.OpponentHp -> attack(game, other(side), value)
     card.Opponent(scope) ->
       affect_table(game, other(side), scope, lowered(
         _,
@@ -207,7 +231,75 @@ fn resolve(game: Game, side: Side, played: Slot) -> #(Game, Int, Float) {
       ))
     card.Self(scope) ->
       affect_table(game, side, scope, fn(s: Slot) { s.value +. value })
+    card.Launch(_) -> #(game, 1, 0.0)
   }
+}
+
+/// An attack on `target`: it hits a random one of their drones if they have
+/// any (leftover damage is lost), otherwise the robot.
+fn attack(game: Game, target: Side, value: Float) -> #(Game, Int, Float) {
+  let c = combatant_of(game, target)
+  let drones =
+    c.table
+    |> list.index_map(fn(s, i) { #(i, s) })
+    |> list.filter(fn(pair) { table.is_drone(pair.1) })
+  case drones {
+    [] -> map_robot(game, target, robot.take_damage(_, value))
+    _ -> {
+      let #(pick, seed) = rng.int_below(game.seed, list.length(drones))
+      let assert Ok(#(index, drone)) = list.drop(drones, pick) |> list.first
+      let damage = float.min(value, drone.value)
+      let left = amount.subtract(drone.value, value)
+      let destroyed = amount.is_zero(left)
+      let game = Game(..game, seed:)
+      let game = case destroyed {
+        True -> remove_slot(game, target, index)
+        False ->
+          put(
+            game,
+            target,
+            Combatant(
+              ..c,
+              table: list.index_map(c.table, fn(s, i) {
+                case i == index {
+                  True -> Slot(..s, value: left)
+                  False -> s
+                }
+              }),
+            ),
+          )
+      }
+      let game = log(game, DroneHit(target, drone.card, damage, destroyed))
+      #(game, 1, damage)
+    }
+  }
+}
+
+/// Take a card off `side`'s table (a destroyed drone: it leaves the game)
+/// and refill that slot from the deck.
+fn remove_slot(game: Game, side: Side, index: Int) -> Game {
+  let c = combatant_of(game, side)
+  let #(before, after) = list.split(c.table, index)
+  let c = Combatant(..c, table: list.append(before, list.drop(after, 1)))
+  let #(c, seed) = refill(c, index, game.seed)
+  Game(..game, seed:) |> put(side, c)
+}
+
+/// Drones lowered to 0 by a table effect are destroyed.
+fn clear_destroyed_drones(game: Game, side: Side) -> Game {
+  let c = combatant_of(game, side)
+  let dead =
+    c.table
+    |> list.index_map(fn(s, i) { #(i, s) })
+    |> list.filter(fn(pair) {
+      table.is_drone(pair.1) && amount.is_zero({ pair.1 }.value)
+    })
+    |> list.reverse
+  // Highest index first, so earlier indexes stay valid.
+  list.fold(dead, game, fn(game, pair) {
+    remove_slot(game, side, pair.0)
+    |> log(DroneDestroyed(side, { pair.1 }.card))
+  })
 }
 
 fn map_robot(
@@ -241,7 +333,11 @@ fn affect_table(
     |> list.fold(0.0, fn(total, pair) {
       total +. float.absolute_value({ pair.1 }.value -. { pair.0 }.value)
     })
-  #(Game(..game, seed:) |> put(side, Combatant(..c, table:)), targets, effect)
+  let game =
+    Game(..game, seed:)
+    |> put(side, Combatant(..c, table:))
+    |> clear_destroyed_drones(side)
+  #(game, targets, effect)
 }
 
 // DRAWING ---------------------------------------------------------------------

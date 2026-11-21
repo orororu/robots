@@ -5,17 +5,48 @@
 //// Targeting is automatic and pure: given a scope, a change and a seed,
 //// `affect` returns the new table. Random picks use the game's seeded RNG.
 
+import gleam/float
+import gleam/int
 import gleam/list
 import robots/card.{type Card, type Scope, All, One}
 import robots/rng.{type Seed}
 
 pub type Slot {
-  /// `value` is the card's current value; `card.value` is its printed value.
-  Slot(card: Card, value: Float)
+  /// `value` is the card's value at time `since` (ms); `card.value` is its
+  /// printed value. Only growing cards (drones) change with time; see
+  /// `value_at`.
+  Slot(card: Card, value: Float, since: Int)
 }
 
+/// A card drawn onto the table.
 pub fn slot(card: Card) -> Slot {
-  Slot(card:, value: card.value)
+  Slot(card:, value: card.value, since: 0)
+}
+
+/// A card put on the table at a known time (a launched drone).
+pub fn placed(card: Card, at: Int) -> Slot {
+  Slot(card:, value: card.value, since: at)
+}
+
+/// The slot's value at time `now`: growing cards gain value over time up to
+/// their cap (never lose any: a card already above it stays there).
+pub fn value_at(slot: Slot, now: Int) -> Float {
+  case card.growth(slot.card) {
+    Ok(#(per_second, cap)) if slot.value <. cap -> {
+      let elapsed = int.to_float(now - slot.since) /. 1000.0
+      float.min(cap, slot.value +. per_second *. elapsed)
+    }
+    _ -> slot.value
+  }
+}
+
+/// Fix the slot's value at `now`, so later changes apply to the current value.
+pub fn settle(slot: Slot, now: Int) -> Slot {
+  Slot(..slot, value: value_at(slot, now), since: now)
+}
+
+pub fn is_drone(slot: Slot) -> Bool {
+  card.has(slot.card, card.Drone)
 }
 
 /// Apply `change` to the table cards that `scope` selects. Returns the new

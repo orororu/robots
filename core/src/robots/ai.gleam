@@ -66,6 +66,8 @@ type Choice {
 
 /// The table slot to play now, or `Error(Nil)` to wait (save energy).
 pub fn choose(state: Game, side: Side, now: Int) -> Result(Int, Nil) {
+  // Read current values: drones have grown since they were placed.
+  let state = game.settle(state, now)
   let me = game.combatant_of(state, side)
   let available = energy.at(me.energy, now)
   let options =
@@ -124,12 +126,26 @@ fn cheapest(options: List(Choice)) -> Result(Int, Nil) {
 fn score(state: Game, side: Side, slot: Slot) -> Float {
   let foe = game.combatant_of(state, game.other(side))
   let me = game.combatant_of(state, side)
+  let foe_drones = list.filter(foe.table, table.is_drone)
   case slot.card.target {
+    // A growing drone waits until it is (nearly) fully charged.
     card.OpponentHp ->
-      case amount.at_least(slot.value, foe.robot.hp) {
-        // A finishing blow beats everything.
-        True -> finishing_blow
-        False -> slot.value
+      case foe_drones, still_growing(slot) && !threatened(slot, foe.table) {
+        // Their drones soak up attacks: expect to hit one of them.
+        [_, ..], _ ->
+          scope_score(foe_drones, All([card.Drone]), fn(d) {
+            float.min(d.value, slot.value)
+          })
+          /. int.to_float(list.length(foe_drones))
+        [], _ if slot.value >=. foe.robot.hp -> finishing_blow
+        [], True -> 0.0
+        [], False -> slot.value
+      }
+    // Worth what the drone will grow into.
+    card.Launch(drone) ->
+      case card.growth(drone) {
+        Ok(#(_, cap)) -> cap
+        Error(Nil) -> drone.value
       }
     card.Opponent(scope) ->
       scope_score(foe.table, scope, fn(target) {
@@ -138,6 +154,22 @@ fn score(state: Game, side: Side, slot: Slot) -> Float {
       })
     card.Self(scope) -> scope_score(me.table, scope, fn(_) { slot.value })
   }
+}
+
+/// A drone that hasn't reached its cap yet is better left to grow.
+fn still_growing(slot: Slot) -> Bool {
+  case card.growth(slot.card) {
+    Ok(#(_, cap)) -> slot.value <. cap *. 0.95
+    Error(Nil) -> False
+  }
+}
+
+/// Could the opponent destroy this drone with an attack on their table? Then
+/// strike now rather than lose it.
+fn threatened(drone: Slot, foe_table: List(Slot)) -> Bool {
+  list.any(foe_table, fn(s) {
+    s.card.target == card.OpponentHp && s.value >=. drone.value
+  })
 }
 
 /// Total effect for `All`, expected (average) effect for `One`.

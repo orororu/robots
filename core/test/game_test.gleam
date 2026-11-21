@@ -13,7 +13,7 @@ import robots/game.{
 import robots/part
 import robots/robot
 import robots/scale
-import robots/table.{Slot}
+import robots/table.{type Slot, Slot, slot}
 
 // CARDS -----------------------------------------------------------------------
 
@@ -163,9 +163,9 @@ pub fn empty_deck_reshuffles_discard_and_resets_value_test() {
   // A lowered Laser is played, goes to the discard pile, and comes straight
   // back (it's the only card) at its printed value.
   let g = arena([laser()], [laser()])
-  let g = Game(..g, p1: Combatant(..g.p1, table: [Slot(laser(), 0.3)]))
+  let g = Game(..g, p1: Combatant(..g.p1, table: [Slot(laser(), 0.3, 0)]))
   let assert Ok(g) = game.update(g, PlayCard(P1, 0, 0))
-  assert g.p1.table == [Slot(laser(), 1.0)]
+  assert g.p1.table == [Slot(laser(), 1.0, 0)]
   assert g.p1.discard == []
 }
 
@@ -179,7 +179,7 @@ pub fn attack_damages_hp_by_current_value_test() {
 
 pub fn zero_value_attack_still_costs_energy_test() {
   let g = arena([laser()], [punch()])
-  let g = Game(..g, p1: Combatant(..g.p1, table: [Slot(laser(), 0.0)]))
+  let g = Game(..g, p1: Combatant(..g.p1, table: [Slot(laser(), 0.0, 0)]))
   let assert Ok(g) = game.update(g, PlayCard(P1, 0, 0))
   assert g.p2.robot.hp == 5.0
   assert energy.at(g.p1.energy, 0) == 4.0
@@ -207,7 +207,7 @@ pub fn defence_cannot_go_below_the_floor_test() {
   let g = arena([energy_shield(0.7)], [laser()])
   let g = Game(..g, config: Config(..g.config, defence_floor: 0.25))
   let floored =
-    Game(..g, p2: Combatant(..g.p2, table: [table.Slot(laser(), 0.25)]))
+    Game(..g, p2: Combatant(..g.p2, table: [table.Slot(laser(), 0.25, 0)]))
   let assert Ok(after) = game.update(floored, PlayCard(P1, 0, 0))
   assert list.map(after.p2.table, fn(s) { s.value }) == [0.25]
 }
@@ -229,7 +229,10 @@ pub fn single_target_defence_skips_cards_already_at_zero_test() {
   let g =
     Game(
       ..g,
-      p2: Combatant(..g.p2, table: [Slot(laser(), 0.0), Slot(laser(), 1.0)]),
+      p2: Combatant(..g.p2, table: [
+        Slot(laser(), 0.0, 0),
+        Slot(laser(), 1.0, 0),
+      ]),
     )
   let assert Ok(g) = game.update(g, PlayCard(P1, 0, 0))
   assert values(g.p2) == [0, 3]
@@ -294,6 +297,92 @@ pub fn once_cards_leave_the_game_test() {
   // An ordinary card is recycled as usual (discarded, then reshuffled in).
   let assert Ok(after_laser) = game.update(after_missile, PlayCard(P1, 0, 0))
   assert everywhere(after_laser.p1) == ["Laser"]
+}
+
+// DRONES ----------------------------------------------------------------------
+
+fn with_tables(g: Game, p1: List(Slot), p2: List(Slot)) -> Game {
+  Game(..g, p1: Combatant(..g.p1, table: p1), p2: Combatant(..g.p2, table: p2))
+}
+
+fn drone_at(value: Float) -> Slot {
+  Slot(catalog.drone(), value, 0)
+}
+
+pub fn launch_puts_a_drone_in_the_same_slot_test() {
+  let assert [launch, ..] = catalog.drone_bay().cards
+  let g = arena([laser(), launch], [laser()])
+  let assert Ok(g) = game.update(g, PlayCard(P1, 1, 0))
+  assert list.map(g.p1.table, fn(s) { s.card.name }) == ["Laser", "Drone"]
+  // Launching is once per match.
+  assert g.p1.discard == []
+}
+
+pub fn drones_grow_up_to_their_cap_test() {
+  let slot = table.placed(catalog.drone(), 0)
+  assert table.value_at(slot, 0) == 1.5
+  assert table.value_at(slot, 10_000) == 2.5
+  assert table.value_at(slot, 100_000) == 3.0
+}
+
+pub fn attacks_hit_a_drone_instead_of_the_robot_test() {
+  let g = arena([], [laser()]) |> with_tables([drone_at(2.0)], [slot(laser())])
+  let assert Ok(g) = game.update(g, PlayCard(P2, 0, 0))
+  assert g.p1.robot.hp == 5.0
+  assert list.map(g.p1.table, fn(s) { s.value }) == [1.0]
+}
+
+pub fn leftover_damage_is_lost_when_a_drone_is_destroyed_test() {
+  let g = arena([], [laser()]) |> with_tables([drone_at(0.4)], [slot(laser())])
+  let assert Ok(g) = game.update(g, PlayCard(P2, 0, 0))
+  assert g.p1.robot.hp == 5.0
+  // Destroyed: gone from the table (and the game).
+  assert g.p1.table == []
+  assert g.p1.discard == []
+}
+
+pub fn drone_strikes_for_its_grown_value_test() {
+  let g = arena([], [laser()]) |> with_tables([drone_at(0.5)], [slot(laser())])
+  // 10 s later it has grown from 0.5 to 1.5.
+  let assert Ok(g) = game.update(g, PlayCard(P1, 0, 10_000))
+  assert g.p2.robot.hp == 3.5
+  assert g.p1.discard == []
+}
+
+pub fn shields_do_not_affect_drones_test() {
+  let shield = energy_shield(0.7)
+  let g = arena([], [shield]) |> with_tables([drone_at(2.0)], [slot(shield)])
+  let assert Ok(g) = game.update(g, PlayCard(P2, 0, 0))
+  assert list.map(g.p1.table, fn(s) { s.value }) == [2.0]
+}
+
+pub fn flak_destroys_every_weak_drone_test() {
+  let assert [burst, ..] = catalog.flak_gun().cards
+  let g =
+    arena([], [burst])
+    |> with_tables([drone_at(0.5), slot(laser()), drone_at(0.8)], [slot(burst)])
+  let assert Ok(g) = game.update(g, PlayCard(P2, 0, 0))
+  assert list.map(g.p1.table, fn(s) { s.card.name }) == ["Laser"]
+}
+
+pub fn ai_lets_a_drone_grow_before_striking_test() {
+  let shield = energy_shield(0.7)
+  let g =
+    arena([], [shield])
+    |> with_tables([drone_at(0.5), slot(laser())], [slot(shield)])
+  // Young drone, nothing threatens it: fire the Laser, let the drone grow.
+  assert ai.choose(g, P1, 0) == Ok(1)
+  // Fully grown (3.0 after 25 s): strike with it.
+  assert ai.choose(g, P1, 30_000) == Ok(0)
+}
+
+pub fn ai_strikes_with_a_drone_about_to_be_shot_down_test() {
+  // The opponent's Laser (1.0) would destroy this drone (0.9): use it now,
+  // even though the drone could still grow.
+  let g =
+    arena([], [laser()])
+    |> with_tables([drone_at(0.9), slot(energy_shield(0.7))], [slot(laser())])
+  assert ai.choose(g, P1, 0) == Ok(0)
 }
 
 // ENERGY AND ERRORS -----------------------------------------------------------

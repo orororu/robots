@@ -8,7 +8,7 @@
 
 import robots/builder.{type Chassis, Chassis}
 import robots/card.{
-  type Card, type Scope, type Tag, All, Attack, Beam, Buff, Card, Defence,
+  type Card, type Scope, type Tag, All, Attack, Beam, Buff, Card, Defence, Drone,
   Energy, Explosive, Kinetic, Melee, Mobility, One, Opponent, OpponentHp, Range,
   Self,
 }
@@ -81,6 +81,8 @@ pub fn components() -> List(Component) {
     cannon(),
     machine_gun(),
     missile_rack(),
+    drone_bay(),
+    flak_gun(),
     cell(),
     battery(),
     big_battery(),
@@ -160,6 +162,45 @@ pub fn missile_rack() -> Component {
     Card(..attack("Missile", [Range, Explosive], 1.5, 3.0), traits: [card.Once])
   let rocket = attack("Micro rocket", [Range, Explosive], 0.7, 0.6)
   part.new("Missile rack", part.Weapon, 3.0, [missile, missile, rocket, rocket])
+}
+
+/// The drone a Drone bay launches. It grows while it waits on the table
+/// (15 to 30 over 15 s, at display scale). Play it to strike for its
+/// current value. Meanwhile the opponent's attacks hit it instead of your
+/// robot. A slower start (5, +0.5/s) got drones shot down before they
+/// could strike.
+pub fn drone() -> Card {
+  Card(
+    name: "Drone",
+    tags: [Drone, Energy],
+    cost: 0.5,
+    value: 1.5,
+    target: OpponentHp,
+    traits: [card.Once, card.Grows(per_second: 0.1, cap: 3.0)],
+  )
+}
+
+/// Two drones (once per match each) and two ordinary stings.
+pub fn drone_bay() -> Component {
+  let launch =
+    Card(
+      name: "Launch drone",
+      tags: [Drone],
+      cost: 1.0,
+      value: 0.0,
+      target: card.Launch(drone()),
+      traits: [card.Once],
+    )
+  let sting = attack("Sting", [Range, Energy], 0.6, 0.48)
+  part.new("Drone bay", part.Weapon, 3.0, [launch, launch, sting, sting])
+}
+
+/// Anti-drone: Flak burst hits every enemy drone, cheaply, and does nothing
+/// without drones. Flak shells are ordinary attacks (which hit drones too).
+pub fn flak_gun() -> Component {
+  let burst = defence("Flak burst", [Range, Explosive], 0.6, 1.0, All([Drone]))
+  let shell = attack("Flak shell", [Range, Explosive], 0.6, 0.48)
+  part.new("Flak gun", part.Weapon, 2.0, [burst, burst, shell, shell])
 }
 
 // WEAKEN (opponent's table) ---------------------------------------------------
