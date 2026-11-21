@@ -74,7 +74,7 @@ pub fn components() -> List(Component) {
     fist(),
     shield_emitter(),
     deflector(),
-    sword(),
+    buckler(),
     targeting_computer(),
     hydraulics(),
     reactor(),
@@ -103,12 +103,13 @@ pub fn chassis() -> List(Chassis) {
 // can't just repeat its single best combo.
 
 pub fn laser() -> Component {
-  let laser = attack("Laser", [Range, Beam], 1.0, 1.0)
+  // The energy weapon: a Deflector counters it.
+  let laser = attack("Laser", [Range, Beam, Energy], 1.0, 1.0)
   part.new("Laser", part.Weapon, 3.0, [
-    attack("Pulse", [Range, Beam], 0.8, 0.72),
+    attack("Pulse", [Range, Beam, Energy], 0.8, 0.72),
     laser,
     laser,
-    attack("Focused beam", [Range, Beam], 1.3, 1.5),
+    attack("Focused beam", [Range, Beam, Energy], 1.3, 1.5),
     attack("Overcharge", [Range, Beam, Energy], 1.6, 2.1),
   ])
 }
@@ -244,24 +245,28 @@ pub fn shield_emitter() -> Component {
   ])
 }
 
+/// Bends energy beams away: lowers energy attacks only (the Laser). A light
+/// specialist, like the Buckler for melee; the Shield emitter is the
+/// general, heavier defence.
 pub fn deflector() -> Component {
-  let deflect = defence("Deflect", [Kinetic], 0.7, 0.68, One([Attack]))
+  let deflect = defence("Deflect", [Energy], 0.8, 0.86, One([Attack, Energy]))
   part.new("Deflector", part.Defence, 1.0, [
-    defence("Glance", [Kinetic], 0.5, 0.38, One([Attack])),
+    defence("Glance", [Energy], 0.6, 0.52, One([Attack, Energy])),
     deflect,
     deflect,
-    defence("Turn aside", [Kinetic], 1.0, 1.3, One([Attack])),
+    defence("Turn aside", [Energy], 1.0, 1.3, One([Attack, Energy])),
   ])
 }
 
-/// Parry hits one melee attack, hard; Disarm any attack.
-pub fn sword() -> Component {
+/// A small hand shield: parries melee attacks only, so it's cheap and light
+/// but useless against range builds.
+pub fn buckler() -> Component {
   let parry = defence("Parry", [Melee], 0.8, 0.86, One([Attack, Melee]))
-  part.new("Sword", part.Defence, 1.0, [
+  part.new("Buckler", part.Defence, 1.0, [
     defence("Quick parry", [Melee], 0.6, 0.52, One([Attack, Melee])),
     parry,
     parry,
-    defence("Disarm", [Melee], 1.2, 1.82, One([Attack])),
+    defence("Full parry", [Melee], 1.0, 1.3, One([Attack, Melee])),
   ])
 }
 

@@ -68,7 +68,7 @@ pub fn every_chassis_has_a_legal_signature_build_test() {
       catalog.cell(),
       catalog.shield_emitter(),
       catalog.deflector(),
-      catalog.sword(),
+      catalog.buckler(),
       catalog.heavy_plating(),
     ])
   let assert Ok(_) =
