@@ -36,6 +36,8 @@ pub type BuildError {
   Overweight(total: Float, capacity: Float)
   TooManyWeapons(count: Int, mounts: Int)
   WeaponTooHeavy(weapon: String, weight: Float, mount_limit: Float)
+  /// Chassis cards alone (Kick, Ram) can't win a match in reasonable time.
+  NoWeapon
   NoBattery
   DeckTooSmall(cards: Int, minimum: Int)
 }
@@ -46,8 +48,6 @@ pub type Warning {
   DeadCard(card: String)
   /// A card that costs more energy than the batteries can hold.
   Unaffordable(card: String, cost: Float, cap: Float)
-  /// No card damages the opponent: this robot can never win.
-  NoDamage
 }
 
 pub fn build(
@@ -104,6 +104,10 @@ fn check_weapons(chassis: Chassis, parts: List(Component)) -> List(BuildError) {
     |> list.sort(fn(a, b) { float.compare(part.weight(b), part.weight(a)) })
   let mounts = list.sort(chassis.weapon_mounts, order.reverse(float.compare))
   let count = list.length(weapons)
+  let none = case count {
+    0 -> [NoWeapon]
+    _ -> []
+  }
   let too_many = case count > list.length(mounts) {
     True -> [TooManyWeapons(count:, mounts: list.length(mounts))]
     False -> []
@@ -122,7 +126,7 @@ fn check_weapons(chassis: Chassis, parts: List(Component)) -> List(BuildError) {
           ))
       }
     })
-  list.append(too_many, too_heavy)
+  list.flatten([none, too_many, too_heavy])
 }
 
 fn check_battery(parts: List(Component)) -> List(BuildError) {
@@ -145,10 +149,6 @@ fn check_deck(parts: List(Component)) -> List(BuildError) {
 /// Each distinct problem once, in deck order.
 pub fn warnings(bot: Robot) -> List(Warning) {
   let deck = robot.deck(bot)
-  let no_damage = case list.any(deck, fn(c) { c.target == OpponentHp }) {
-    True -> []
-    False -> [NoDamage]
-  }
   list.flat_map(deck, fn(c) {
     let unaffordable = case amount.at_least(bot.energy_cap, c.cost) {
       True -> []
@@ -161,7 +161,6 @@ pub fn warnings(bot: Robot) -> List(Warning) {
     list.append(unaffordable, dead)
   })
   |> list.unique
-  |> list.append(no_damage)
 }
 
 /// Only cards targeting your *own* table can be judged here; what the
@@ -191,6 +190,7 @@ pub fn describe_error(error: BuildError) -> String {
       <> num(weight)
       <> "; no free mount holds more than "
       <> num(mount_limit)
+    NoWeapon -> "At least one weapon is required"
     NoBattery -> "A battery is required"
     DeckTooSmall(cards:, minimum:) ->
       "Only "

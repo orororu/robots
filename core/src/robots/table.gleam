@@ -26,7 +26,7 @@ pub fn slot(card: Card) -> Slot {
 pub fn affect(
   table: List(Slot),
   scope: Scope,
-  change: fn(Float) -> Float,
+  change: fn(Slot) -> Float,
   seed: Seed,
 ) -> #(List(Slot), Int, Seed) {
   case scope {
@@ -44,7 +44,7 @@ pub fn affect(
         |> list.index_map(fn(s, i) { #(i, s) })
         |> list.filter(fn(pair) {
           let s = pair.1
-          card.matches(s.card, tags) && change(s.value) != s.value
+          card.matches(s.card, tags) && change(s) != s.value
         })
         |> list.map(fn(pair) { pair.0 })
       case candidates {
@@ -62,11 +62,11 @@ pub fn affect(
 fn update_at(
   table: List(Slot),
   indexes: List(Int),
-  change: fn(Float) -> Float,
+  change: fn(Slot) -> Float,
 ) -> List(Slot) {
   list.index_map(table, fn(s, i) {
     case list.contains(indexes, i) {
-      True -> Slot(..s, value: change(s.value))
+      True -> Slot(..s, value: change(s))
       False -> s
     }
   })

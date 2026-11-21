@@ -125,6 +125,13 @@ after playtesting:
 
 - **Extra value is wasted.** Energy shield 12 against Laser 10 leaves the Laser
   at 0, and the extra 2 does nothing.
+- **Defensive stalls (known, not fixed yet):** two decks that are mostly
+  defence wear each other's attacks to 0, and ~10% of build-tournament matches
+  hit the 15-minute limit. Revisit once there are more card types and rules.
+  Options: AI opponents avoid too-defensive builds (players may still use
+  them), or a **defence floor** (`Config.defence_floor`, 0 = off): defence
+  can't lower a card below a share of its printed value. A 25% floor cut
+  stalls to ~2% and kept the starters at 49%.
 - **Defence lowers attack cards only.**
 - **Buffs raise one random matching card** on your own table. No maximum value.
 - **All tags are visible** for now.

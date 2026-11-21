@@ -78,6 +78,7 @@ pub type BuildError {
   TooManyWeapons(count: Int, mounts: Int)
   WeaponTooHeavy(weapon: String, weight: Float, mount_limit: Float)
   DeckTooSmall(cards: Int, minimum: Int)   // the table needs 4 cards
+  NoWeapon
   NoBattery
 }
 
@@ -138,6 +139,8 @@ Chosen to get started; each can change:
 
 - No limits besides weight, capacity and weapon mounts.
 - Batteries add no cards. Everything else does (see below).
+- **At least one weapon** is required (`NoWeapon`). Chassis attacks (Kick,
+  Ram) alone made weaponless builds that caused 75% of tournament stalls.
 - No maximum deck size: weight is the limit.
 
 ### Every robot's deck is diluted (why carry a second weapon?)

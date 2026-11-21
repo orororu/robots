@@ -133,7 +133,8 @@ fn score(state: Game, side: Side, slot: Slot) -> Float {
       }
     card.Opponent(scope) ->
       scope_score(foe.table, scope, fn(target) {
-        float.min(target.value, slot.value)
+        target.value
+        -. game.lowered(target, slot.value, state.config.defence_floor)
       })
     card.Self(scope) -> scope_score(me.table, scope, fn(_) { slot.value })
   }

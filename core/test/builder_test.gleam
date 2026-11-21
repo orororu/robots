@@ -1,6 +1,6 @@
 import gleam/list
 import robots/builder.{
-  DeadCard, DeckTooSmall, NoBattery, NoDamage, Overweight, TooManyWeapons,
+  DeadCard, DeckTooSmall, NoBattery, NoWeapon, Overweight, TooManyWeapons,
   Unaffordable, WeaponTooHeavy,
 }
 import robots/card.{Attack, Card, OpponentHp}
@@ -223,12 +223,12 @@ pub fn card_costing_more_than_the_batteries_hold_is_flagged_test() {
     == [Unaffordable(card: "Nuke", cost: 4.0, cap: 3.0)]
 }
 
-pub fn robot_without_attacks_can_never_win_test() {
-  let assert Ok(bot) =
-    builder.build("B", bare(), [
+pub fn a_weapon_is_required_test() {
+  // The Frame's own Kick isn't enough.
+  assert builder.build("B", catalog.frame(), [
       catalog.shield_emitter(),
       catalog.deflector(),
       catalog.battery(),
     ])
-  assert builder.warnings(bot) == [NoDamage]
+    == Error([NoWeapon])
 }

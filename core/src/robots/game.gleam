@@ -36,7 +36,15 @@ pub fn other(side: Side) -> Side {
 /// Energy amounts are relative, on the same scale as card costs. The energy
 /// cap is not here: each robot's batteries decide it.
 pub type Config {
-  Config(table_size: Int, starting_energy: Float, energy_rate: Float)
+  Config(
+    table_size: Int,
+    starting_energy: Float,
+    energy_rate: Float,
+    /// Defence can't lower a card below this share of its printed value
+    /// (0.25 = a quarter). Every attack that gets played still hurts, so two
+    /// defensive builds can't stall each other forever.
+    defence_floor: Float,
+  )
 }
 
 pub fn default_config() -> Config {
@@ -45,6 +53,8 @@ pub fn default_config() -> Config {
     starting_energy: 2.0,
     // Relative cost units per second: 0.5 / 3 shows as ~1.7/s at scale x10.
     energy_rate: 0.5 /. 3.0,
+    // Off for now; see docs/RULES.md "Defence floor".
+    defence_floor: 0.0,
   )
 }
 
@@ -192,8 +202,13 @@ fn resolve(game: Game, side: Side, played: Slot) -> #(Game, Int, Float) {
   case played.card.target {
     card.OpponentHp -> map_robot(game, other(side), robot.take_damage(_, value))
     card.Opponent(scope) ->
-      affect_table(game, other(side), scope, amount.subtract(_, value))
-    card.Self(scope) -> affect_table(game, side, scope, fn(v) { v +. value })
+      affect_table(game, other(side), scope, lowered(
+        _,
+        value,
+        game.config.defence_floor,
+      ))
+    card.Self(scope) ->
+      affect_table(game, side, scope, fn(s: Slot) { s.value +. value })
   }
 }
 
@@ -208,11 +223,18 @@ fn map_robot(
   #(put(game, side, Combatant(..c, robot: changed)), 1, effect)
 }
 
+/// A table card's value after a defence of `by`: never below `floor` times
+/// its printed value (nor raised, if it is already lower).
+pub fn lowered(slot: Slot, by: Float, floor: Float) -> Float {
+  let minimum = float.min(slot.value, floor *. slot.card.value)
+  float.max(amount.subtract(slot.value, by), minimum)
+}
+
 fn affect_table(
   game: Game,
   side: Side,
   scope: card.Scope,
-  change: fn(Float) -> Float,
+  change: fn(Slot) -> Float,
 ) -> #(Game, Int, Float) {
   let c = combatant_of(game, side)
   let #(table, targets, seed) = table.affect(c.table, scope, change, game.seed)

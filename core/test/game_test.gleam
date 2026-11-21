@@ -50,7 +50,7 @@ fn lock_on() -> Card {
 // SETUP -----------------------------------------------------------------------
 
 fn config(starting_energy: Float) -> game.Config {
-  Config(table_size: 4, starting_energy:, energy_rate: 0.5)
+  Config(table_size: 4, starting_energy:, energy_rate: 0.5, defence_floor: 0.0)
 }
 
 fn bot(name: String, cards: List(Card)) -> robot.Robot {
@@ -166,6 +166,21 @@ pub fn energy_shield_example_from_the_rules_test() {
   // If they play it now, it deals only 3.
   let assert Ok(g) = game.update(g, PlayCard(P2, 0, 0))
   assert scale.value(scale.default(), g.p1.robot.hp) == 47
+}
+
+pub fn defence_cannot_go_below_the_floor_test() {
+  // With a 25% floor, a Laser 10 hit by a 12 shield keeps 2.5 (shown 2).
+  let g = arena([energy_shield(1.2)], [laser()])
+  let g = Game(..g, config: Config(..g.config, defence_floor: 0.25))
+  let assert Ok(g) = game.update(g, PlayCard(P1, 0, 0))
+  assert list.map(g.p2.table, fn(s) { s.value }) == [0.25]
+  // A second shield has nothing left to take.
+  let g = arena([energy_shield(0.7)], [laser()])
+  let g = Game(..g, config: Config(..g.config, defence_floor: 0.25))
+  let floored =
+    Game(..g, p2: Combatant(..g.p2, table: [table.Slot(laser(), 0.25)]))
+  let assert Ok(after) = game.update(floored, PlayCard(P1, 0, 0))
+  assert list.map(after.p2.table, fn(s) { s.value }) == [0.25]
 }
 
 pub fn extra_defence_value_is_wasted_test() {
