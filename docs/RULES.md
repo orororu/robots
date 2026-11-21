@@ -159,8 +159,8 @@ after playtesting:
     rated ×2 above their band.
   - Values are timed like energy: a slot remembers when its value was last
     set, and the game settles growth at each play (`game.settle`).
-  - The AI lets a drone grow, but strikes early when an enemy attack on the
-    table could destroy it. A slower drone (start 5, +0.5/s) was almost
+  - The AI waits until a drone is fully grown before striking (unless the
+    strike would win the match). A slower drone (start 5, +0.5/s) was almost
     always shot down before striking.
 
 ## Balance principles

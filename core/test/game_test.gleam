@@ -376,13 +376,17 @@ pub fn ai_lets_a_drone_grow_before_striking_test() {
   assert ai.choose(g, P1, 30_000) == Ok(0)
 }
 
-pub fn ai_strikes_with_a_drone_about_to_be_shot_down_test() {
-  // The opponent's Laser (1.0) would destroy this drone (0.9): use it now,
-  // even though the drone could still grow.
+pub fn ai_waits_for_a_full_drone_even_under_threat_test() {
+  // The opponent's Laser (1.0) could destroy this drone (0.9), but the AI
+  // still waits for it to max out.
   let g =
     arena([], [laser()])
     |> with_tables([drone_at(0.9), slot(energy_shield(0.7))], [slot(laser())])
-  assert ai.choose(g, P1, 0) == Ok(0)
+  assert ai.choose(g, P1, 0) != Ok(0)
+  // ...unless the strike would win the match.
+  let low =
+    Game(..g, p2: Combatant(..g.p2, robot: robot.Robot(..g.p2.robot, hp: 0.5)))
+  assert ai.choose(low, P1, 0) == Ok(0)
 }
 
 // ENERGY AND ERRORS -----------------------------------------------------------
