@@ -139,7 +139,11 @@ after playtesting:
 - **No healing during a match.** Robots are repaired only between matches.
   Repair cards made matches stall: they out-healed cheap attacks, and 22% of
   build-tournament matches hit the 15-minute limit (3% without them).
-- A deck with fewer than 4 cards leaves table slots empty.
+- A deck with fewer than 4 cards leaves table slots empty (robots need 16).
+- **Traits** are special rules on a card. `Once`: playable once per match;
+  afterwards the card leaves the game instead of going to the discard pile.
+  Example: **Missile** (Missile rack: 2 Missiles, cost 15, 30 damage, plus 2
+  ordinary Micro rockets). Once cards are rated ×1.6 above their role's goal.
 
 ## Balance principles
 
@@ -179,8 +183,9 @@ after playtesting:
 1. **Hidden tags:** which tags are hidden, and can they be revealed (e.g. a
    scanner card)?
 2. **Multi-target buffs:** should they exist, with a lower value like Jump?
-3. **Once-per-match cards** (e.g. Missiles: very strong, removed from the game
-   after one use). Possible now that decks have 16-20 cards.
+3. **Drones** (next): a card that, once paid for, turns into a drone card on the
+   table whose value grows over time up to a limit, and which the opponent's
+   weapons can destroy.
 4. **Counter cards** against strong builds, e.g. Smoke lowering every `range`
    attack, so expensive chassis like Tank + Cannon can be answered.
 

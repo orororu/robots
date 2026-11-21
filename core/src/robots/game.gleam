@@ -175,16 +175,14 @@ fn play(
     energy.spend(c.energy, played.card.cost, now)
     |> result.map_error(NotEnoughEnergy(played.card.cost, _)),
   )
-  // The card leaves the table before it resolves, so a buff can't target itself.
+  // The card leaves the table before it resolves, so a buff can't target
+  // itself. `Once` cards leave the game; the rest go to the discard pile.
+  let discard = case card.has_trait(played.card, card.Once) {
+    True -> c.discard
+    False -> [played.card, ..c.discard]
+  }
   let game =
-    put(
-      game,
-      side,
-      Combatant(..c, table: rest, energy: spent, discard: [
-        played.card,
-        ..c.discard
-      ]),
-    )
+    put(game, side, Combatant(..c, table: rest, energy: spent, discard:))
   let #(game, targets, effect) = resolve(game, side, played)
   let #(refilled, seed) = refill(combatant_of(game, side), index, game.seed)
   Game(..game, seed:)

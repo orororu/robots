@@ -9,7 +9,8 @@
 import robots/builder.{type Chassis, Chassis}
 import robots/card.{
   type Card, type Scope, type Tag, All, Attack, Beam, Buff, Card, Defence,
-  Energy, Kinetic, Melee, Mobility, One, Opponent, OpponentHp, Range, Self,
+  Energy, Explosive, Kinetic, Melee, Mobility, One, Opponent, OpponentHp, Range,
+  Self,
 }
 import robots/part.{type Component}
 import robots/robot.{type Robot}
@@ -19,7 +20,14 @@ import robots/robot.{type Robot}
 
 /// Damages the opponent's HP.
 fn attack(name: String, tags: List(Tag), cost: Float, value: Float) -> Card {
-  Card(name:, tags: [Attack, ..tags], cost:, value:, target: OpponentHp)
+  Card(
+    name:,
+    tags: [Attack, ..tags],
+    cost:,
+    value:,
+    target: OpponentHp,
+    traits: [],
+  )
 }
 
 /// Lowers cards on the opponent's table.
@@ -30,7 +38,14 @@ fn defence(
   value: Float,
   scope: Scope,
 ) -> Card {
-  Card(name:, tags: [Defence, ..tags], cost:, value:, target: Opponent(scope))
+  Card(
+    name:,
+    tags: [Defence, ..tags],
+    cost:,
+    value:,
+    target: Opponent(scope),
+    traits: [],
+  )
 }
 
 /// Raises cards on your own table.
@@ -41,7 +56,14 @@ fn buff(
   value: Float,
   scope: Scope,
 ) -> Card {
-  Card(name:, tags: [Buff, ..tags], cost:, value:, target: Self(scope))
+  Card(
+    name:,
+    tags: [Buff, ..tags],
+    cost:,
+    value:,
+    target: Self(scope),
+    traits: [],
+  )
 }
 
 /// Every component, for tests, the balance report and (later) the robot builder.
@@ -58,6 +80,7 @@ pub fn components() -> List(Component) {
     reactor(),
     cannon(),
     machine_gun(),
+    missile_rack(),
     cell(),
     battery(),
     big_battery(),
@@ -128,6 +151,15 @@ pub fn machine_gun() -> Component {
     burst,
     attack("Long burst", [Range, Kinetic], 0.8, 0.72),
   ])
+}
+
+/// Two Missiles, each playable once per match and much stronger than a
+/// normal attack, plus two ordinary rockets for the rest of the match.
+pub fn missile_rack() -> Component {
+  let missile =
+    Card(..attack("Missile", [Range, Explosive], 1.5, 3.0), traits: [card.Once])
+  let rocket = attack("Micro rocket", [Range, Explosive], 0.7, 0.6)
+  part.new("Missile rack", part.Weapon, 3.0, [missile, missile, rocket, rocket])
 }
 
 // WEAKEN (opponent's table) ---------------------------------------------------

@@ -64,9 +64,17 @@ pub fn goal_for(role: Role, cost: Float) -> Float {
   *. float.max(0.0, cost -. bonus_pivot_cost)
 }
 
+/// `Once` cards are rated this much above their role's goal: they can be
+/// played a single time per match.
+pub const once_bonus = 1.6
+
 /// Target value-per-cost for this particular card.
 pub fn goal(card: Card) -> Float {
-  goal_for(role(card), card.cost)
+  let base = goal_for(role(card), card.cost)
+  case card.has_trait(card, card.Once) {
+    True -> base *. once_bonus
+    False -> base
+  }
 }
 
 /// The card's printed value per cost, counting `All` cards as hitting

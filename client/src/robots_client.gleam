@@ -245,6 +245,10 @@ fn slot_text(s: Scale, slot: Slot) -> String {
   <> "cost "
   <> string.pad_end(int.to_string(scale.cost(s, card.cost)), 4, " ")
   <> card.tags_text(card.tags)
+  <> case card.has_trait(card, card.Once) {
+    True -> " once"
+    False -> ""
+  }
   <> "  → "
   <> target_text(card)
 }

@@ -22,6 +22,7 @@ pub type Tag {
   Energy
   Kinetic
   Mobility
+  Explosive
 }
 
 /// What a card affects.
@@ -43,7 +44,27 @@ pub type Scope {
 }
 
 pub type Card {
-  Card(name: String, tags: List(Tag), cost: Float, value: Float, target: Target)
+  Card(
+    name: String,
+    tags: List(Tag),
+    cost: Float,
+    value: Float,
+    target: Target,
+    /// Special rules, usually none.
+    traits: List(Trait),
+  )
+}
+
+/// Special rules a card can have.
+pub type Trait {
+  /// Played once per match: afterwards the card leaves the game instead of
+  /// going to the discard pile. Rated above normal efficiency to make up
+  /// for it.
+  Once
+}
+
+pub fn has_trait(card: Card, trait: Trait) -> Bool {
+  list.contains(card.traits, trait)
 }
 
 pub fn has(card: Card, tag: Tag) -> Bool {
@@ -65,6 +86,7 @@ pub fn tag_name(tag: Tag) -> String {
     Energy -> "energy"
     Kinetic -> "kinetic"
     Mobility -> "mobility"
+    Explosive -> "explosive"
   }
 }
 

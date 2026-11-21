@@ -24,27 +24,56 @@ fn laser() -> Card {
     cost: 1.0,
     value: 1.0,
     target: OpponentHp,
+    traits: [],
   )
 }
 
 fn punch() -> Card {
-  Card("Punch", [Attack, Melee], cost: 0.5, value: 0.5, target: OpponentHp)
+  Card(
+    "Punch",
+    [Attack, Melee],
+    cost: 0.5,
+    value: 0.5,
+    target: OpponentHp,
+    traits: [],
+  )
 }
 
 fn energy_shield(value: Float) -> Card {
-  Card("Energy shield", [Defence, Energy], 0.8, value, Opponent(One([Attack])))
+  Card(
+    "Energy shield",
+    [Defence, Energy],
+    0.8,
+    value,
+    Opponent(One([Attack])),
+    traits: [],
+  )
 }
 
 fn parry() -> Card {
-  Card("Parry", [Defence, Melee], 0.6, 0.8, Opponent(One([Attack, Melee])))
+  Card(
+    "Parry",
+    [Defence, Melee],
+    0.6,
+    0.8,
+    Opponent(One([Attack, Melee])),
+    traits: [],
+  )
 }
 
 fn jump() -> Card {
-  Card("Jump", [Defence], 0.8, 0.3, Opponent(All([Attack, Melee])))
+  Card("Jump", [Defence], 0.8, 0.3, Opponent(All([Attack, Melee])), traits: [])
 }
 
 fn lock_on() -> Card {
-  Card("Lock on", [Buff, Range], 0.5, 0.4, Self(One([Attack, Range])))
+  Card(
+    "Lock on",
+    [Buff, Range],
+    0.5,
+    0.4,
+    Self(One([Attack, Range])),
+    traits: [],
+  )
 }
 
 // SETUP -----------------------------------------------------------------------
@@ -243,10 +272,28 @@ pub fn buff_raises_own_matching_card_test() {
 }
 
 pub fn buff_all_raises_every_matching_own_card_test() {
-  let overclock = Card("Overclock", [Buff], 0.9, 0.2, Self(All([Attack])))
+  let overclock =
+    Card("Overclock", [Buff], 0.9, 0.2, Self(All([Attack])), traits: [])
   let g = arena([overclock, punch(), laser()], [laser()])
   let assert Ok(g) = game.update(g, PlayCard(P1, 0, 0))
   assert values(g.p1) == [2, 7, 12]
+}
+
+// ONCE PER MATCH --------------------------------------------------------------
+
+pub fn once_cards_leave_the_game_test() {
+  let missile = Card(..laser(), name: "Missile", traits: [card.Once])
+  let everywhere = fn(c: game.Combatant) {
+    list.flatten([list.map(c.table, fn(s) { s.card }), c.deck, c.discard])
+    |> list.map(fn(card) { card.name })
+  }
+  let g = arena([missile, laser()], [laser()])
+  // The Missile is gone for good: not on the table, in the deck or discard.
+  let assert Ok(after_missile) = game.update(g, PlayCard(P1, 0, 0))
+  assert everywhere(after_missile.p1) == ["Laser"]
+  // An ordinary card is recycled as usual (discarded, then reshuffled in).
+  let assert Ok(after_laser) = game.update(after_missile, PlayCard(P1, 0, 0))
+  assert everywhere(after_laser.p1) == ["Laser"]
 }
 
 // ENERGY AND ERRORS -----------------------------------------------------------
@@ -267,7 +314,7 @@ pub fn invalid_slot_is_rejected_test() {
 }
 
 pub fn destroying_the_robot_wins_test() {
-  let nuke = Card("Nuke", [Attack], 0.0, 9.0, OpponentHp)
+  let nuke = Card("Nuke", [Attack], 0.0, 9.0, OpponentHp, traits: [])
   let assert Ok(g) = game.update(arena([nuke], [laser()]), PlayCard(P1, 0, 0))
   assert g.status == Won(P1)
   assert g.p2.robot.hp == 0.0
@@ -292,15 +339,16 @@ pub fn ai_plays_after_thinking_test() {
 pub fn ai_defends_against_a_big_attack_test() {
   // Shield 9 for cost 7 removes 9 of the Laser: 1.29 per energy, better than
   // a Punch's 1.0.
-  let shield = Card("Shield", [Defence], 0.7, 0.9, Opponent(One([Attack])))
+  let shield =
+    Card("Shield", [Defence], 0.7, 0.9, Opponent(One([Attack])), traits: [])
   let g = arena([laser()], [punch(), shield])
   assert ai.choose(g, P2, 0) == Ok(1)
 }
 
 pub fn ai_saves_energy_for_a_more_efficient_card_test() {
   // Tap (1.0 per cost) is affordable; Big shot (1.5 per cost) isn't yet.
-  let big = Card("Big shot", [Attack], 2.0, 3.0, OpponentHp)
-  let weak = Card("Tap", [Attack], 0.5, 0.5, OpponentHp)
+  let big = Card("Big shot", [Attack], 2.0, 3.0, OpponentHp, traits: [])
+  let weak = Card("Tap", [Attack], 0.5, 0.5, OpponentHp, traits: [])
   let g = arena([laser()], [weak, big])
   let low =
     Game(..g, p2: Combatant(..g.p2, energy: energy.new(1.0, 0.5, 5.0, 0)))
@@ -312,8 +360,8 @@ pub fn ai_saves_energy_for_a_more_efficient_card_test() {
 pub fn ai_spends_instead_of_wasting_energy_at_the_cap_test() {
   // The best card costs more than ever affordable right now, but energy is
   // full: spend on the best affordable card rather than waste income.
-  let big = Card("Big shot", [Attack], 5.0, 9.0, OpponentHp)
-  let weak = Card("Tap", [Attack], 0.5, 0.5, OpponentHp)
+  let big = Card("Big shot", [Attack], 5.0, 9.0, OpponentHp, traits: [])
+  let weak = Card("Tap", [Attack], 0.5, 0.5, OpponentHp, traits: [])
   let g = arena([laser()], [weak, big])
   let nearly =
     Game(..g, p2: Combatant(..g.p2, energy: energy.new(4.6, 0.5, 5.0, 0)))

@@ -1,4 +1,5 @@
 import gleam/list
+import robots/card
 import robots/catalog
 import robots/efficiency
 import robots/part
@@ -17,6 +18,15 @@ pub fn every_catalog_card_is_within_its_band_test() {
     |> list.filter(fn(card) { !efficiency.within_band(card) })
     |> list.map(fn(card) { card.name })
   assert outliers == []
+}
+
+pub fn once_cards_are_rated_above_their_role_test() {
+  let missile = catalog.missile_rack().cards |> list.first
+  let assert Ok(missile) = missile
+  assert card.has_trait(missile, card.Once)
+  assert efficiency.goal(missile)
+    == efficiency.goal_for(efficiency.Damage, missile.cost)
+    *. efficiency.once_bonus
 }
 
 /// Armor's Block is weak on purpose, so stacking armor dilutes the deck.

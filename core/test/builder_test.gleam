@@ -23,7 +23,8 @@ fn bare() -> builder.Chassis {
 /// The chassis plus 16 filler cards, so tests of other rules aren't tripped
 /// by the minimum deck size. Fillers are defences: never dead, never buffed.
 fn padded(chassis: builder.Chassis) -> builder.Chassis {
-  let filler = Card("Filler", [Defence], 0.5, 0.38, Opponent(One([Attack])))
+  let filler =
+    Card("Filler", [Defence], 0.5, 0.38, Opponent(One([Attack])), traits: [])
   builder.Chassis(
     ..chassis,
     cards: list.append(chassis.cards, list.repeat(filler, 16)),
@@ -178,7 +179,7 @@ pub fn a_battery_is_required_test() {
 
 /// A weapon with a single card, for deck-size tests.
 fn one_shot(weight: Float) -> part.Component {
-  let shot = Card("Shot", [Attack], 1.0, 1.0, OpponentHp)
+  let shot = Card("Shot", [Attack], 1.0, 1.0, OpponentHp, traits: [])
   part.new("One-shot", part.Weapon, weight, [shot])
 }
 
@@ -248,7 +249,7 @@ pub fn buff_without_matching_own_cards_is_dead_test() {
 }
 
 pub fn card_costing_more_than_the_batteries_hold_is_flagged_test() {
-  let nuke = Card("Nuke", [Attack], 4.0, 4.0, OpponentHp)
+  let nuke = Card("Nuke", [Attack], 4.0, 4.0, OpponentHp, traits: [])
   let bot =
     robot.new("B", chassis: "Test", max_hp: 5.0, energy_cap: 3.0, components: [
       part.new("Launcher", part.Weapon, 1.0, [nuke, nuke]),
