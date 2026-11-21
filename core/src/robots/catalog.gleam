@@ -103,14 +103,16 @@ pub fn chassis() -> List(Chassis) {
 // can't just repeat its single best combo.
 
 pub fn laser() -> Component {
-  // The energy weapon: a Deflector counters it.
-  let laser = attack("Laser", [Range, Beam, Energy], 1.0, 1.0)
+  // The energy weapon: a Deflector counters it. A beam, not a range
+  // (projectile) weapon, so Smoke doesn't block it and a Targeting computer
+  // doesn't aim it.
+  let laser = attack("Laser", [Beam, Energy], 1.0, 1.0)
   part.new("Laser", part.Weapon, 3.0, [
-    attack("Pulse", [Range, Beam, Energy], 0.8, 0.72),
+    attack("Pulse", [Beam, Energy], 0.8, 0.72),
     laser,
     laser,
-    attack("Focused beam", [Range, Beam, Energy], 1.3, 1.5),
-    attack("Overcharge", [Range, Beam, Energy], 1.6, 2.1),
+    attack("Focused beam", [Beam, Energy], 1.3, 1.5),
+    attack("Overcharge", [Beam, Energy], 1.6, 2.1),
   ])
 }
 
@@ -146,7 +148,8 @@ pub fn cannon() -> Component {
   ])
 }
 
-/// Light: fits small mounts, many cheap cards (Scout).
+/// Light: fits small mounts, many cheap cards (Scout). Sweep sprays the
+/// air: it destroys a freshly launched drone, or halves a grown one.
 pub fn machine_gun() -> Component {
   let burst = attack("Burst", [Range, Kinetic], 0.5, 0.4)
   part.new("Machine gun", part.Weapon, 2.0, [
@@ -154,6 +157,7 @@ pub fn machine_gun() -> Component {
     burst,
     burst,
     attack("Long burst", [Range, Kinetic], 0.8, 0.72),
+    defence("Sweep", [Range, Kinetic], 0.5, 1.5, One([Drone])),
   ])
 }
 
@@ -235,13 +239,17 @@ pub fn point_defence() -> Component {
 
 // WEAKEN (opponent's table) ---------------------------------------------------
 
+/// Stops projectiles and blows: lowers kinetic attacks only (Cannon,
+/// Machine gun, Fist, Kick, Ram). Lasers pass through; a Deflector stops
+/// those.
 pub fn shield_emitter() -> Component {
-  let shield = defence("Energy shield", [Energy], 1.0, 1.3, One([Attack]))
+  let shield =
+    defence("Energy shield", [Energy], 1.0, 1.3, One([Attack, Kinetic]))
   part.new("Shield emitter", part.Defence, 2.0, [
-    defence("Flicker shield", [Energy], 0.7, 0.68, One([Attack])),
+    defence("Flicker shield", [Energy], 0.7, 0.68, One([Attack, Kinetic])),
     shield,
     shield,
-    defence("Bubble", [Energy], 1.2, 0.91, All([Attack])),
+    defence("Bubble", [Energy], 1.2, 0.91, All([Attack, Kinetic])),
   ])
 }
 
@@ -379,13 +387,14 @@ pub fn scout() -> Chassis {
 
 // ROBOTS ----------------------------------------------------------------------
 
-/// The player's starter robot: ranged attacks, energy shields, sidesteps.
+/// The player's starter robot: a Laser, a Buckler against melee brawlers, and a
+/// Reactor to boost attacks.
 pub fn tinker() -> Robot {
   starter("Tinker", frame(), [
     laser(),
-    shield_emitter(),
-    targeting_computer(),
-    battery(),
+    buckler(),
+    reactor(),
+    big_battery(),
     plating(),
   ])
 }

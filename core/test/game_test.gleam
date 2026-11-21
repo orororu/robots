@@ -518,3 +518,27 @@ pub fn smoke_lowers_range_attacks_on_both_tables_test() {
   assert list.drop(values(g.p1.table), 1) == [#("Laser", 0.0), #("Jab", 0.38)]
   assert values(g.p2.table) == [#("Laser", 0.0)]
 }
+
+pub fn smoke_does_not_block_beams_test() {
+  let assert [smoke, ..] = catalog.smoke_launcher().cards
+  let assert [_, laser_card, ..] = catalog.laser().cards
+  let assert [burst, ..] = catalog.machine_gun().cards
+  let g =
+    arena([], [smoke])
+    |> with_tables([slot(laser_card), slot(burst)], [slot(smoke)])
+  let assert Ok(g) = game.update(g, PlayCard(P2, 0, 0))
+  // The Laser is a beam: untouched. The Burst is a range attack: lowered.
+  let assert [laser_slot, burst_slot] = g.p1.table
+  assert laser_slot.value == laser_card.value
+  assert burst_slot.value == 0.0
+}
+
+pub fn a_machine_gun_sweep_destroys_a_fresh_drone_test() {
+  let assert Ok(sweep) =
+    list.find(catalog.machine_gun().cards, fn(c) { c.name == "Sweep" })
+  let g =
+    arena([], [sweep])
+    |> with_tables([drone_at(1.5), slot(laser())], [slot(sweep)])
+  let assert Ok(g) = game.update(g, PlayCard(P2, 0, 0))
+  assert list.map(g.p1.table, fn(s) { s.card.name }) == ["Laser"]
+}

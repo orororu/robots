@@ -37,13 +37,13 @@ Status: **draft**. Agreed ideas are in "Rules". Undecided points are in "Open qu
   changes the numbers players see, never the balance.
 - Energy uses the **cost** scale (energy pays for costs), and robot HP uses the
   **value** scale (attack values subtract from HP).
-- The Laser example below uses scale 10: Laser `1.0` shows as 10, and Energy
-  shield `0.7` as 7.
+- The Laser example below uses scale 10: Laser `1.0` shows as 10, and
+  Deflect `0.86` as 9.
 
 ### Tags
 
 - Every card has **one or more tags** describing what it is,
-  e.g. Laser = `[attack, range, beam]`, Energy shield = `[defence, energy]`.
+  e.g. Laser = `[attack, beam, energy]`, Deflect = `[defence, energy]`.
 - Tags are **not necessarily visible** to players. Some may be hidden, to be
   decided later.
 - Tags only **describe** cards. They don't decide what a card does; its
@@ -62,7 +62,7 @@ which cards:
 | Target | Effect | Example |
 |---|---|---|
 | `opponent(hp)` | damage the opponent | Laser, Punch |
-| `opponent(one(tags))` | lower one opponent card | Parry `one[attack,melee]`, Energy shield `one[attack]` |
+| `opponent(one(tags))` | lower one opponent card | Parry `one[attack,melee]`, Energy shield `one[attack,kinetic]` |
 | `opponent(all(tags))` | lower all matching opponent cards | Jump `all[attack,melee]` |
 | `self(one(tags))` | raise one of your cards | Lock on `one[attack,range]` |
 | `self(all(tags))` | raise all your matching cards | Overclock `all[attack]` |
@@ -109,23 +109,41 @@ value** than single-target ones:
 |---|---|---|
 | **Parry** | **One** random `melee` attack card | high, e.g. 8 |
 | **Jump** | **All** `melee` attack cards | low, e.g. 3 |
-| **Energy shield** | One random attack card | e.g. 7 |
+| **Energy shield** | One random `kinetic` attack card | e.g. 13 |
+
+**Each defence part blocks one kind of damage**, so every weapon has a
+counter and no defence stops everything:
+
+| Defence part | Blocks | Weapons it counters |
+|---|---|---|
+| Shield emitter | `kinetic` attacks | Cannon, Machine gun, Fist, Kick, Ram |
+| Deflector | `energy` attacks | Laser |
+| Buckler | `melee` attacks | Saw arm, Fist, Kick, Ram |
+| Smoke launcher | `range` attacks, both tables | Cannon, Machine gun, Missiles |
+| Point defence | drones | Drone bay (Machine gun's Sweep, weaker) |
+
+Missiles have no counter but Smoke. Making the Shield emitter kinetic-only
+(it used to block any attack) cut tournament stalemates from ~4% to ~3%.
+
+`range` means projectiles. The Laser is a `beam`, not `range`: Smoke doesn't
+block it and a Targeting computer (`[attack, range]`) doesn't aim it. That
+gives it an edge over kinetic weapons; only the Deflector stops it.
 
 ### Example
 
-> The opponent's table shows **Laser** `[attack, range, beam]`, value **10**.
-> Before they can play it, I play **Energy shield** `[defence, energy]`, value **7**.
-> The Laser on their table drops to **3** (10 − 7), and my Energy shield goes to my
+> The opponent's table shows **Laser** `[attack, beam, energy]`, value **10**.
+> Before they can play it, I play **Deflect** `[defence, energy]`, value **9**.
+> The Laser on their table drops to **1** (10 − 9), and my Deflect goes to my
 > discard pile, freeing a slot that is immediately refilled from my deck.
-> If they play the Laser now, it deals only 3 damage.
+> If they play the Laser now, it deals only 1 damage.
 
 ### Defaults for now
 
 These are placeholders so the game can be built and played. Each can change
 after playtesting:
 
-- **Extra value is wasted.** Energy shield 12 against Laser 10 leaves the Laser
-  at 0, and the extra 2 does nothing.
+- **Extra value is wasted.** Turn aside 13 against Laser 10 leaves the Laser
+  at 0, and the extra 3 does nothing.
 - **Defensive stalls (known, not fixed yet):** two decks that are mostly
   defence wear each other's attacks to 0, and ~10% of build-tournament matches
   hit the 15-minute limit. Revisit once there are more card types and rules.

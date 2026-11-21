@@ -50,7 +50,8 @@ type Check {
 
 const melee_weapons = ["Saw arm", "Fist"]
 
-const range_weapons = ["Laser", "Cannon", "Machine gun", "Missile rack"]
+/// The Laser is a beam weapon: Smoke doesn't block it.
+const range_weapons = ["Cannon", "Machine gun", "Missile rack"]
 
 pub fn main() -> Nil {
   let builds = build_search.all(catalog.chassis(), catalog.components(), limits)

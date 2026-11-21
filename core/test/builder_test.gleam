@@ -41,7 +41,8 @@ pub fn chassis_cards_join_every_deck_test() {
     ])
   let names = list.map(robot.deck(bot), fn(c) { c.name })
   assert list.take(names, 5) == ["Jump", "Jump", "Dodge", "Dodge", "Burst"]
-  assert list.length(names) == 16
+  // 4 chassis cards and 5 per Machine gun.
+  assert list.length(names) == 19
 }
 
 pub fn armor_adds_block_cards_test() {
