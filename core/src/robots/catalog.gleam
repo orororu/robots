@@ -173,7 +173,8 @@ pub fn drone() -> Card {
   Card(
     name: "Drone",
     tags: [Drone, Energy],
-    cost: 0.5,
+    // Nearly free to strike: the drone was paid for at launch.
+    cost: 0.1,
     value: 1.5,
     target: OpponentHp,
     traits: [card.Once, card.Grows(per_second: 0.1, cap: 3.0)],
@@ -186,7 +187,7 @@ pub fn drone_bay() -> Component {
     Card(
       name: "Launch drone",
       tags: [Drone],
-      cost: 1.0,
+      cost: 1.4,
       value: 0.0,
       target: card.Launch(drone()),
       traits: [card.Once],

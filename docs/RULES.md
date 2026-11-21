@@ -147,7 +147,8 @@ after playtesting:
 - **Drones.** A Drone bay (weapon) has 2 `Launch drone` cards (once per
   match). Launching puts a **Drone** card into the same table slot. It
   **grows** while it waits (15 → 30 over 15 s) and you play it to **strike**
-  for its current value (cost 5); then it's gone.
+  for its current value; then it's gone. Launch costs 14, the strike only 1:
+  the drone is paid for at launch.
   - While you have drones, **the opponent's attacks hit a random drone
     instead of your robot**; damage beyond the drone's value is lost. A drone
     at 0 is destroyed and its slot refills from the deck.

@@ -61,7 +61,7 @@ fn result_nil(result: Result(a, e)) -> Result(a, Nil) {
 }
 
 type Choice {
-  Choice(slot: Int, cost: Float, score: Float, affordable: Bool)
+  Choice(slot: Int, cost: Float, score: Float, affordable: Bool, drone: Bool)
 }
 
 /// The table slot to play now, or `Error(Nil)` to wait (save energy).
@@ -78,6 +78,7 @@ pub fn choose(state: Game, side: Side, now: Int) -> Result(Int, Nil) {
         cost: s.card.cost,
         score: score(state, side, s),
         affordable: amount.at_least(available, s.card.cost),
+        drone: table.is_drone(s),
       )
     })
     // A card costing more than the cap can never be paid for.
@@ -92,7 +93,9 @@ pub fn choose(state: Game, side: Side, now: Int) -> Result(Int, Nil) {
     _, True ->
       case most_efficient(list.filter(useful, fn(o) { o.affordable })) {
         Ok(o) -> Ok(o.slot)
-        Error(Nil) -> cheapest(list.filter(options, fn(o) { o.affordable }))
+        // A drone is never dead weight: let it keep growing.
+        Error(Nil) ->
+          cheapest(list.filter(options, fn(o) { o.affordable && !o.drone }))
       }
     // Save up for the best card.
     _, False -> Error(Nil)
