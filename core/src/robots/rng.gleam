@@ -18,8 +18,20 @@ pub opaque type Seed {
   Seed(state: Int)
 }
 
+/// Small seeds (0, 1, 2, ...) give tiny first outputs (seed × 48271), which
+/// made the first shuffle keep its first card on top 96% of the time. A few
+/// warm-up steps spread them across the whole range.
+const warm_up_steps = 4
+
 pub fn new(n: Int) -> Seed {
-  Seed(int.absolute_value(n) % { modulus - 1 } + 1)
+  warm_up(Seed(int.absolute_value(n) % { modulus - 1 } + 1), warm_up_steps)
+}
+
+fn warm_up(seed: Seed, steps: Int) -> Seed {
+  case steps {
+    0 -> seed
+    _ -> warm_up(next(seed).1, steps - 1)
+  }
 }
 
 /// Produce the next raw value in `1..modulus-1` together with the next seed.

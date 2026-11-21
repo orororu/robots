@@ -12,8 +12,8 @@ pub fn known_value_is_stable_across_targets_test() {
   // Pinning a value guards against the Erlang and JS targets diverging.
   let #(a, seed) = rng.next(rng.new(1))
   let #(b, _) = rng.next(seed)
-  assert a == 96_542
-  assert b == 365_211_588
+  assert a == 2_009_854_435
+  assert b == 814_711_366
 }
 
 pub fn shuffle_is_a_permutation_test() {
@@ -30,4 +30,16 @@ pub fn int_below_stays_in_range_test() {
       #(seed, v)
     })
   assert list.all(values, fn(v) { v >= 0 && v < 6 })
+}
+
+/// Regression: small consecutive seeds (as the simulation uses) used to leave
+/// the first item on top of the first shuffle 96% of the time.
+pub fn first_shuffle_is_fair_for_small_seeds_test() {
+  let items = list.repeat(0, 9) |> list.index_map(fn(_, i) { i })
+  let on_top =
+    list.repeat(0, 900)
+    |> list.index_map(fn(_, seed) { rng.shuffle(items, rng.new(seed)).0 })
+    |> list.count(fn(shuffled) { list.first(shuffled) == Ok(0) })
+  // Fair is 1 in 9 = 100 of 900.
+  assert on_top > 60 && on_top < 140
 }

@@ -19,7 +19,7 @@ import robots/robot.{type Robot}
 import robots/scale
 import robots/simulation.{type Outcome}
 
-const matches_per_seating = 50
+const matches_per_seating = 100
 
 const think_ms = 1600
 
@@ -92,7 +92,7 @@ fn mirror(config: game.Config, bot: Robot) -> Nil {
     <> bot.name
     <> ": P1 wins "
     <> int.to_string(percent(p1, list.length(all)))
-    <> "% (50% = no first-player advantage)   "
+    <> "% (fair: 50% ± 5%)   "
     <> length_summary(all)
     <> stalemates(all),
   )
