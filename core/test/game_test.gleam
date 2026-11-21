@@ -10,7 +10,8 @@ import robots/game.{
   type Game, Combatant, Config, Game, GameOver, NoSuchCard, NotEnoughEnergy, P1,
   P2, PlayCard, Played, Won,
 }
-import robots/robot.{Component}
+import robots/part
+import robots/robot
 import robots/scale
 import robots/table.{Slot}
 
@@ -49,14 +50,13 @@ fn lock_on() -> Card {
 // SETUP -----------------------------------------------------------------------
 
 fn config(starting_energy: Float) -> game.Config {
-  Config(table_size: 4, starting_energy:, energy_rate: 0.5, energy_cap: 5.0)
+  Config(table_size: 4, starting_energy:, energy_rate: 0.5)
 }
 
 fn bot(name: String, cards: List(Card)) -> robot.Robot {
-  let assert Ok(bot) =
-    robot.new(name, max_hp: 5.0, slots: 1)
-    |> robot.install(Component("Part", cards))
-  bot
+  robot.new(name, chassis: "Test", max_hp: 5.0, energy_cap: 5.0, components: [
+    part.new("Part", part.Weapon, 1.0, cards),
+  ])
 }
 
 /// A game where both tables, decks and discard piles are exactly as given,

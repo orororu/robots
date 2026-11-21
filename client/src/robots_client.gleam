@@ -21,6 +21,7 @@ import robots/card.{type Card}
 import robots/catalog
 import robots/energy
 import robots/game.{type Combatant, type Game, P1, P2}
+import robots/part
 import robots/scale.{type Scale}
 import robots/table.{type Slot}
 import robots_client/browser
@@ -179,9 +180,9 @@ fn view(model: Model) -> Element(Msg) {
 fn status_panel(label: String, c: Combatant, s: Scale, now: Int) -> String {
   let bot = c.robot
   let current = energy.at(c.energy, now)
-  let parts = bot.components |> list.map(fn(part) { part.name })
+  let parts = bot.components |> list.map(part.display_name)
   [
-    string.pad_end(label, 7, " ") <> bot.name,
+    string.pad_end(label, 7, " ") <> bot.name <> " (" <> bot.chassis <> ")",
     "  HP      "
       <> bar(bot.hp, bot.max_hp, 20)
       <> " "

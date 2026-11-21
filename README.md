@@ -14,7 +14,9 @@ core/     pure game logic (Gleam, runs on JavaScript and BEAM): no IO, no clock
     card.gleam      cards, tags, target + scope; relative costs and values
     scale.gleam     display scale: relative amounts -> shown numbers
     energy.gleam    energy computed from timestamps, never ticked
-    robot.gleam     robots, components, install, damage
+    robot.gleam     built robots: HP, energy cap, deck, damage
+    part.gleam      components: kind, weight, cards, armor/battery, loot modifiers
+    builder.gleam   chassis + parts -> robot, with errors and warnings
     catalog.gleam   starter components and robots (balance here)
     ai.gleam        pure AI opponent (efficiency-based, saves energy)
     efficiency.gleam  card roles and value-per-cost bands

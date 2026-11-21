@@ -1,46 +1,39 @@
+//// A built robot, ready for a match. Robots are normally made with
+//// `robots/builder.build`, which checks weight, weapon mounts and batteries;
+//// `new` skips those checks (useful in tests).
+
 import gleam/float
 import gleam/list
 import robots/amount
 import robots/card.{type Card}
+import robots/part.{type Component}
 
-/// A component installed on a robot. Every component contributes its cards
-/// to the robot's deck.
-pub type Component {
-  Component(name: String, cards: List(Card))
-}
-
-/// `hp` and `max_hp` are relative, on the same scale as card values.
+/// `hp`, `max_hp` and `energy_cap` are relative amounts: HP on the card value
+/// scale, energy on the card cost scale.
 pub type Robot {
   Robot(
     name: String,
+    chassis: String,
     max_hp: Float,
     hp: Float,
-    slots: Int,
+    energy_cap: Float,
     components: List(Component),
   )
 }
 
-pub type InstallError {
-  NoFreeSlot
+pub fn new(
+  name: String,
+  chassis chassis: String,
+  max_hp max_hp: Float,
+  energy_cap energy_cap: Float,
+  components components: List(Component),
+) -> Robot {
+  Robot(name:, chassis:, max_hp:, hp: max_hp, energy_cap:, components:)
 }
 
-pub fn new(name: String, max_hp max_hp: Float, slots slots: Int) -> Robot {
-  Robot(name:, max_hp:, hp: max_hp, slots:, components: [])
-}
-
-pub fn install(
-  robot: Robot,
-  component: Component,
-) -> Result(Robot, InstallError) {
-  case list.length(robot.components) < robot.slots {
-    True ->
-      Ok(Robot(..robot, components: list.append(robot.components, [component])))
-    False -> Error(NoFreeSlot)
-  }
-}
-
+/// Every card from every part, with modifiers applied.
 pub fn deck(robot: Robot) -> List(Card) {
-  list.flat_map(robot.components, fn(component) { component.cards })
+  list.flat_map(robot.components, part.cards)
 }
 
 pub fn take_damage(robot: Robot, amount: Float) -> Robot {

@@ -30,9 +30,7 @@ pub fn main() -> Nil {
   io.println(
     "energy "
     <> f1(config.energy_rate *. s.cost)
-    <> "/s, cap "
-    <> int.to_string(scale.cost(s, config.energy_cap))
-    <> ", start "
+    <> "/s, start "
     <> int.to_string(scale.cost(s, config.starting_energy))
     <> " · AI think "
     <> f1(int.to_float(think_ms) /. 1000.0)
@@ -142,8 +140,11 @@ fn robot_line(bot: Robot, seats: List(Seat)) -> Nil {
   io.println(
     "  "
     <> string.pad_end(bot.name, 10, " ")
-    <> "HP "
+    <> bot.chassis
+    <> " · HP "
     <> int.to_string(scale.value(scale.default(), bot.max_hp))
+    <> " · cap "
+    <> int.to_string(scale.cost(scale.default(), bot.energy_cap))
     <> " · "
     <> f1(sec_per_move)
     <> "s per move · "

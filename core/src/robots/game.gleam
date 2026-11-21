@@ -33,14 +33,10 @@ pub fn other(side: Side) -> Side {
   }
 }
 
-/// Energy amounts are relative, on the same scale as card costs.
+/// Energy amounts are relative, on the same scale as card costs. The energy
+/// cap is not here: each robot's batteries decide it.
 pub type Config {
-  Config(
-    table_size: Int,
-    starting_energy: Float,
-    energy_rate: Float,
-    energy_cap: Float,
-  )
+  Config(table_size: Int, starting_energy: Float, energy_rate: Float)
 }
 
 pub fn default_config() -> Config {
@@ -49,7 +45,6 @@ pub fn default_config() -> Config {
     starting_energy: 2.0,
     // Relative cost units per second: 0.5 / 3 shows as ~1.7/s at scale x10.
     energy_rate: 0.5 /. 3.0,
-    energy_cap: 5.0,
   )
 }
 
@@ -126,7 +121,7 @@ fn combatant(
     energy.new(
       config.starting_energy,
       rate: config.energy_rate,
-      cap: config.energy_cap,
+      cap: bot.energy_cap,
       now:,
     )
   Combatant(robot: bot, deck:, table: [], discard: [], energy:)

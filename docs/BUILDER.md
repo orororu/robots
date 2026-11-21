@@ -1,7 +1,8 @@
 # Robot builder
 
-Status: **draft**. Agreed ideas are in "Agreed". The proposed model and
-open points follow.
+Status: **core implemented** (`core/src/robots/part.gleam`, `builder.gleam`,
+chassis and parts in `catalog.gleam`). No garage screen yet. Numbers for the
+new parts (Cannon, Machine gun, Tank, Scout) are placeholders, not yet balanced.
 
 ## Agreed
 
@@ -130,6 +131,20 @@ pub type Modifier {
   to **base** parts; modifiers are allowed to beat them, since that's the point
   of loot, but only within set limits.
 - Better modifiers mean a higher price (shop and loot are designed later).
+
+## Defaults in use
+
+Chosen to get started; each can change:
+
+- No limits besides weight, capacity and weapon mounts.
+- Parts may add no cards (batteries and armor currently add none).
+- No maximum deck size: weight is the limit.
+- Starters use **different chassis**: Tinker on Frame, Scrapper on Brute.
+- Several modifiers per part. Light = −25% weight, Overclocked = +15% to card
+  values, armor HP and battery capacity.
+- Weights for now: weapons 1–6 (Fist 1, Laser and Saw arm 3, Cannon 6),
+  defences and utilities 1–2, Cell 1 (cap 30), Battery 2 (50), Big battery 4
+  (90), Plating 2 (+25 HP), Heavy plating 4 (+50 HP). Shown at display scale ×10.
 
 ## Open questions
 
