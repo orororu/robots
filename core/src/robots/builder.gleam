@@ -9,7 +9,7 @@ import gleam/int
 import gleam/list
 import gleam/order
 import robots/amount
-import robots/card.{type Card, All, Hp, One, Opponent, Self}
+import robots/card.{type Card, All, One, Opponent, OpponentHp, Self}
 import robots/part.{type Component, Battery, Weapon}
 import robots/robot.{type Robot}
 
@@ -42,6 +42,8 @@ pub type Warning {
   DeadCard(card: String)
   /// A card that costs more energy than the batteries can hold.
   Unaffordable(card: String, cost: Float, cap: Float)
+  /// No card damages the opponent: this robot can never win.
+  NoDamage
 }
 
 pub fn build(
@@ -134,6 +136,10 @@ fn check_deck(parts: List(Component)) -> List(BuildError) {
 /// Each distinct problem once, in deck order.
 pub fn warnings(bot: Robot) -> List(Warning) {
   let deck = robot.deck(bot)
+  let no_damage = case list.any(deck, fn(c) { c.target == OpponentHp }) {
+    True -> []
+    False -> [NoDamage]
+  }
   list.flat_map(deck, fn(c) {
     let unaffordable = case amount.at_least(bot.energy_cap, c.cost) {
       True -> []
@@ -146,6 +152,7 @@ pub fn warnings(bot: Robot) -> List(Warning) {
     list.append(unaffordable, dead)
   })
   |> list.unique
+  |> list.append(no_damage)
 }
 
 /// Only cards targeting your *own* table can be judged here; what the
@@ -154,7 +161,7 @@ fn can_ever_affect(c: Card, deck: List(Card)) -> Bool {
   case c.target {
     Self(One(tags)) | Self(All(tags)) ->
       list.any(deck, fn(other) { other != c && card.matches(other, tags) })
-    Self(Hp) | Opponent(_) -> True
+    OpponentHp | Opponent(_) -> True
   }
 }
 

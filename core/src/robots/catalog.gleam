@@ -2,14 +2,14 @@
 ////
 //// Costs and values are relative to a base of 1.0 (see `robots/scale` for how
 //// they're shown). Every card must fit its efficiency band in
-//// `robots/efficiency` (bigger cards more efficient; defence, buffs and repair
+//// `robots/efficiency` (bigger cards more efficient; defence and buffs
 //// ahead of attacks of the same cost). A test checks every card in
 //// `components()`; `gleam run -m balance` shows each card's goal.
 
 import robots/builder.{type Chassis, Chassis}
 import robots/card.{
   type Card, type Scope, type Tag, All, Attack, Beam, Buff, Card, Defence,
-  Energy, Hp, Kinetic, Melee, Mobility, One, Opponent, Range, Self,
+  Energy, Kinetic, Melee, Mobility, One, Opponent, OpponentHp, Range, Self,
 }
 import robots/part.{type Component}
 import robots/robot.{type Robot}
@@ -19,7 +19,7 @@ import robots/robot.{type Robot}
 
 /// Damages the opponent's HP.
 fn attack(name: String, tags: List(Tag), cost: Float, value: Float) -> Card {
-  Card(name:, tags: [Attack, ..tags], cost:, value:, target: Opponent(Hp))
+  Card(name:, tags: [Attack, ..tags], cost:, value:, target: OpponentHp)
 }
 
 /// Lowers cards on the opponent's table.
@@ -45,10 +45,6 @@ fn buff(
 }
 
 /// Restores your own HP.
-fn repair(name: String, tags: List(Tag), cost: Float, value: Float) -> Card {
-  Card(name:, tags: [Buff, ..tags], cost:, value:, target: Self(Hp))
-}
-
 /// Every component, for tests, the balance report and (later) the robot builder.
 pub fn components() -> List(Component) {
   [
@@ -62,7 +58,6 @@ pub fn components() -> List(Component) {
     targeting_computer(),
     hydraulics(),
     reactor(),
-    repair_kit(),
     cannon(),
     machine_gun(),
     cell(),
@@ -154,13 +149,6 @@ pub fn hydraulics() -> Component {
 pub fn reactor() -> Component {
   let overclock = buff("Overclock", [Energy], 0.9, 0.5, All([Attack]))
   part.new("Reactor", part.Utility, 2.0, [overclock, overclock])
-}
-
-// REPAIR ----------------------------------------------------------------------
-
-pub fn repair_kit() -> Component {
-  let patch = repair("Patch", [], 1.0, 1.2)
-  part.new("Repair kit", part.Utility, 2.0, [patch, patch])
 }
 
 // BATTERIES (energy storage) -------------------------------------------------

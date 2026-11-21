@@ -3,8 +3,8 @@ import robots/catalog
 import robots/efficiency
 import robots/robot
 
-/// Every catalog card must fit its role's efficiency band. Defence, buffs and
-/// repair are rated above attacks, so builds aren't all glass cannons.
+/// Every catalog card must fit its role's efficiency band. Defence and buffs
+/// are rated above attacks, so builds aren't all glass cannons.
 pub fn every_catalog_card_is_within_its_band_test() {
   let outliers =
     catalog.components()
@@ -29,7 +29,6 @@ const roles = [
   efficiency.Damage,
   efficiency.Weaken,
   efficiency.Strengthen,
-  efficiency.Repair,
 ]
 
 pub fn bigger_cards_are_more_efficient_in_every_role_test() {
@@ -42,12 +41,11 @@ pub fn bigger_cards_are_more_efficient_in_every_role_test() {
   })
 }
 
-pub fn defence_buffs_and_repair_beat_attacks_of_the_same_cost_test() {
+pub fn defence_and_buffs_beat_attacks_of_the_same_cost_test() {
   list.each(list.drop(costs, 1), fn(cost) {
     let attack = efficiency.goal_for(efficiency.Damage, cost)
     assert efficiency.goal_for(efficiency.Weaken, cost) >. attack
     assert efficiency.goal_for(efficiency.Strengthen, cost) >. attack
-    assert efficiency.goal_for(efficiency.Repair, cost) >. attack
   })
 }
 

@@ -52,7 +52,7 @@ pub type Kind {
   Defence
   Armor
   Battery
-  Utility                    // buffs, repair, targeting, …
+  Utility                    // buffs, targeting, …
 }
 
 pub type Component {

@@ -1,9 +1,9 @@
 import gleam/list
 import robots/builder.{
-  DeadCard, DeckTooSmall, NoBattery, Overweight, TooManyWeapons, Unaffordable,
-  WeaponTooHeavy,
+  DeadCard, DeckTooSmall, NoBattery, NoDamage, Overweight, TooManyWeapons,
+  Unaffordable, WeaponTooHeavy,
 }
-import robots/card.{Attack, Card, Hp, Opponent}
+import robots/card.{Attack, Card, OpponentHp}
 import robots/catalog
 import robots/part
 import robots/robot
@@ -194,11 +194,21 @@ pub fn buff_without_matching_own_cards_is_dead_test() {
 }
 
 pub fn card_costing_more_than_the_batteries_hold_is_flagged_test() {
-  let nuke = Card("Nuke", [Attack], 4.0, 4.0, Opponent(Hp))
+  let nuke = Card("Nuke", [Attack], 4.0, 4.0, OpponentHp)
   let bot =
     robot.new("B", chassis: "Test", max_hp: 5.0, energy_cap: 3.0, components: [
       part.new("Launcher", part.Weapon, 1.0, [nuke, nuke]),
     ])
   assert builder.warnings(bot)
     == [Unaffordable(card: "Nuke", cost: 4.0, cap: 3.0)]
+}
+
+pub fn robot_without_attacks_can_never_win_test() {
+  let assert Ok(bot) =
+    builder.build("B", catalog.frame(), [
+      catalog.shield_emitter(),
+      catalog.deflector(),
+      catalog.battery(),
+    ])
+  assert builder.warnings(bot) == [NoDamage]
 }

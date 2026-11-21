@@ -69,7 +69,7 @@ pub type Event {
   /// `value` is the card's value when played; `targets` is how many things
   /// it affected: 1 for HP, the number of table cards otherwise (0 = no match).
   /// `effect` is the total amount actually changed: damage dealt, HP
-  /// repaired, or table value lowered/raised (extra value is not counted).
+  /// or table value lowered/raised (extra value is not counted).
   Played(side: Side, card: Card, value: Float, targets: Int, effect: Float)
   Destroyed(side: Side)
 }
@@ -190,9 +190,7 @@ fn resolve(game: Game, side: Side, played: Slot) -> #(Game, Int, Float) {
   let value = played.value
   // Opponent lowers, Self raises; the scope says what.
   case played.card.target {
-    card.Opponent(card.Hp) ->
-      map_robot(game, other(side), robot.take_damage(_, value))
-    card.Self(card.Hp) -> map_robot(game, side, robot.repair(_, value))
+    card.OpponentHp -> map_robot(game, other(side), robot.take_damage(_, value))
     card.Opponent(scope) ->
       affect_table(game, other(side), scope, amount.subtract(_, value))
     card.Self(scope) -> affect_table(game, side, scope, fn(v) { v +. value })

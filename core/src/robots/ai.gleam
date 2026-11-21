@@ -11,7 +11,7 @@ import gleam/int
 import gleam/list
 import gleam/order
 import robots/amount
-import robots/card.{type Scope, All, Hp, One}
+import robots/card.{type Scope, All, One}
 import robots/energy
 import robots/game.{type Game, type Side, PlayCard, Running}
 import robots/table.{type Slot}
@@ -125,13 +125,12 @@ fn score(state: Game, side: Side, slot: Slot) -> Float {
   let foe = game.combatant_of(state, game.other(side))
   let me = game.combatant_of(state, side)
   case slot.card.target {
-    card.Opponent(Hp) ->
+    card.OpponentHp ->
       case amount.at_least(slot.value, foe.robot.hp) {
         // A finishing blow beats everything.
         True -> finishing_blow
         False -> slot.value
       }
-    card.Self(Hp) -> float.min(slot.value, me.robot.max_hp -. me.robot.hp)
     card.Opponent(scope) ->
       scope_score(foe.table, scope, fn(target) {
         float.min(target.value, slot.value)
@@ -147,7 +146,6 @@ fn scope_score(
   effect: fn(Slot) -> Float,
 ) -> Float {
   let gains = case scope {
-    Hp -> []
     All(tags) | One(tags) ->
       targets
       |> list.filter(fn(s) { card.matches(s.card, tags) })

@@ -3,7 +3,7 @@
 //// Two rules shape every card's target efficiency (`goal`):
 ////
 //// - Bigger cards are more efficient, whatever their role (`cost_slope`).
-//// - Defence, buffs and repair beat attacks of the same cost, by a margin
+//// - Defence and buffs beat attacks of the same cost, by a margin
 ////   that grows with cost (`role_bonus`). Cheap ones get no margin, so fast
 ////   small defences can't stall the round; big ones always outclass attacks
 ////   of the same cost, so no build is a glass cannon.
@@ -13,11 +13,10 @@
 //// report measures.
 
 import gleam/float
-import robots/card.{type Card, All, Hp, Opponent, Self}
+import robots/card.{type Card, All, Opponent, OpponentHp, Self}
 
 pub type Role {
   Damage
-  Repair
   Weaken
   Strengthen
 }
@@ -30,8 +29,7 @@ pub const tolerance = 0.1
 
 pub fn role(card: Card) -> Role {
   case card.target {
-    Opponent(Hp) -> Damage
-    Self(Hp) -> Repair
+    OpponentHp -> Damage
     Opponent(_) -> Weaken
     Self(_) -> Strengthen
   }
@@ -47,14 +45,13 @@ pub const cost_slope = 0.5
 pub const bonus_pivot_cost = 0.5
 
 /// Extra efficiency per unit of cost above `bonus_pivot_cost`, by role.
-/// Defence, buffs and repair beat attacks of the same cost, and the gap grows
+/// Defence and buffs beat attacks of the same cost, and the gap grows
 /// with cost, so no attack is ever big enough to outclass defence.
 pub fn role_bonus(role: Role) -> Float {
   case role {
     Damage -> 0.0
     Weaken -> 0.4
     Strengthen -> 0.4
-    Repair -> 0.3
   }
 }
 
@@ -75,8 +72,8 @@ pub fn goal(card: Card) -> Float {
 /// The card's printed value per cost, counting `All` cards as hitting
 /// `expected_all_targets` cards.
 pub fn rating(card: Card) -> Float {
-  let hits = case card.target.scope {
-    All(_) -> expected_all_targets
+  let hits = case card.target {
+    Opponent(All(_)) | Self(All(_)) -> expected_all_targets
     _ -> 1.0
   }
   card.value *. hits /. card.cost
@@ -91,7 +88,6 @@ pub fn within_band(card: Card) -> Bool {
 pub fn role_name(role: Role) -> String {
   case role {
     Damage -> "damage"
-    Repair -> "repair"
     Weaken -> "weaken"
     Strengthen -> "strengthen"
   }

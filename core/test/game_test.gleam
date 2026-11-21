@@ -1,8 +1,8 @@
 import gleam/list
 import robots/ai
 import robots/card.{
-  type Card, All, Attack, Beam, Buff, Card, Defence, Energy, Hp, Melee, One,
-  Opponent, Range, Self,
+  type Card, All, Attack, Beam, Buff, Card, Defence, Energy, Melee, One,
+  Opponent, OpponentHp, Range, Self,
 }
 import robots/catalog
 import robots/energy
@@ -23,12 +23,12 @@ fn laser() -> Card {
     [Attack, Range, Beam],
     cost: 1.0,
     value: 1.0,
-    target: Opponent(Hp),
+    target: OpponentHp,
   )
 }
 
 fn punch() -> Card {
-  Card("Punch", [Attack, Melee], cost: 0.5, value: 0.5, target: Opponent(Hp))
+  Card("Punch", [Attack, Melee], cost: 0.5, value: 0.5, target: OpponentHp)
 }
 
 fn energy_shield(value: Float) -> Card {
@@ -234,37 +234,6 @@ pub fn buff_all_raises_every_matching_own_card_test() {
   assert values(g.p1) == [2, 7, 12]
 }
 
-// REPAIR ----------------------------------------------------------------------
-
-fn patch() -> Card {
-  Card("Patch", [Buff], 0.6, 1.5, Self(Hp))
-}
-
-pub fn repair_restores_own_hp_test() {
-  let g = arena([patch()], [laser()])
-  let g =
-    Game(..g, p1: Combatant(..g.p1, robot: robot.Robot(..g.p1.robot, hp: 2.0)))
-  let assert Ok(g) = game.update(g, PlayCard(P1, 0, 0))
-  assert g.p1.robot.hp == 3.5
-}
-
-pub fn repair_never_exceeds_max_hp_test() {
-  let g = arena([patch()], [laser()])
-  let g =
-    Game(..g, p1: Combatant(..g.p1, robot: robot.Robot(..g.p1.robot, hp: 4.5)))
-  let assert Ok(g) = game.update(g, PlayCard(P1, 0, 0))
-  assert g.p1.robot.hp == 5.0
-}
-
-pub fn ai_repairs_only_missing_hp_test() {
-  // At full HP, Patch is worth nothing; a Punch is worth its damage.
-  let g = arena([laser()], [patch(), punch()])
-  assert ai.choose(g, P2, 0) == Ok(1)
-  let hurt =
-    Game(..g, p2: Combatant(..g.p2, robot: robot.Robot(..g.p2.robot, hp: 2.0)))
-  assert ai.choose(hurt, P2, 0) == Ok(0)
-}
-
 // ENERGY AND ERRORS -----------------------------------------------------------
 
 pub fn not_enough_energy_is_rejected_test() {
@@ -283,7 +252,7 @@ pub fn invalid_slot_is_rejected_test() {
 }
 
 pub fn destroying_the_robot_wins_test() {
-  let nuke = Card("Nuke", [Attack], 0.0, 9.0, Opponent(Hp))
+  let nuke = Card("Nuke", [Attack], 0.0, 9.0, OpponentHp)
   let assert Ok(g) = game.update(arena([nuke], [laser()]), PlayCard(P1, 0, 0))
   assert g.status == Won(P1)
   assert g.p2.robot.hp == 0.0
@@ -315,8 +284,8 @@ pub fn ai_defends_against_a_big_attack_test() {
 
 pub fn ai_saves_energy_for_a_more_efficient_card_test() {
   // Tap (1.0 per cost) is affordable; Big shot (1.5 per cost) isn't yet.
-  let big = Card("Big shot", [Attack], 2.0, 3.0, Opponent(Hp))
-  let weak = Card("Tap", [Attack], 0.5, 0.5, Opponent(Hp))
+  let big = Card("Big shot", [Attack], 2.0, 3.0, OpponentHp)
+  let weak = Card("Tap", [Attack], 0.5, 0.5, OpponentHp)
   let g = arena([laser()], [weak, big])
   let low =
     Game(..g, p2: Combatant(..g.p2, energy: energy.new(1.0, 0.5, 5.0, 0)))
@@ -328,8 +297,8 @@ pub fn ai_saves_energy_for_a_more_efficient_card_test() {
 pub fn ai_spends_instead_of_wasting_energy_at_the_cap_test() {
   // The best card costs more than ever affordable right now, but energy is
   // full: spend on the best affordable card rather than waste income.
-  let big = Card("Big shot", [Attack], 5.0, 9.0, Opponent(Hp))
-  let weak = Card("Tap", [Attack], 0.5, 0.5, Opponent(Hp))
+  let big = Card("Big shot", [Attack], 5.0, 9.0, OpponentHp)
+  let weak = Card("Tap", [Attack], 0.5, 0.5, OpponentHp)
   let g = arena([laser()], [weak, big])
   let nearly =
     Game(..g, p2: Combatant(..g.p2, energy: energy.new(4.6, 0.5, 5.0, 0)))

@@ -1,10 +1,13 @@
 //// Cards. Costs and values are *relative*: 1.0 is the base amount. How big
 //// they look to players is decided by `robots/scale`, never here.
 ////
-//// What a card does is decided by its `target` alone: targeting the opponent
-//// lowers (damage, weaken), targeting yourself raises (repair, buff), always
-//// by the card's current value. Tags only describe cards, so that scopes like
-//// `One([Attack, Melee])` can select them.
+//// What a card does is decided by its `target` alone: damage the opponent's
+//// HP, lower the opponent's table cards (weaken), or raise your own (buff),
+//// always by the card's current value. Tags only describe cards, so that
+//// scopes like `One([Attack, Melee])` can select them.
+////
+//// There is no healing during a match: no target can raise HP. Robots are
+//// repaired between matches (`robot.repair`).
 
 import gleam/list
 import gleam/string
@@ -21,16 +24,18 @@ pub type Tag {
   Mobility
 }
 
-/// Whose side a card affects. `Opponent` lowers, `Self` raises.
+/// What a card affects.
 pub type Target {
+  /// Damage the opponent's robot.
+  OpponentHp
+  /// Lower cards on the opponent's table.
   Opponent(scope: Scope)
+  /// Raise cards on your own table.
   Self(scope: Scope)
 }
 
-/// What on that side is affected.
+/// Which table cards are affected.
 pub type Scope {
-  /// The robot's HP (damage for `Opponent`, repair up to max HP for `Self`).
-  Hp
   /// One random table card having all these tags.
   One(matching: List(Tag))
   /// Every table card having all these tags. Should have a lower value.

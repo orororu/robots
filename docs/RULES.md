@@ -51,18 +51,17 @@ Status: **draft**. Agreed ideas are in "Rules". Undecided points are in "Open qu
 
 ### Target and scope
 
-Every card has a **target**: a **side** and a **scope**.
+Every card has a **target**. It either damages the opponent's HP, or affects
+table cards: on the `opponent` side it **lowers** them by the card's current
+value, and on the `self` side it **raises** them by it. A table **scope** says
+which cards:
 
-- **Side:** `opponent` **lowers** by the card's current value, and `self` **raises** by it.
-- **Scope:** what on that side is affected:
-  - `hp`: the robot's HP. Damage for opponent; repair for self, never above max HP.
   - `one(tags)`: one random table card that has all these tags.
   - `all(tags)`: every table card that has all these tags. Should have a lower value.
 
 | Target | Effect | Example |
 |---|---|---|
 | `opponent(hp)` | damage the opponent | Laser, Punch |
-| `self(hp)` | repair your robot | Patch |
 | `opponent(one(tags))` | lower one opponent card | Parry `one[attack,melee]`, Energy shield `one[attack]` |
 | `opponent(all(tags))` | lower all matching opponent cards | Jump `all[attack,melee]` |
 | `self(one(tags))` | raise one of your cards | Lock on `one[attack,range]` |
@@ -130,6 +129,9 @@ after playtesting:
 - **Buffs raise one random matching card** on your own table. No maximum value.
 - **All tags are visible** for now.
 - The old robot **Shield, Repair and Charge effects are removed**. Robot HP stays.
+- **No healing during a match.** Robots are repaired only between matches.
+  Repair cards made matches stall: they out-healed cheap attacks, and 22% of
+  build-tournament matches hit the 15-minute limit (3% without them).
 - A deck with fewer than 4 cards leaves table slots empty.
 
 ## Balance principles
@@ -141,13 +143,13 @@ after playtesting:
 - **Bigger cards are more efficient**, in every role. Big cards are riskier:
   they wait longer on the table, attract defence, and cost more to clear once
   zeroed. Without a reward nobody would play them.
-- **Defence, buffs and repair beat attacks of the same cost**, by a margin that
+- **Defence and buffs beat attacks of the same cost**, by a margin that
   **grows with cost**. Cheap ones get no margin, so fast small defences can't
   stall the round. Big ones always outclass attacks of the same cost, so no
   attack is ever big enough to beat defence, and builds aren't glass cannons.
 - Target value per cost (`robots/efficiency.gleam`):
   `1.0 + 0.5 × (cost − 1) + bonus × max(0, cost − 0.5)`, with bonus 0 for
-  damage, 0.4 for weaken and strengthen, and 0.3 for repair. Cards hitting
+  damage and 0.4 for weaken and strengthen. Cards hitting
   `all(...)` are rated as if they hit 2 cards. A test checks every catalog card
   against its goal (±0.1).
 
@@ -155,7 +157,6 @@ after playtesting:
   |---|---|---|---|---|---|
   | Damage | 0.75 | 0.80 | 0.90 | 1.00 | 1.30 |
   | Weaken / strengthen | 0.75 | 0.84 | 1.02 | 1.20 | 1.74 |
-  | Repair | 0.75 | 0.83 | 0.99 | 1.15 | 1.63 |
 
 - **Robots should play differently.** Variety of builds, robots assembled from
   components that each add several cards, is the main attraction (to be designed).

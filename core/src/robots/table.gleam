@@ -6,7 +6,7 @@
 //// `affect` returns the new table. Random picks use the game's seeded RNG.
 
 import gleam/list
-import robots/card.{type Card, type Scope, All, Hp, One}
+import robots/card.{type Card, type Scope, All, One}
 import robots/rng.{type Seed}
 
 pub type Slot {
@@ -30,8 +30,6 @@ pub fn affect(
   seed: Seed,
 ) -> #(List(Slot), Int, Seed) {
   case scope {
-    // HP isn't on the table; `game` handles it.
-    Hp -> #(table, 0, seed)
     All(tags) -> {
       let targets =
         table

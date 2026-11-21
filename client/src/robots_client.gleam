@@ -248,13 +248,15 @@ fn slot_text(s: Scale, slot: Slot) -> String {
 
 /// "foe hp", "foe one [attack,melee]", "self all [attack]", ...
 fn target_text(c: Card) -> String {
-  let #(side, scope) = case c.target {
-    card.Opponent(scope) -> #("foe ", scope)
-    card.Self(scope) -> #("self ", scope)
+  case c.target {
+    card.OpponentHp -> "foe hp"
+    card.Opponent(scope) -> "foe " <> scope_text(scope)
+    card.Self(scope) -> "self " <> scope_text(scope)
   }
-  side
-  <> case scope {
-    card.Hp -> "hp"
+}
+
+fn scope_text(scope: card.Scope) -> String {
+  case scope {
     card.One(tags) -> "one " <> card.tags_text(tags)
     card.All(tags) -> "all " <> card.tags_text(tags)
   }
@@ -272,8 +274,7 @@ fn describe_event(state: Game, s: Scale, event: game.Event) -> String {
       <> " plays "
       <> c.name
       <> case c.target, targets {
-        card.Opponent(card.Hp), _ -> " for " <> shown <> " damage"
-        card.Self(card.Hp), _ -> ": repairs " <> shown
+        card.OpponentHp, _ -> " for " <> shown <> " damage"
         _, 0 -> ": no target"
         card.Opponent(_), n -> ": -" <> shown <> " on " <> cards(n)
         card.Self(_), n -> ": +" <> shown <> " on " <> cards(n)

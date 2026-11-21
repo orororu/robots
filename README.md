@@ -17,6 +17,7 @@ core/     pure game logic (Gleam, runs on JavaScript and BEAM): no IO, no clock
     robot.gleam     built robots: HP, energy cap, deck, damage
     part.gleam      components: kind, weight, cards, armor/battery, loot modifiers
     builder.gleam   chassis + parts -> robot, with errors and warnings
+    build_search.gleam  generate legal builds (tournament, later AI and garage)
     catalog.gleam   starter components and robots (balance here)
     ai.gleam        pure AI opponent (efficiency-based, saves energy)
     efficiency.gleam  card roles and value-per-cost bands
@@ -31,6 +32,7 @@ client/   Lustre browser app: text-mode view, clock, keyboard
 cd core   && gleam test                         # tests on BEAM
 cd core   && gleam test --target javascript     # same tests on JS
 cd core   && gleam run -m balance               # AI-vs-AI balance report
+cd core   && gleam run -m tournament            # every legal build vs each other (~35 s)
 cd client && gleam run -m lustre/dev start      # dev server with live reload
 cd client && gleam run -m lustre/dev build      # production bundle in client/dist
 ```
