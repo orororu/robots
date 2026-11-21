@@ -16,7 +16,9 @@ core/     pure game logic (Gleam, runs on JavaScript and BEAM): no IO, no clock
     energy.gleam    energy computed from timestamps, never ticked
     robot.gleam     robots, components, install, damage
     catalog.gleam   starter components and robots (balance here)
-    ai.gleam        pure AI opponent
+    ai.gleam        pure AI opponent (efficiency-based, saves energy)
+    efficiency.gleam  card roles and value-per-cost bands
+    simulation.gleam  AI-vs-AI matches for balancing
     rng.gleam       seeded RNG, identical on both targets
 client/   Lustre browser app: text-mode view, clock, keyboard
 ```
@@ -26,6 +28,7 @@ client/   Lustre browser app: text-mode view, clock, keyboard
 ```sh
 cd core   && gleam test                         # tests on BEAM
 cd core   && gleam test --target javascript     # same tests on JS
+cd core   && gleam run -m balance               # AI-vs-AI balance report
 cd client && gleam run -m lustre/dev start      # dev server with live reload
 cd client && gleam run -m lustre/dev build      # production bundle in client/dist
 ```

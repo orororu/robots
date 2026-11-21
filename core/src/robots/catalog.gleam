@@ -1,8 +1,9 @@
 //// Starter content. Plain data, so balancing is just editing numbers.
 ////
-//// Costs and values are relative to a base of 1.0 (see `robots/scale` for
-//// how they're shown). Rule of thumb: value ≈ cost for single-target cards;
-//// multi-target cards (Jump) get a lower value for their cost.
+//// Costs and values are relative to a base of 1.0 (see `robots/scale` for how
+//// they're shown). Every card must fit its role's efficiency band in
+//// `robots/efficiency`: damage ≈ 1.0 value per cost, repair ≈ 1.2, weaken and
+//// strengthen ≈ 1.3. A test checks every card in `components()`.
 
 import gleam/list
 import robots/card.{
@@ -41,72 +42,103 @@ fn buff(
   Card(name:, tags: [Buff, ..tags], cost:, value:, target: Self(scope))
 }
 
-// ATTACK COMPONENTS -----------------------------------------------------------
+/// Restores your own HP.
+fn repair(name: String, tags: List(Tag), cost: Float, value: Float) -> Card {
+  Card(name:, tags: [Buff, ..tags], cost:, value:, target: Self(Hp))
+}
+
+/// Every component, for tests, the balance report and (later) the robot builder.
+pub fn components() -> List(Component) {
+  [
+    laser(),
+    saw_arm(),
+    fist(),
+    shield_emitter(),
+    deflector(),
+    sword(),
+    servo_legs(),
+    targeting_computer(),
+    hydraulics(),
+    reactor(),
+    repair_kit(),
+  ]
+}
+
+// DAMAGE ----------------------------------------------------------------------
 
 pub fn laser() -> Component {
   let laser = attack("Laser", [Range, Beam], 1.0, 1.0)
   Component("Laser", [
     laser,
     laser,
-    attack("Overcharge", [Range, Beam, Energy], 1.6, 1.8),
+    attack("Overcharge", [Range, Beam, Energy], 1.6, 1.6),
   ])
 }
 
 pub fn saw_arm() -> Component {
   let grind = attack("Grind", [Melee], 0.8, 0.8)
-  Component("Saw arm", [grind, grind, attack("Shred", [Melee], 1.5, 1.7)])
+  Component("Saw arm", [grind, grind, attack("Shred", [Melee], 1.5, 1.5)])
 }
 
 pub fn fist() -> Component {
-  let punch = attack("Punch", [Melee, Kinetic], 0.5, 0.5)
+  let punch = attack("Punch", [Melee, Kinetic], 0.6, 0.6)
   Component("Fist", [punch, punch])
 }
 
-// DEFENCE COMPONENTS ----------------------------------------------------------
+// WEAKEN (opponent's table) ---------------------------------------------------
 
 pub fn shield_emitter() -> Component {
-  let shield =
-    defence("Energy shield", [Energy], 0.8, 0.7, One(matching: [Attack]))
+  let shield = defence("Energy shield", [Energy], 0.7, 0.9, One([Attack]))
   Component("Shield emitter", [shield, shield])
 }
 
-/// Jump hits every melee attack, so its value is low.
-pub fn servo_legs() -> Component {
-  let jump =
-    defence("Jump", [Mobility], 0.8, 0.3, All(matching: [Attack, Melee]))
-  Component("Servo legs", [jump, jump])
+pub fn deflector() -> Component {
+  let deflect = defence("Deflect", [Kinetic], 0.7, 0.9, One([Attack]))
+  Component("Deflector", [deflect, deflect])
 }
 
 /// Parry hits one melee attack, hard.
 pub fn sword() -> Component {
-  let parry =
-    defence("Parry", [Melee], 0.6, 0.8, One(matching: [Attack, Melee]))
+  let parry = defence("Parry", [Melee], 0.6, 0.8, One([Attack, Melee]))
   Component("Sword", [parry, parry])
 }
 
-pub fn deflector() -> Component {
-  let deflect = defence("Deflect", [Kinetic], 0.7, 0.6, One(matching: [Attack]))
-  Component("Deflector", [deflect, deflect])
+/// Jump hits every melee attack, so its value per card is low.
+pub fn servo_legs() -> Component {
+  let jump = defence("Jump", [Mobility], 0.8, 0.5, All([Attack, Melee]))
+  Component("Servo legs", [jump, jump])
 }
 
-// BUFF COMPONENTS -------------------------------------------------------------
+// STRENGTHEN (own table) ------------------------------------------------------
 
 pub fn targeting_computer() -> Component {
-  let lock_on =
-    buff("Lock on", [Range], 0.5, 0.4, One(matching: [Attack, Range]))
+  let lock_on = buff("Lock on", [Range], 0.6, 0.8, One([Attack, Range]))
   Component("Targeting computer", [lock_on, lock_on])
 }
 
 pub fn hydraulics() -> Component {
-  let pump = buff("Pump", [Kinetic], 0.5, 0.4, One(matching: [Attack, Melee]))
+  let pump = buff("Pump", [Kinetic], 0.6, 0.8, One([Attack, Melee]))
   Component("Hydraulics", [pump, pump])
+}
+
+/// Overclock raises every attack, so its value per card is low.
+pub fn reactor() -> Component {
+  let overclock = buff("Overclock", [Energy], 0.9, 0.6, All([Attack]))
+  Component("Reactor", [overclock, overclock])
+}
+
+// REPAIR ----------------------------------------------------------------------
+
+pub fn repair_kit() -> Component {
+  let patch = repair("Patch", [], 1.0, 1.2)
+  Component("Repair kit", [patch, patch])
 }
 
 // ROBOTS ----------------------------------------------------------------------
 
-/// The player's starter robot: ranged attacks, with shields and Jump against melee.
+/// The player's starter robot: ranged attacks, energy shields, Jump against melee.
 pub fn tinker() -> Robot {
-  build(robot.new("Tinker", max_hp: 12.0, slots: 4), [
+  build(robot.new("Tinker", max_hp: 10.0, slots: 4), [
     laser(),
     shield_emitter(),
     targeting_computer(),
@@ -116,7 +148,7 @@ pub fn tinker() -> Robot {
 
 /// The first AI opponent: melee brawler.
 pub fn scrapper() -> Robot {
-  build(robot.new("Scrapper", max_hp: 12.0, slots: 4), [
+  build(robot.new("Scrapper", max_hp: 10.0, slots: 4), [
     saw_arm(),
     fist(),
     hydraulics(),

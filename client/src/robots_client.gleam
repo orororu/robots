@@ -264,8 +264,9 @@ fn describe_event(state: Game, s: Scale, event: game.Event) -> String {
   case event {
     game.Started -> "Fight!"
     game.Destroyed(side) -> name(side) <> " is destroyed!"
-    game.Played(side:, card: c, value:, targets:) -> {
-      let shown = int.to_string(scale.value(s, value))
+    game.Played(side:, card: c, targets:, effect:, ..) -> {
+      // The amount actually changed, so wasted extra value isn't shown.
+      let shown = int.to_string(scale.value(s, effect))
       name(side)
       <> " plays "
       <> c.name

@@ -1,50 +1,29 @@
-//// Whole matches, AI against AI, with the real starter robots.
+//// Whole matches, AI against AI, with the starter robots. For the full
+//// picture run `gleam run -m balance`.
 ////
 //// Stalemates are bugs, so `every_match_ends_test` must pass. Balance is a
-//// design question, so the balance checks print a warning instead of failing
-//// the run while balancing is in progress.
+//// design question, so the balance checks print a warning instead of failing.
 
+import gleam/float
 import gleam/int
 import gleam/io
 import gleam/list
-import robots/ai
 import robots/catalog
-import robots/game.{type Game, type Status, P1, P2, Running, Won}
+import robots/game.{P1, P2, Running, Won}
+import robots/simulation.{type Outcome}
 
-const step_ms = 100
+const matches = 40
 
-const limit_ms = 600_000
-
-const seeds = 40
-
-fn simulate(seed: Int) -> #(Status, Int) {
-  let state =
-    game.new(
-      game.default_config(),
-      p1: catalog.tinker(),
-      p2: catalog.scrapper(),
-      seed:,
-      now: 0,
-    )
-  run(state, ai.new(P1, think_ms: 1600, now: 0), ai.new(P2, 1600, 0), 0)
+fn results() -> List(Outcome) {
+  // Both seatings, so going first can't skew the result.
+  let half = matches / 2
+  let config = game.default_config()
+  list.append(
+    simulation.series(config, catalog.tinker(), catalog.scrapper(), half, 1600),
+    simulation.series(config, catalog.scrapper(), catalog.tinker(), half, 1600),
+  )
 }
 
-fn run(state: Game, a: ai.Brain, b: ai.Brain, now: Int) -> #(Status, Int) {
-  case state.status, now > limit_ms {
-    Running, False -> {
-      let #(a, state) = ai.act(a, state, now)
-      let #(b, state) = ai.act(b, state, now)
-      run(state, a, b, now + step_ms)
-    }
-    status, _ -> #(status, now)
-  }
-}
-
-fn results() -> List(#(Status, Int)) {
-  list.repeat(0, seeds) |> list.index_map(fn(_, i) { simulate(i) })
-}
-
-/// Balance targets: print when missed, don't fail.
 fn balance_check(ok: Bool, message: String) -> Nil {
   case ok {
     True -> Nil
@@ -53,26 +32,39 @@ fn balance_check(ok: Bool, message: String) -> Nil {
 }
 
 pub fn every_match_ends_test() {
-  assert list.all(results(), fn(result) { result.0 != Running })
+  assert list.all(results(), fn(o) { o.status != Running })
 }
 
 pub fn match_length_balance_test() {
-  let seconds = list.map(results(), fn(r) { r.1 / 1000 })
-  let shortest = list.fold(seconds, limit_ms, int.min)
-  let longest = list.fold(seconds, 0, int.max)
+  let secs = list.map(results(), fn(o) { o.duration_ms / 1000 })
+  let average = int.sum(secs) / list.length(secs)
   balance_check(
-    shortest >= 60 && longest <= 180,
-    "matches last "
-      <> int.to_string(shortest)
-      <> "-"
-      <> int.to_string(longest)
-      <> "s (target 60-180s)",
+    average >= 90 && average <= 150,
+    "average match " <> int.to_string(average) <> "s (target ~120s)",
+  )
+}
+
+pub fn move_pace_balance_test() {
+  let all = results()
+  let moves = list.fold(all, 0, fn(t, o) { t + list.length(o.plays) })
+  let ms = list.fold(all, 0, fn(t, o) { t + o.duration_ms })
+  // Two players share the match time.
+  let per_move = int.to_float(ms * 2) /. int.to_float(moves) /. 1000.0
+  balance_check(
+    per_move >=. 3.0 && per_move <=. 5.0,
+    "a move every "
+      <> float.to_string(float.to_precision(per_move, 1))
+      <> "s per player (target ~4s)",
   )
 }
 
 pub fn win_rate_balance_test() {
-  let p1_wins = list.count(results(), fn(r) { r.0 == Won(P1) })
-  let percent = p1_wins * 100 / seeds
+  let all = results()
+  let half = matches / 2
+  let tinker_wins =
+    list.count(list.take(all, half), fn(o) { o.status == Won(P1) })
+    + list.count(list.drop(all, half), fn(o) { o.status == Won(P2) })
+  let percent = tinker_wins * 100 / matches
   balance_check(
     percent >= 35 && percent <= 65,
     "Tinker wins " <> int.to_string(percent) <> "% vs Scrapper (target 35-65%)",

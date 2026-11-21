@@ -132,6 +132,25 @@ after playtesting:
 - The old robot **Shield, Repair and Charge effects are removed**. Robot HP stays.
 - A deck with fewer than 4 cards leaves table slots empty.
 
+## Balance principles
+
+- **Pace:** about **one move every 4 seconds** per player. Humans can't play
+  several moves per second, so energy income, not reaction speed, limits play.
+  Rule of thumb: energy rate × 4 s ≈ average card cost.
+- **Match length:** about **2 minutes** (~30 moves per player).
+- **Defence, buffs and repair are more efficient than attacks.** Target value
+  per cost: damage 1.0, repair 1.2, weaken 1.3, strengthen 1.3. Cards that hit
+  `all(...)` are rated as if they hit 2 cards. If damage were the best use of
+  energy, every build would be a glass cannon with the single best attack.
+  A test checks every catalog card against these bands (±0.1).
+- **Robots should play differently.** Variety of builds, robots assembled from
+  components that each add several cards, is the main attraction (to be designed).
+- **Measure with the balance report:** `cd core && gleam run -m balance` plays
+  AI-vs-AI matches (both seatings) and shows win rates, match length, seconds
+  per move, and what each card actually achieves per cost.
+- Small numbers matter: changing one robot's HP from 100 to 110 moved its win
+  rate from 31% to 62%. Change one thing at a time and rerun the report.
+
 ## Open questions
 
 1. **Hidden tags:** which tags are hidden, and can they be revealed (e.g. a
@@ -147,7 +166,9 @@ These rules are implemented in `core/`:
 - `table.gleam`: table slots with current values, and automatic `one`/`all` targeting (`affect`).
 - `game.gleam`: playing a card, resolving it, discarding it, and refilling the slot.
 - `scale.gleam`: the display scale (default ×10 for costs and values).
-- `catalog.gleam`: starter cards, components and robots, all placeholder numbers.
+- `catalog.gleam`: all components and the starter robots.
+- `efficiency.gleam`: card roles and their value-per-cost bands.
+- `simulation.gleam` and `core/dev/balance.gleam`: AI-vs-AI matches and the balance report.
 
-`core/test/simulation_test.gleam` plays full AI-vs-AI matches to catch
-stalemates and extreme balance problems.
+`core/test/simulation_test.gleam` fails on stalemates and prints a warning when
+match length, pace or win rate drift from the targets.

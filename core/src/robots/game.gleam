@@ -11,6 +11,7 @@
 //// replacement into the same slot. There's no hand, no draw timer and no
 //// discard action.
 
+import gleam/float
 import gleam/list
 import gleam/result
 import robots/amount
@@ -72,7 +73,9 @@ pub type Event {
   Started
   /// `value` is the card's value when played; `targets` is how many things
   /// it affected: 1 for HP, the number of table cards otherwise (0 = no match).
-  Played(side: Side, card: Card, value: Float, targets: Int)
+  /// `effect` is the total amount actually changed: damage dealt, HP
+  /// repaired, or table value lowered/raised (extra value is not counted).
+  Played(side: Side, card: Card, value: Float, targets: Int, effect: Float)
   Destroyed(side: Side)
 }
 
@@ -177,16 +180,18 @@ fn play(
         ..c.discard
       ]),
     )
-  let #(game, targets) = resolve(game, side, played)
+  let #(game, targets, effect) = resolve(game, side, played)
   let #(refilled, seed) = refill(combatant_of(game, side), index, game.seed)
   Game(..game, seed:)
   |> put(side, refilled)
-  |> log(Played(side, played.card, played.value, targets))
+  |> log(Played(side, played.card, played.value, targets, effect))
   |> check_winner
   |> Ok
 }
 
-fn resolve(game: Game, side: Side, played: Slot) -> #(Game, Int) {
+/// Returns the new game, how many things were affected (1 for HP, else the
+/// number of table cards), and the total amount actually changed.
+fn resolve(game: Game, side: Side, played: Slot) -> #(Game, Int, Float) {
   let value = played.value
   // Opponent lowers, Self raises; the scope says what.
   case played.card.target {
@@ -199,9 +204,15 @@ fn resolve(game: Game, side: Side, played: Slot) -> #(Game, Int) {
   }
 }
 
-fn map_robot(game: Game, side: Side, f: fn(Robot) -> Robot) -> #(Game, Int) {
+fn map_robot(
+  game: Game,
+  side: Side,
+  f: fn(Robot) -> Robot,
+) -> #(Game, Int, Float) {
   let c = combatant_of(game, side)
-  #(put(game, side, Combatant(..c, robot: f(c.robot))), 1)
+  let changed = f(c.robot)
+  let effect = float.absolute_value(changed.hp -. c.robot.hp)
+  #(put(game, side, Combatant(..c, robot: changed)), 1, effect)
 }
 
 fn affect_table(
@@ -209,10 +220,15 @@ fn affect_table(
   side: Side,
   scope: card.Scope,
   change: fn(Float) -> Float,
-) -> #(Game, Int) {
+) -> #(Game, Int, Float) {
   let c = combatant_of(game, side)
   let #(table, targets, seed) = table.affect(c.table, scope, change, game.seed)
-  #(Game(..game, seed:) |> put(side, Combatant(..c, table:)), targets)
+  let effect =
+    list.zip(c.table, table)
+    |> list.fold(0.0, fn(total, pair) {
+      total +. float.absolute_value({ pair.1 }.value -. { pair.0 }.value)
+    })
+  #(Game(..game, seed:) |> put(side, Combatant(..c, table:)), targets, effect)
 }
 
 // DRAWING ---------------------------------------------------------------------

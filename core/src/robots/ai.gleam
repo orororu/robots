@@ -1,10 +1,15 @@
 //// A simple, pure AI opponent. It "thinks" for `think_ms` between plays.
-//// It can see both tables (everyone can), scores every affordable card by
-//// how much it would achieve right now, and plays the best one.
+////
+//// It can see both tables (everyone can) and rates every card on its own
+//// table by *efficiency*: how much the card would achieve right now, per
+//// energy spent. It plays the most efficient card, and when that card isn't
+//// affordable yet it saves energy for it instead of spending on cheap filler.
+//// It spends on the best affordable card only when energy is about to cap.
 
 import gleam/float
 import gleam/int
 import gleam/list
+import gleam/order
 import robots/amount
 import robots/card.{type Scope, All, Hp, One}
 import robots/energy
@@ -15,12 +20,13 @@ pub type Brain {
   Brain(side: Side, think_ms: Int, next_action_at: Int)
 }
 
-/// How soon to look again when nothing was worth playing.
+/// How soon to look again when nothing was played.
 const recheck_ms = 250
 
-/// Played only to clear a slot: when energy is nearly full and nothing better
-/// is available, a dead card is worth getting rid of.
-const clog_threshold = 0.9
+/// Energy this close to the cap would be wasted by waiting longer.
+const nearly_full = 0.9
+
+const finishing_blow = 1000.0
 
 pub fn new(side: Side, think_ms think_ms: Int, now now: Int) -> Brain {
   Brain(side:, think_ms:, next_action_at: now + think_ms)
@@ -29,9 +35,12 @@ pub fn new(side: Side, think_ms think_ms: Int, now now: Int) -> Brain {
 pub fn act(brain: Brain, state: Game, now: Int) -> #(Brain, Game) {
   case state.status, now >= brain.next_action_at {
     Running, True -> {
-      let played =
-        choose(state, brain.side, now)
-        |> result_try_play(state, brain.side, now)
+      let played = case choose(state, brain.side, now) {
+        Ok(slot) ->
+          game.update(state, PlayCard(brain.side, slot, now))
+          |> result_nil
+        Error(Nil) -> Error(Nil)
+      }
       case played {
         Ok(state) -> #(
           Brain(..brain, next_action_at: now + brain.think_ms),
@@ -44,61 +53,69 @@ pub fn act(brain: Brain, state: Game, now: Int) -> #(Brain, Game) {
   }
 }
 
-fn result_try_play(
-  choice: Result(Int, Nil),
-  state: Game,
-  side: Side,
-  now: Int,
-) -> Result(Game, Nil) {
-  case choice {
-    Ok(slot) ->
-      case game.update(state, PlayCard(side, slot, now)) {
-        Ok(state) -> Ok(state)
-        Error(_) -> Error(Nil)
-      }
-    Error(Nil) -> Error(Nil)
+fn result_nil(result: Result(a, e)) -> Result(a, Nil) {
+  case result {
+    Ok(a) -> Ok(a)
+    Error(_) -> Error(Nil)
   }
 }
 
-/// The table slot to play, if any card is affordable and worth playing.
+type Choice {
+  Choice(slot: Int, cost: Float, score: Float, affordable: Bool)
+}
+
+/// The table slot to play now, or `Error(Nil)` to wait (save energy).
 pub fn choose(state: Game, side: Side, now: Int) -> Result(Int, Nil) {
   let me = game.combatant_of(state, side)
   let available = energy.at(me.energy, now)
-  let affordable =
+  let options =
     me.table
-    |> list.index_map(fn(s, index) { #(index, s) })
-    |> list.filter(fn(pair) { amount.at_least(available, { pair.1 }.card.cost) })
-  let scored =
-    list.map(affordable, fn(pair) { #(pair.0, score(state, side, pair.1)) })
-  case best(scored) {
-    Ok(#(index, s)) if s >. 0.0 -> Ok(index)
-    _ ->
-      case available >=. me.energy.cap *. clog_threshold {
-        True -> cheapest(affordable)
-        False -> Error(Nil)
+    |> list.index_map(fn(s, slot) {
+      Choice(
+        slot:,
+        cost: s.card.cost,
+        score: score(state, side, s),
+        affordable: amount.at_least(available, s.card.cost),
+      )
+    })
+    // A card costing more than the cap can never be paid for.
+    |> list.filter(fn(o) { amount.at_least(me.energy.cap, o.cost) })
+  let useful = list.filter(options, fn(o) { o.score >. 0.0 })
+  let full = available >=. me.energy.cap *. nearly_full
+  case most_efficient(useful), full {
+    // The best card is affordable: play it.
+    Ok(best), _ if best.affordable -> Ok(best.slot)
+    // Energy is about to be wasted: spend it on the best thing we can afford,
+    // or clear a dead slot.
+    _, True ->
+      case most_efficient(list.filter(useful, fn(o) { o.affordable })) {
+        Ok(o) -> Ok(o.slot)
+        Error(Nil) -> cheapest(list.filter(options, fn(o) { o.affordable }))
       }
+    // Save up for the best card.
+    _, False -> Error(Nil)
   }
 }
 
-fn best(scored: List(#(Int, Float))) -> Result(#(Int, Float), Nil) {
-  list.fold(scored, Error(Nil), fn(best, candidate) {
-    case best {
-      Ok(#(_, best_score)) if best_score >=. candidate.1 -> best
-      _ -> Ok(candidate)
+fn efficiency(o: Choice) -> Float {
+  case o.cost >. 0.0 {
+    True -> o.score /. o.cost
+    False -> o.score *. 100.0
+  }
+}
+
+fn most_efficient(options: List(Choice)) -> Result(Choice, Nil) {
+  list.max(options, fn(a, b) {
+    case float.compare(efficiency(a), efficiency(b)) {
+      order.Eq -> float.compare(a.score, b.score)
+      other -> other
     }
   })
 }
 
-fn cheapest(slots: List(#(Int, Slot))) -> Result(Int, Nil) {
-  slots
-  |> list.sort(fn(a, b) { float.compare({ a.1 }.card.cost, { b.1 }.card.cost) })
-  |> list.first
-  |> result_index
-}
-
-fn result_index(pair: Result(#(Int, Slot), Nil)) -> Result(Int, Nil) {
-  case pair {
-    Ok(#(index, _)) -> Ok(index)
+fn cheapest(options: List(Choice)) -> Result(Int, Nil) {
+  case list.max(options, fn(a, b) { float.compare(b.cost, a.cost) }) {
+    Ok(o) -> Ok(o.slot)
     Error(Nil) -> Error(Nil)
   }
 }
@@ -111,7 +128,7 @@ fn score(state: Game, side: Side, slot: Slot) -> Float {
     card.Opponent(Hp) ->
       case amount.at_least(slot.value, foe.robot.hp) {
         // A finishing blow beats everything.
-        True -> 100.0
+        True -> finishing_blow
         False -> slot.value
       }
     card.Self(Hp) -> float.min(slot.value, me.robot.max_hp -. me.robot.hp)

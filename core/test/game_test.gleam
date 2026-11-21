@@ -306,9 +306,34 @@ pub fn ai_plays_after_thinking_test() {
 }
 
 pub fn ai_defends_against_a_big_attack_test() {
-  // Weakening a 10-value Laser beats dealing 5 with a Punch.
-  let g = arena([laser()], [punch(), energy_shield(0.7)])
+  // Shield 9 for cost 7 removes 9 of the Laser: 1.29 per energy, better than
+  // a Punch's 1.0.
+  let shield = Card("Shield", [Defence], 0.7, 0.9, Opponent(One([Attack])))
+  let g = arena([laser()], [punch(), shield])
   assert ai.choose(g, P2, 0) == Ok(1)
+}
+
+pub fn ai_saves_energy_for_a_more_efficient_card_test() {
+  // Tap (1.0 per cost) is affordable; Big shot (1.5 per cost) isn't yet.
+  let big = Card("Big shot", [Attack], 2.0, 3.0, Opponent(Hp))
+  let weak = Card("Tap", [Attack], 0.5, 0.5, Opponent(Hp))
+  let g = arena([laser()], [weak, big])
+  let low =
+    Game(..g, p2: Combatant(..g.p2, energy: energy.new(1.0, 0.5, 5.0, 0)))
+  assert ai.choose(low, P2, 0) == Error(Nil)
+  // Once it can pay, it plays the better card.
+  assert ai.choose(low, P2, 2000) == Ok(1)
+}
+
+pub fn ai_spends_instead_of_wasting_energy_at_the_cap_test() {
+  // The best card costs more than ever affordable right now, but energy is
+  // full: spend on the best affordable card rather than waste income.
+  let big = Card("Big shot", [Attack], 5.0, 9.0, Opponent(Hp))
+  let weak = Card("Tap", [Attack], 0.5, 0.5, Opponent(Hp))
+  let g = arena([laser()], [weak, big])
+  let nearly =
+    Game(..g, p2: Combatant(..g.p2, energy: energy.new(4.6, 0.5, 5.0, 0)))
+  assert ai.choose(nearly, P2, 0) == Ok(0)
 }
 
 pub fn ai_goes_for_the_kill_test() {
