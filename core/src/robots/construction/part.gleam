@@ -128,7 +128,8 @@ pub fn energy_cap(component: Component) -> Float {
   component.energy_cap *. strength(component)
 }
 
-fn strength(component: Component) -> Float {
+/// How much the part's modifiers multiply what it provides (1.0 = none).
+pub fn strength(component: Component) -> Float {
   list.fold(component.modifiers, 1.0, fn(s, m) {
     case m {
       Overclocked(factor) -> s *. factor

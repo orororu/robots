@@ -23,6 +23,10 @@ pub opaque type Seed {
 /// warm-up steps spread them across the whole range.
 const warm_up_steps = 4
 
+/// Multiplying alone keeps consecutive seeds in lockstep: their first outputs
+/// differ by a constant, so e.g. `int_below(_, 3)` gave the same answer for
+/// every seed. An xor-shift between steps breaks the pattern. All values stay
+/// below 2^31, so bitwise operations agree on Erlang and JavaScript.
 pub fn new(n: Int) -> Seed {
   warm_up(Seed(int.absolute_value(n) % { modulus - 1 } + 1), warm_up_steps)
 }
@@ -30,7 +34,17 @@ pub fn new(n: Int) -> Seed {
 fn warm_up(seed: Seed, steps: Int) -> Seed {
   case steps {
     0 -> seed
-    _ -> warm_up(next(seed).1, steps - 1)
+    _ -> {
+      let Seed(state) = next(seed).1
+      let mixed =
+        int.bitwise_exclusive_or(state, int.bitwise_shift_right(state, 13))
+      let mixed =
+        int.bitwise_exclusive_or(
+          mixed,
+          int.bitwise_shift_left(mixed % 65_536, 15),
+        )
+      warm_up(Seed(mixed % { modulus - 1 } + 1), steps - 1)
+    }
   }
 }
 

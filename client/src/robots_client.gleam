@@ -281,6 +281,7 @@ fn describe_event(state: Game, s: Scale, event: game.Event) -> String {
   case event {
     game.Started -> "Fight!"
     game.Destroyed(side) -> name(side) <> " is destroyed!"
+    game.Entered(side: _, robot:) -> robot.name <> " enters the battle!"
     game.DroneHit(side:, drone:, damage:, destroyed:) ->
       "  → hits "
       <> name(side)

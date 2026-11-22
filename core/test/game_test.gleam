@@ -601,3 +601,50 @@ pub fn fire_leaves_the_match_when_played_test() {
   let assert Ok(g) = game.update(g, PlayCard(P1, 0, 0))
   assert !list.contains(names_everywhere(g.p1), "Fire")
 }
+
+// TEAMS -----------------------------------------------------------------------
+
+pub fn the_next_robot_enters_when_one_is_destroyed_test() {
+  let nuke = Card("Nuke", [Attack], 0.0, 9.0, OpponentHp, traits: [])
+  let g =
+    game.teams(
+      config(5.0),
+      p1: [bot("Alpha", [laser()])],
+      p2: [bot("Beta", [laser()]), bot("Gamma", [laser()])],
+      seed: 1,
+      now: 0,
+    )
+  let g = Game(..g, p1: Combatant(..g.p1, table: [slot(nuke)], deck: []))
+  let alpha = g.p1
+  let assert Ok(g) = game.update(g, PlayCard(P1, 0, 3000))
+  assert g.status == game.Running
+  assert g.p2.robot.name == "Gamma"
+  assert g.p2.robot.hp == g.p2.robot.max_hp
+  assert g.p2.reserve == []
+  // Gamma starts fresh: a full table and starting energy.
+  assert list.map(g.p2.table, fn(s) { s.card }) == [laser()]
+  assert g.p2.energy.base == g.config.starting_energy
+  assert g.p2.energy.since == 3000
+  // Alpha keeps its HP and energy (minus the play).
+  assert g.p1.robot == alpha.robot
+  assert g.p1.energy.cap == alpha.energy.cap
+  assert list.take(g.log, 2)
+    == [game.Entered(P2, bot("Gamma", [laser()])), game.Destroyed(P2)]
+}
+
+pub fn a_side_loses_when_no_robot_is_left_test() {
+  let nuke = Card("Nuke", [Attack], 0.0, 9.0, OpponentHp, traits: [])
+  let g =
+    game.teams(
+      config(5.0),
+      p1: [bot("Alpha", [laser()])],
+      p2: [bot("Beta", [laser()]), bot("Gamma", [laser()])],
+      seed: 1,
+      now: 0,
+    )
+  let g =
+    Game(..g, p1: Combatant(..g.p1, table: [slot(nuke), slot(nuke)], deck: []))
+  let assert Ok(g) = game.update(g, PlayCard(P1, 0, 0))
+  let assert Ok(g) = game.update(g, PlayCard(P1, 0, 0))
+  assert g.status == Won(P1)
+}

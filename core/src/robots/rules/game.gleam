@@ -65,6 +65,9 @@ pub type Combatant {
     table: List(Slot),
     discard: List(Card),
     energy: Energy,
+    /// Robots waiting to fight, in order. When `robot` is destroyed, the
+    /// next one enters; the side loses when none are left.
+    reserve: List(Robot),
   )
 }
 
@@ -90,6 +93,8 @@ pub type Event {
   /// took its slot.
   Burned(side: Side, card: Card)
   Destroyed(side: Side)
+  /// `side`'s next robot entered the battle after the last was destroyed.
+  Entered(side: Side, robot: Robot)
 }
 
 pub type Game {
@@ -122,15 +127,31 @@ pub fn new(
   seed seed: Int,
   now now: Int,
 ) -> Game {
+  teams(config, p1: [p1_robot], p2: [p2_robot], seed:, now:)
+}
+
+/// A battle between teams: each side's robots fight one at a time, in the
+/// given order. Both lists must be non-empty.
+pub fn teams(
+  config: Config,
+  p1 p1_team: List(Robot),
+  p2 p2_team: List(Robot),
+  seed seed: Int,
+  now now: Int,
+) -> Game {
   let seed = rng.new(seed)
-  let #(p1, seed) = combatant(config, p1_robot, seed, now)
-  let #(p2, seed) = combatant(config, p2_robot, seed, now)
+  let assert [p1_robot, ..p1_reserve] = p1_team
+  let assert [p2_robot, ..p2_reserve] = p2_team
+  let #(p1, seed) = combatant(config, p1_robot, p1_reserve, seed, now)
+  let #(p2, seed) = combatant(config, p2_robot, p2_reserve, seed, now)
   Game(config:, p1:, p2:, seed:, status: Running, log: [Started])
 }
 
+/// A robot entering the battle: a fresh deck, table and starting energy.
 fn combatant(
   config: Config,
   bot: Robot,
+  reserve: List(Robot),
   seed: Seed,
   now: Int,
 ) -> #(Combatant, Seed) {
@@ -142,7 +163,7 @@ fn combatant(
       cap: bot.energy_cap,
       now:,
     )
-  Combatant(robot: bot, deck:, table: [], discard: [], energy:)
+  Combatant(robot: bot, deck:, table: [], discard: [], energy:, reserve:)
   |> fill_table(config.table_size, seed)
 }
 
@@ -215,7 +236,7 @@ fn play(
   Game(..game, seed:)
   |> put(side, refilled)
   |> log(Played(side, played.card, played.value, targets, effect))
-  |> check_winner
+  |> check_destroyed(now)
   |> Ok
 }
 
@@ -429,11 +450,29 @@ fn draw(c: Combatant, seed: Seed) -> Result(#(Card, Combatant, Seed), Nil) {
 
 // HELPERS ---------------------------------------------------------------------
 
-fn check_winner(game: Game) -> Game {
+/// A destroyed robot leaves; the next in reserve enters. The other side
+/// keeps its HP, energy and table. A side with no robot left loses.
+fn check_destroyed(game: Game, now: Int) -> Game {
+  let game = game |> replace_destroyed(P2, now) |> replace_destroyed(P1, now)
   case robot.is_destroyed(game.p1.robot), robot.is_destroyed(game.p2.robot) {
-    _, True -> Game(..game, status: Won(P1)) |> log(Destroyed(P2))
-    True, False -> Game(..game, status: Won(P2)) |> log(Destroyed(P1))
+    _, True -> Game(..game, status: Won(P1))
+    True, False -> Game(..game, status: Won(P2))
     False, False -> game
+  }
+}
+
+fn replace_destroyed(game: Game, side: Side, now: Int) -> Game {
+  let c = combatant_of(game, side)
+  case robot.is_destroyed(c.robot), c.reserve {
+    False, _ -> game
+    True, [] -> log(game, Destroyed(side))
+    True, [next, ..reserve] -> {
+      let #(fresh, seed) = combatant(game.config, next, reserve, game.seed, now)
+      Game(..game, seed:)
+      |> put(side, fresh)
+      |> log(Destroyed(side))
+      |> log(Entered(side, next))
+    }
   }
 }
 

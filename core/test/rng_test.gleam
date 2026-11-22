@@ -12,8 +12,8 @@ pub fn known_value_is_stable_across_targets_test() {
   // Pinning a value guards against the Erlang and JS targets diverging.
   let #(a, seed) = rng.next(rng.new(1))
   let #(b, _) = rng.next(seed)
-  assert a == 2_009_854_435
-  assert b == 814_711_366
+  assert a == 493_207_134
+  assert b == 597_854_672
 }
 
 pub fn shuffle_is_a_permutation_test() {
@@ -42,4 +42,14 @@ pub fn first_shuffle_is_fair_for_small_seeds_test() {
     |> list.count(fn(shuffled) { list.first(shuffled) == Ok(0) })
   // Fair is 1 in 9 = 100 of 900.
   assert on_top > 60 && on_top < 140
+}
+
+pub fn consecutive_seeds_are_not_in_lockstep_test() {
+  // Seeds 1, 2, 3... used to give the same first `int_below(_, 3)`.
+  let firsts =
+    int.range(1, 31, [], list.prepend)
+    |> list.map(fn(i) { rng.int_below(rng.new(i), 3).0 })
+  assert list.contains(firsts, 0)
+  assert list.contains(firsts, 1)
+  assert list.contains(firsts, 2)
 }
