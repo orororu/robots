@@ -393,25 +393,46 @@ pub fn heavy_plating() -> Component {
 pub fn frame() -> Chassis {
   let sidestep = defence("Sidestep", [Mobility], 0.7, 0.68, One([Attack]))
   let kick = attack("Kick", [Melee, Kinetic], 0.6, 0.48)
-  Chassis("Frame", hp: 9.0, capacity: 12.0, weapon_mounts: [4.0, 4.0], cards: [
-    sidestep,
-    kick,
-  ])
+  Chassis(
+    "Frame",
+    hp: 9.0,
+    capacity: 12.0,
+    weapon_mounts: [4.0, 4.0],
+    cards: [
+      sidestep,
+      kick,
+    ],
+    wear: 0.0,
+  )
 }
 
 /// Tough, with one medium and one small weapon. Rams rather than dodges.
 pub fn brute() -> Chassis {
   let ram = attack("Ram", [Melee, Kinetic], 0.8, 0.72)
-  Chassis("Brute", hp: 7.0, capacity: 12.0, weapon_mounts: [4.0, 2.0], cards: [
-    ram,
-    ram,
-  ])
+  Chassis(
+    "Brute",
+    hp: 7.0,
+    capacity: 12.0,
+    weapon_mounts: [4.0, 2.0],
+    cards: [
+      ram,
+      ram,
+    ],
+    wear: 0.0,
+  )
 }
 
 /// One big gun and plenty of capacity. Slow: almost no mobility.
 pub fn tank() -> Chassis {
   let brace = defence("Brace", [Kinetic], 0.6, 0.52, One([Attack]))
-  Chassis("Tank", hp: 9.0, capacity: 16.0, weapon_mounts: [8.0], cards: [brace])
+  Chassis(
+    "Tank",
+    hp: 9.0,
+    capacity: 16.0,
+    weapon_mounts: [8.0],
+    cards: [brace],
+    wear: 0.0,
+  )
 }
 
 /// Fragile and light, four small weapons, and the best mobility: hard to hit.
@@ -424,6 +445,7 @@ pub fn scout() -> Chassis {
     capacity: 12.0,
     weapon_mounts: [2.0, 2.0, 2.0, 2.0],
     cards: [jump, jump, dodge, dodge],
+    wear: 0.0,
   )
 }
 

@@ -32,7 +32,14 @@ pub type Chassis {
     /// mobility and identity. They also keep one-weapon builds from having
     /// decks made only of attacks.
     cards: List(Card),
+    /// Damage the chassis has taken and kept during a run (0 when new).
+    wear: Float,
   )
+}
+
+/// The chassis' HP left after wear.
+pub fn chassis_hp(chassis: Chassis) -> Float {
+  float.max(0.0, chassis.hp -. chassis.wear)
 }
 
 pub type BuildError {
@@ -71,16 +78,21 @@ pub fn build(
   }
 }
 
+/// Max HP counts every part as new; the robot starts with what its worn
+/// parts have left.
 fn assemble(name: String, chassis: Chassis, parts: List(Component)) -> Robot {
   let armor = parts |> list.map(part.hp) |> float.sum
+  let left = parts |> list.map(part.remaining_hp) |> float.sum
   let energy_cap = parts |> list.map(part.energy_cap) |> float.sum
-  robot.new(
-    name,
-    chassis: chassis.name,
-    max_hp: chassis.hp +. armor,
-    energy_cap:,
-    components: [body(chassis), ..parts],
-  )
+  let bot =
+    robot.new(
+      name,
+      chassis: chassis.name,
+      max_hp: chassis.hp +. armor,
+      energy_cap:,
+      components: [body(chassis), ..parts],
+    )
+  robot.Robot(..bot, hp: chassis_hp(chassis) +. left)
 }
 
 /// The chassis' own cards, as a weightless part.

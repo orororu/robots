@@ -39,6 +39,9 @@ pub type Component {
     /// Energy storage (battery). Relative, like card costs.
     energy_cap: Float,
     modifiers: List(Modifier),
+    /// Damage this part has taken and kept (armor, during a run). Its
+    /// remaining HP is `hp - wear`. See `robots/construction/wear`.
+    wear: Float,
   )
 }
 
@@ -66,6 +69,7 @@ pub fn new(
     hp: 0.0,
     energy_cap: 0.0,
     modifiers: [],
+    wear: 0.0,
   )
 }
 
@@ -110,8 +114,14 @@ pub fn cards(component: Component) -> List(Card) {
   list.map(component.cards, fn(c) { Card(..c, value: c.value *. boost) })
 }
 
+/// Full HP, when undamaged.
 pub fn hp(component: Component) -> Float {
   component.hp *. strength(component)
+}
+
+/// HP left after wear.
+pub fn remaining_hp(component: Component) -> Float {
+  float.max(0.0, hp(component) -. component.wear)
 }
 
 pub fn energy_cap(component: Component) -> Float {
