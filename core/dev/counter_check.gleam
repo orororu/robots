@@ -3,7 +3,7 @@
 ////     cd core && gleam run -m counter_check
 ////
 //// For each counter part: take builds that would use it and carry a Shield
-//// emitter (a general defence part, also weight 2), swap the Shield emitter
+//// emitter (a general defence part, also weight 2), swap the Kinetic shield
 //// for the counter, and play both versions against the counter's targets
 //// and against other builds, on three random samples. A working counter is
 //// better against its targets and may be worse against the rest.
@@ -79,7 +79,7 @@ pub fn main() -> Nil {
       <> c.counter.name
       <> " · "
       <> c.users_name
-      <> " with a Shield emitter, and the same with "
+      <> " with a Kinetic shield, and the same with "
       <> c.counter.name
       <> " instead",
     )
@@ -96,8 +96,8 @@ fn check(builds: List(Build), c: Check, sample: Int) -> Nil {
     |> list.take(opponents)
   let #(swapped, _) =
     builds
-    |> list.filter(fn(b) { c.users(b) && uses(b, "Shield emitter") })
-    |> list.filter_map(swap(_, "Shield emitter", c.counter))
+    |> list.filter(fn(b) { c.users(b) && uses(b, "Kinetic shield") })
+    |> list.filter_map(swap(_, "Kinetic shield", c.counter))
     |> rng.shuffle(rng.new(sample))
   let swapped = list.take(swapped, pairs)
 
@@ -126,7 +126,7 @@ fn check(builds: List(Build), c: Check, sample: Int) -> Nil {
       <> int.to_string(opponents)
       <> " "
       <> group
-      <> ": Shield emitter "
+      <> ": Kinetic shield "
       <> pct(average(fn(r) { r.0 }))
       <> " → "
       <> c.counter.name

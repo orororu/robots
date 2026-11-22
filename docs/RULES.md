@@ -62,7 +62,7 @@ which cards:
 | Target | Effect | Example |
 |---|---|---|
 | `opponent(hp)` | damage the opponent | Laser, Punch |
-| `opponent(one(tags))` | lower one opponent card | Parry `one[attack,melee]`, Energy shield `one[attack,kinetic]` |
+| `opponent(one(tags))` | lower one opponent card | Parry `one[attack,melee]`, Kinetic shield `one[attack,kinetic]` |
 | `opponent(all(tags))` | lower all matching opponent cards | Jump `all[attack,melee]` |
 | `self(one(tags))` | raise one of your cards | Lock on `one[attack,range]` |
 | `self(all(tags))` | raise all your matching cards | Overclock `all[attack]` |
@@ -109,20 +109,20 @@ value** than single-target ones:
 |---|---|---|
 | **Parry** | **One** random `melee` attack card | high, e.g. 8 |
 | **Jump** | **All** `melee` attack cards | low, e.g. 3 |
-| **Energy shield** | One random `kinetic` attack card | e.g. 13 |
+| **Kinetic shield** | One random `kinetic` attack card | e.g. 13 |
 
 **Each defence part blocks one kind of damage**, so every weapon has a
 counter and no defence stops everything:
 
 | Defence part | Blocks | Weapons it counters |
 |---|---|---|
-| Shield emitter | `kinetic` attacks | Cannon, Machine gun, Fist, Kick, Ram |
+| Kinetic shield | `kinetic` attacks | Cannon, Machine gun, Fist, Kick, Ram |
 | Deflector | `energy` attacks | Laser |
 | Buckler | `melee` attacks | Saw arm, Fist, Kick, Ram |
 | Smoke launcher | `range` attacks, both tables | Cannon, Machine gun, Missiles |
 | Point defence | drones | Drone bay (Machine gun's Sweep, weaker) |
 
-Missiles have no counter but Smoke. Making the Shield emitter kinetic-only
+Missiles have no counter but Smoke. Making the Kinetic shield kinetic-only
 (it used to block any attack) cut tournament stalemates from ~4% to ~3%.
 
 `range` means projectiles. The Laser is a `beam`, not `range`: Smoke doesn't
@@ -187,12 +187,12 @@ after playtesting:
     down, each destroying one drone, even fully grown (lowers it by 30, cost 3).
   - It's a **specialist part**: dead cards against builds without drones,
     the right pick against builds with them. `gleam run -m counter_check`
-    swaps a Shield emitter for it in 60 builds: against drone builds ~18% →
+    swaps a Kinetic shield for it in 60 builds: against drone builds ~18% →
     51–62% (better in 50–55 of 60), against other builds ~48% → 34–38%.
   - **Narrow counters** (cards that only affect drones) are outside the
     efficiency band; they're balanced by matchups. At cost 5–10, or with 2
     Intercepts against Missiles instead of Shoot downs, Point defence was no
-    better than a Shield emitter even against drones: its dead cards clogged
+    better than a Kinetic shield even against drones: its dead cards clogged
     the table, and Missiles are fired before they can be intercepted.
   - It replaced a Flak gun weapon: no one gave up a weapon mount for it, and
     against drones it was no better than a Laser.
@@ -202,7 +202,7 @@ after playtesting:
   the answer to Tank + Cannon.
   - Against the top 3 Tank + Cannon builds, the best melee builds win 4–8%
     without Smoke; with it, 42–50% at value 13 and 100% at value 20.
-  - `counter_check`, melee builds swapping a Shield emitter for it: against
+  - `counter_check`, melee builds swapping a Kinetic shield for it: against
     range-only builds 56–66% → 66–71%; against other builds 55–62% → 40–50%.
   - Smoke doesn't touch drones, so stronger Smoke pushes the meta from Tank +
     Cannon toward drone builds: at value 20 no Cannon build made the top 9.

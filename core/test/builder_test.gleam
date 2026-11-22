@@ -67,7 +67,7 @@ pub fn every_chassis_has_a_legal_signature_build_test() {
     builder.build("Tank", catalog.tank(), [
       catalog.cannon(),
       catalog.cell(),
-      catalog.shield_emitter(),
+      catalog.kinetic_shield(),
       catalog.deflector(),
       catalog.buckler(),
       catalog.heavy_plating(),
@@ -262,7 +262,7 @@ pub fn card_costing_more_than_the_batteries_hold_is_flagged_test() {
 pub fn a_weapon_is_required_test() {
   // The Frame's own Kick isn't enough.
   assert builder.build("B", padded(catalog.frame()), [
-      catalog.shield_emitter(),
+      catalog.kinetic_shield(),
       catalog.deflector(),
       catalog.battery(),
     ])

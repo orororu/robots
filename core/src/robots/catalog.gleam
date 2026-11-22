@@ -72,7 +72,7 @@ pub fn components() -> List(Component) {
     laser(),
     saw_arm(),
     fist(),
-    shield_emitter(),
+    kinetic_shield(),
     deflector(),
     buckler(),
     targeting_computer(),
@@ -224,7 +224,7 @@ pub fn smoke_launcher() -> Component {
 /// rely on them. Cheap (cost 3) so a dead card is cheap to clear. Checked
 /// with `gleam run -m counter_check`; costlier versions, or two Intercepts
 /// (against Missiles, which are fired before they can be intercepted),
-/// were no better than a Shield emitter even against drones.
+/// were no better than a Kinetic shield even against drones.
 /// (It used to be a Flak gun weapon: no one gave up a weapon mount for it,
 /// and against drones it was no better than a Laser.)
 pub fn point_defence() -> Component {
@@ -242,19 +242,19 @@ pub fn point_defence() -> Component {
 /// Stops projectiles and blows: lowers kinetic attacks only (Cannon,
 /// Machine gun, Fist, Kick, Ram). Lasers pass through; a Deflector stops
 /// those.
-pub fn shield_emitter() -> Component {
+pub fn kinetic_shield() -> Component {
   let shield =
-    defence("Energy shield", [Energy], 1.0, 1.3, One([Attack, Kinetic]))
-  part.new("Shield emitter", part.Defence, 2.0, [
-    defence("Flicker shield", [Energy], 0.7, 0.68, One([Attack, Kinetic])),
+    defence("Kinetic shield", [Energy], 1.0, 1.3, One([Attack, Kinetic]))
+  part.new("Kinetic shield", part.Defence, 2.0, [
+    defence("Kinetic flicker", [Energy], 0.7, 0.68, One([Attack, Kinetic])),
     shield,
     shield,
-    defence("Bubble", [Energy], 1.2, 0.91, All([Attack, Kinetic])),
+    defence("Kinetic bubble", [Energy], 1.2, 0.91, All([Attack, Kinetic])),
   ])
 }
 
 /// Bends energy beams away: lowers energy attacks only (the Laser). A light
-/// specialist, like the Buckler for melee; the Shield emitter is the
+/// specialist, like the Buckler for melee; the Kinetic shield is the
 /// general, heavier defence.
 pub fn deflector() -> Component {
   let deflect = defence("Deflect", [Energy], 0.8, 0.86, One([Attack, Energy]))

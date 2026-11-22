@@ -119,7 +119,7 @@ fn pick(
   }
 }
 
-/// "Frame: Laser, Shield emitter ×2 · Battery · Plating ×3"
+/// "Frame: Laser, Kinetic shield ×2 · Battery · Plating ×3"
 pub fn label(chassis: Chassis, parts: List(Component)) -> String {
   let #(cards, rest) =
     list.partition(parts, fn(p) { p.kind != Battery && p.kind != Armor })
