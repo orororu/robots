@@ -8,9 +8,9 @@
 import gleam/float
 import gleam/int
 import gleam/list
-import robots/amount
-import robots/card.{type Card, type Scope, All, One}
-import robots/rng.{type Seed}
+import robots/rules/amount
+import robots/rules/card.{type Card, type Scope, All, One}
+import robots/rules/rng.{type Seed}
 
 pub type Slot {
   /// `value` is the card's value at time `since` (ms); `card.value` is its

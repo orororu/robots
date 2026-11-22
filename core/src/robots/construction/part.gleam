@@ -7,7 +7,7 @@
 import gleam/float
 import gleam/list
 import gleam/string
-import robots/card.{type Card, Card}
+import robots/rules/card.{type Card, Card}
 
 pub type Kind {
   /// The chassis' own cards (mobility and the like). Comes with the chassis;

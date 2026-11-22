@@ -8,12 +8,12 @@ import gleam/float
 import gleam/int
 import gleam/list
 import gleam/order
-import robots/amount
-import robots/card.{
+import robots/construction/part.{type Component, Battery, Body, Weapon}
+import robots/construction/robot.{type Robot}
+import robots/rules/amount
+import robots/rules/card.{
   type Card, All, Both, Burn, Launch, NoEffect, One, Opponent, OpponentHp, Self,
 }
-import robots/part.{type Component, Battery, Body, Weapon}
-import robots/robot.{type Robot}
 
 /// Every robot needs at least this many cards (chassis, parts and armor
 /// together), so decks vary and no one can just repeat their best combo.

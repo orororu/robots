@@ -14,12 +14,12 @@
 import gleam/float
 import gleam/list
 import gleam/result
-import robots/amount
-import robots/card.{type Card}
-import robots/energy.{type Energy}
-import robots/rng.{type Seed}
-import robots/robot.{type Robot}
-import robots/table.{type Slot, Slot}
+import robots/construction/robot.{type Robot}
+import robots/rules/amount
+import robots/rules/card.{type Card}
+import robots/rules/energy.{type Energy}
+import robots/rules/rng.{type Seed}
+import robots/rules/table.{type Slot, Slot}
 
 pub type Side {
   P1

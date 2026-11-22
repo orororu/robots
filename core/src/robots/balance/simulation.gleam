@@ -2,11 +2,13 @@
 //// Used by `test/simulation_test.gleam` and the `dev/balance.gleam` report.
 
 import gleam/list
-import robots/ai
-import robots/card.{type Card}
-import robots/game.{type Game, type Side, type Status, P1, P2, Played, Running}
-import robots/rng.{type Seed}
-import robots/robot.{type Robot}
+import robots/ai/brain
+import robots/construction/robot.{type Robot}
+import robots/rules/card.{type Card}
+import robots/rules/game.{
+  type Game, type Side, type Status, P1, P2, Played, Running,
+}
+import robots/rules/rng.{type Seed}
 
 pub type Play {
   Play(
@@ -36,8 +38,8 @@ pub fn run(
   think_ms: Int,
 ) -> Outcome {
   let state = game.new(config, p1:, p2:, seed:, now: 0)
-  let a = ai.new(P1, think_ms:, now: 0)
-  let b = ai.new(P2, think_ms:, now: 0)
+  let a = brain.new(P1, think_ms:, now: 0)
+  let b = brain.new(P2, think_ms:, now: 0)
   // A separate random stream decides who acts first within a step, so the
   // game's own seed (shuffles, targeting) is unaffected.
   loop(state, a, b, rng.new(seed + 1_000_003), 0, [])
@@ -57,8 +59,8 @@ pub fn series(
 
 fn loop(
   state: Game,
-  a: ai.Brain,
-  b: ai.Brain,
+  a: brain.Brain,
+  b: brain.Brain,
   order: Seed,
   now: Int,
   plays: List(Play),
@@ -70,15 +72,15 @@ fn loop(
       let #(coin, order) = rng.int_below(order, 2)
       let #(a, b, state, plays) = case coin {
         0 -> {
-          let #(a, after) = ai.act(a, state, now)
+          let #(a, after) = brain.act(a, state, now)
           let plays = record(state, after, now, plays)
-          let #(b, after_b) = ai.act(b, after, now)
+          let #(b, after_b) = brain.act(b, after, now)
           #(a, b, after_b, record(after, after_b, now, plays))
         }
         _ -> {
-          let #(b, after) = ai.act(b, state, now)
+          let #(b, after) = brain.act(b, state, now)
           let plays = record(state, after, now, plays)
-          let #(a, after_a) = ai.act(a, after, now)
+          let #(a, after_a) = brain.act(a, after, now)
           #(a, b, after_a, record(after, after_a, now, plays))
         }
       }

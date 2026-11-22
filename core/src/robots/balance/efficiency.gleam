@@ -14,7 +14,7 @@
 
 import gleam/float
 import gleam/list
-import robots/card.{
+import robots/rules/card.{
   type Card, All, Both, Burn, Launch, NoEffect, One, Opponent, OpponentHp, Self,
 }
 

@@ -11,13 +11,13 @@ import gleam/int
 import gleam/io
 import gleam/list
 import gleam/string
-import robots/card.{type Card}
-import robots/catalog
-import robots/efficiency
-import robots/game.{type Side, P1, P2, Won}
-import robots/robot.{type Robot}
-import robots/scale
-import robots/simulation.{type Outcome}
+import robots/balance/efficiency
+import robots/balance/simulation.{type Outcome}
+import robots/construction/robot.{type Robot}
+import robots/content/catalog
+import robots/rules/card.{type Card}
+import robots/rules/game.{type Side, P1, P2, Won}
+import robots/rules/scale
 
 const matches_per_seating = 100
 
@@ -189,7 +189,7 @@ fn card_table(robots: List(#(Robot, List(Seat))), matches: Int) -> Nil {
     "\n  rating = printed value/cost (All counts "
     <> f1(efficiency.expected_all_targets)
     <> " targets); real/c = achieved effect per cost"
-    <> "\n  goal = target rating for the card's role and cost (see robots/efficiency)",
+    <> "\n  goal = target rating for the card's role and cost (see robots/balance/efficiency)",
   )
 }
 

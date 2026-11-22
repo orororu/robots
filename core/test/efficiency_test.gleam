@@ -1,9 +1,9 @@
 import gleam/list
-import robots/card
-import robots/catalog
-import robots/efficiency
-import robots/part
-import robots/robot
+import robots/balance/efficiency
+import robots/construction/part
+import robots/construction/robot
+import robots/content/catalog
+import robots/rules/card
 
 /// Every catalog card must fit its role's efficiency band. Defence and buffs
 /// are rated above attacks, so builds aren't all glass cannons.

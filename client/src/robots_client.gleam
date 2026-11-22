@@ -3,7 +3,7 @@
 //// Swapping this text view for sprites later doesn't touch the game rules.
 ////
 //// The core works in relative amounts (1.0 = base). Every number shown here
-//// goes through `robots/scale`, so the whole game can be rescaled in one place.
+//// goes through `robots/rules/scale`, so the whole game can be rescaled in one place.
 
 import gleam/float
 import gleam/int
@@ -15,15 +15,15 @@ import lustre/effect.{type Effect}
 import lustre/element.{type Element}
 import lustre/element/html
 import lustre/event
-import robots/ai
-import robots/amount
-import robots/card.{type Card}
-import robots/catalog
-import robots/energy
-import robots/game.{type Combatant, type Game, P1, P2}
-import robots/part
-import robots/scale.{type Scale}
-import robots/table.{type Slot}
+import robots/ai/brain
+import robots/rules/amount
+import robots/rules/card.{type Card}
+import robots/content/catalog
+import robots/rules/energy
+import robots/rules/game.{type Combatant, type Game, P1, P2}
+import robots/construction/part
+import robots/rules/scale.{type Scale}
+import robots/rules/table.{type Slot}
 import robots_client/browser
 
 const frame_ms = 50
@@ -43,7 +43,7 @@ pub fn main() -> Nil {
 type Model {
   Model(
     game: Game,
-    brain: ai.Brain,
+    brain: brain.Brain,
     scale: Scale,
     now: Int,
     flash: String,
@@ -62,7 +62,7 @@ fn new_match(now: Int) -> Model {
     )
   Model(
     game: state,
-    brain: ai.new(P2, think_ms: ai_think_ms, now:),
+    brain: brain.new(P2, think_ms: ai_think_ms, now:),
     scale: scale.default(),
     now:,
     flash: "",
@@ -103,7 +103,7 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
 
 /// Let time pass and give the AI a chance to act.
 fn advance(model: Model, now: Int) -> Model {
-  let #(brain, state) = ai.act(model.brain, model.game, now)
+  let #(brain, state) = brain.act(model.brain, model.game, now)
   Model(..model, game: state, brain:, now:)
 }
 

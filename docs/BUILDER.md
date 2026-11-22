@@ -1,7 +1,7 @@
 # Robot builder
 
-Status: **core implemented** (`core/src/robots/part.gleam`, `builder.gleam`,
-chassis and parts in `catalog.gleam`). No garage screen yet. Numbers for the
+Status: **core implemented** (`core/src/robots/construction/part.gleam`, `construction/builder.gleam`,
+chassis and parts in `content/catalog.gleam`). No garage screen yet. Numbers for the
 new parts (Cannon, Machine gun, Tank, Scout) are placeholders, not yet balanced.
 
 ## Agreed

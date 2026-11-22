@@ -1,5 +1,5 @@
 //// Cards. Costs and values are *relative*: 1.0 is the base amount. How big
-//// they look to players is decided by `robots/scale`, never here.
+//// they look to players is decided by `robots/rules/scale`, never here.
 ////
 //// What a card does is decided by its `target` alone: damage the opponent's
 //// HP, lower the opponent's table cards (weaken), raise your own (buff), or

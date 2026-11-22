@@ -10,11 +10,11 @@ import gleam/float
 import gleam/int
 import gleam/list
 import gleam/order
-import robots/amount
-import robots/card.{type Scope, All, One}
-import robots/energy
-import robots/game.{type Game, type Side, PlayCard, Running}
-import robots/table.{type Slot}
+import robots/rules/amount
+import robots/rules/card.{type Scope, All, One}
+import robots/rules/energy
+import robots/rules/game.{type Game, type Side, PlayCard, Running}
+import robots/rules/table.{type Slot}
 
 pub type Brain {
   Brain(side: Side, think_ms: Int, next_action_at: Int)

@@ -4,7 +4,7 @@
 
 import gleam/float
 import gleam/int
-import robots/amount
+import robots/rules/amount
 
 pub type Energy {
   Energy(base: Float, since: Int, rate: Float, cap: Float)

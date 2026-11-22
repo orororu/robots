@@ -1,4 +1,4 @@
-import robots/energy
+import robots/rules/energy
 
 pub fn accumulates_over_time_test() {
   let e = energy.new(0.0, rate: 1.0, cap: 10.0, now: 0)

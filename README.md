@@ -9,20 +9,27 @@ that accumulates over time. Rules: [docs/RULES.md](docs/RULES.md).
 ```
 core/     pure game logic (Gleam, runs on JavaScript and BEAM): no IO, no clock
   src/robots/
-    game.gleam      update(game, msg) -> Result(Game, Rejection)
-    table.gleam     the 4 visible table slots and automatic targeting
-    card.gleam      cards, tags, target + scope; relative costs and values
-    scale.gleam     display scale: relative amounts -> shown numbers
-    energy.gleam    energy computed from timestamps, never ticked
-    robot.gleam     built robots: HP, energy cap, deck, damage
-    part.gleam      components: kind, weight, cards, armor/battery, loot modifiers
-    builder.gleam   chassis + parts -> robot, with errors and warnings
-    build_search.gleam  generate legal builds (tournament, later AI and garage)
-    catalog.gleam   starter components and robots (balance here)
-    ai.gleam        pure AI opponent (efficiency-based, saves energy)
-    efficiency.gleam  card roles and value-per-cost bands
-    simulation.gleam  AI-vs-AI matches for balancing
-    rng.gleam       seeded RNG, identical on both targets
+    rules/        the match rules
+      game.gleam      update(game, msg) -> Result(Game, Rejection)
+      table.gleam     the 4 visible table slots and automatic targeting
+      card.gleam      cards, tags, targets, traits; relative costs and values
+      energy.gleam    energy computed from timestamps, never ticked
+      amount.gleam    float comparisons with a tolerance
+      scale.gleam     display scale: relative amounts -> shown numbers
+      rng.gleam       seeded RNG, identical on both targets
+    construction/ assembling robots
+      part.gleam      components: kind, weight, cards, armor/battery, loot modifiers
+      robot.gleam     built robots: HP, energy cap, deck, damage
+      builder.gleam   chassis + parts -> robot, with errors and warnings
+      build_search.gleam  generate legal builds (tournament, later AI and garage)
+    content/
+      catalog.gleam   all chassis, parts and starter robots (balance here)
+    ai/
+      brain.gleam     pure AI opponent (efficiency-based, saves energy)
+    balance/      balancing tools used by tests and dev reports
+      simulation.gleam  AI-vs-AI matches
+      efficiency.gleam  card roles and value-per-cost bands
+  dev/            reports: balance, tournament, counter_check
 client/   Lustre browser app: text-mode view, clock, keyboard
 ```
 

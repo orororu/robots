@@ -1,12 +1,12 @@
 //// A built robot, ready for a match. Robots are normally made with
-//// `robots/builder.build`, which checks weight, weapon mounts and batteries;
+//// `robots/construction/builder.build`, which checks weight, weapon mounts and batteries;
 //// `new` skips those checks (useful in tests).
 
 import gleam/float
 import gleam/list
-import robots/amount
-import robots/card.{type Card}
-import robots/part.{type Component}
+import robots/construction/part.{type Component}
+import robots/rules/amount
+import robots/rules/card.{type Card}
 
 /// `hp`, `max_hp` and `energy_cap` are relative amounts: HP on the card value
 /// scale, energy on the card cost scale.

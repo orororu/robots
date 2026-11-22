@@ -1,6 +1,6 @@
 import gleam/int
 import gleam/list
-import robots/rng
+import robots/rules/rng
 
 pub fn same_seed_same_sequence_test() {
   let #(a, _) = rng.next(rng.new(42))

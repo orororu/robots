@@ -1,21 +1,21 @@
 import gleam/float
 import gleam/int
 import gleam/list
-import robots/ai
-import robots/card.{
+import robots/ai/brain
+import robots/construction/part
+import robots/construction/robot
+import robots/content/catalog
+import robots/rules/card.{
   type Card, All, Attack, Beam, Buff, Card, Defence, Energy, Melee, One,
   Opponent, OpponentHp, Range, Self,
 }
-import robots/catalog
-import robots/energy
-import robots/game.{
+import robots/rules/energy
+import robots/rules/game.{
   type Game, Combatant, Config, Game, GameOver, NoSuchCard, NotEnoughEnergy, P1,
   P2, PlayCard, Played, Won,
 }
-import robots/part
-import robots/robot
-import robots/scale
-import robots/table.{type Slot, Slot, slot}
+import robots/rules/scale
+import robots/rules/table.{type Slot, Slot, slot}
 
 // CARDS -----------------------------------------------------------------------
 
@@ -373,9 +373,9 @@ pub fn ai_lets_a_drone_grow_before_striking_test() {
     arena([], [shield])
     |> with_tables([drone_at(0.5), slot(laser())], [slot(shield)])
   // Young drone, nothing threatens it: fire the Laser, let the drone grow.
-  assert ai.choose(g, P1, 0) == Ok(1)
+  assert brain.choose(g, P1, 0) == Ok(1)
   // Fully grown (3.0 after 25 s): strike with it.
-  assert ai.choose(g, P1, 30_000) == Ok(0)
+  assert brain.choose(g, P1, 30_000) == Ok(0)
 }
 
 pub fn ai_waits_for_a_full_drone_even_under_threat_test() {
@@ -384,11 +384,11 @@ pub fn ai_waits_for_a_full_drone_even_under_threat_test() {
   let g =
     arena([], [laser()])
     |> with_tables([drone_at(0.9), slot(energy_shield(0.7))], [slot(laser())])
-  assert ai.choose(g, P1, 0) != Ok(0)
+  assert brain.choose(g, P1, 0) != Ok(0)
   // ...unless the strike would win the match.
   let low =
     Game(..g, p2: Combatant(..g.p2, robot: robot.Robot(..g.p2.robot, hp: 0.5)))
-  assert ai.choose(low, P1, 0) == Ok(0)
+  assert brain.choose(low, P1, 0) == Ok(0)
 }
 
 // ENERGY AND ERRORS -----------------------------------------------------------
@@ -420,13 +420,13 @@ pub fn destroying_the_robot_wins_test() {
 
 pub fn ai_waits_until_it_has_thought_test() {
   let g = arena([laser()], [laser()])
-  let #(_, after) = ai.act(ai.new(P2, think_ms: 1000, now: 0), g, 500)
+  let #(_, after) = brain.act(brain.new(P2, think_ms: 1000, now: 0), g, 500)
   assert after == g
 }
 
 pub fn ai_plays_after_thinking_test() {
   let g = arena([laser()], [laser()])
-  let #(brain, g) = ai.act(ai.new(P2, think_ms: 1000, now: 0), g, 1000)
+  let #(brain, g) = brain.act(brain.new(P2, think_ms: 1000, now: 0), g, 1000)
   assert g.p1.robot.hp == 4.0
   assert brain.next_action_at == 2000
 }
@@ -437,7 +437,7 @@ pub fn ai_defends_against_a_big_attack_test() {
   let shield =
     Card("Shield", [Defence], 0.7, 0.9, Opponent(One([Attack])), traits: [])
   let g = arena([laser()], [punch(), shield])
-  assert ai.choose(g, P2, 0) == Ok(1)
+  assert brain.choose(g, P2, 0) == Ok(1)
 }
 
 pub fn ai_saves_energy_for_a_more_efficient_card_test() {
@@ -447,9 +447,9 @@ pub fn ai_saves_energy_for_a_more_efficient_card_test() {
   let g = arena([laser()], [weak, big])
   let low =
     Game(..g, p2: Combatant(..g.p2, energy: energy.new(1.0, 0.5, 5.0, 0)))
-  assert ai.choose(low, P2, 0) == Error(Nil)
+  assert brain.choose(low, P2, 0) == Error(Nil)
   // Once it can pay, it plays the better card.
-  assert ai.choose(low, P2, 2000) == Ok(1)
+  assert brain.choose(low, P2, 2000) == Ok(1)
 }
 
 pub fn ai_spends_instead_of_wasting_energy_at_the_cap_test() {
@@ -460,14 +460,14 @@ pub fn ai_spends_instead_of_wasting_energy_at_the_cap_test() {
   let g = arena([laser()], [weak, big])
   let nearly =
     Game(..g, p2: Combatant(..g.p2, energy: energy.new(4.6, 0.5, 5.0, 0)))
-  assert ai.choose(nearly, P2, 0) == Ok(0)
+  assert brain.choose(nearly, P2, 0) == Ok(0)
 }
 
 pub fn ai_goes_for_the_kill_test() {
   let g = arena([laser()], [energy_shield(0.7), punch()])
   let g =
     Game(..g, p1: Combatant(..g.p1, robot: robot.Robot(..g.p1.robot, hp: 0.5)))
-  assert ai.choose(g, P2, 0) == Ok(1)
+  assert brain.choose(g, P2, 0) == Ok(1)
 }
 
 pub fn ai_clears_a_dead_slot_only_when_energy_is_nearly_full_test() {
@@ -475,9 +475,9 @@ pub fn ai_clears_a_dead_slot_only_when_energy_is_nearly_full_test() {
   // Parry has no target: not worth playing with half-full energy...
   let half =
     Game(..g, p2: Combatant(..g.p2, energy: energy.new(2.5, 0.5, 5.0, 0)))
-  assert ai.choose(half, P2, 0) == Error(Nil)
+  assert brain.choose(half, P2, 0) == Error(Nil)
   // ...but with full energy, clearing the slot beats wasting the energy.
-  assert ai.choose(g, P2, 0) == Ok(0)
+  assert brain.choose(g, P2, 0) == Ok(0)
 }
 
 fn rng_seed(n: Int) {

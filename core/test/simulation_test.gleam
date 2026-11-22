@@ -8,9 +8,9 @@ import gleam/float
 import gleam/int
 import gleam/io
 import gleam/list
-import robots/catalog
-import robots/game.{P1, P2, Running, Won}
-import robots/simulation.{type Outcome}
+import robots/balance/simulation.{type Outcome}
+import robots/content/catalog
+import robots/rules/game.{P1, P2, Running, Won}
 
 const matches = 40
 

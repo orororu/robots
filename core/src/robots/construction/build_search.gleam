@@ -9,10 +9,10 @@ import gleam/float
 import gleam/int
 import gleam/list
 import gleam/string
-import robots/builder.{type Chassis}
-import robots/card
-import robots/part.{type Component, Armor, Battery}
-import robots/robot.{type Robot}
+import robots/construction/builder.{type Chassis}
+import robots/construction/part.{type Component, Armor, Battery}
+import robots/construction/robot.{type Robot}
+import robots/rules/card
 
 pub type Build {
   Build(label: String, chassis: Chassis, parts: List(Component), robot: Robot)

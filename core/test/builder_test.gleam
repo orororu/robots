@@ -1,12 +1,12 @@
 import gleam/list
-import robots/builder.{
+import robots/construction/builder.{
   DeadCard, DeckTooSmall, NoBattery, NoWeapon, Overweight, TooManyWeapons,
   Unaffordable, WeaponTooHeavy,
 }
-import robots/card.{Attack, Card, Defence, One, Opponent, OpponentHp}
-import robots/catalog
-import robots/part
-import robots/robot
+import robots/construction/part
+import robots/construction/robot
+import robots/content/catalog
+import robots/rules/card.{Attack, Card, Defence, One, Opponent, OpponentHp}
 
 // STARTERS --------------------------------------------------------------------
 

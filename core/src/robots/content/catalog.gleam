@@ -1,19 +1,19 @@
 //// Starter content. Plain data, so balancing is just editing numbers.
 ////
-//// Costs and values are relative to a base of 1.0 (see `robots/scale` for how
+//// Costs and values are relative to a base of 1.0 (see `robots/rules/scale` for how
 //// they're shown). Every card must fit its efficiency band in
-//// `robots/efficiency` (bigger cards more efficient; defence and buffs
+//// `robots/balance/efficiency` (bigger cards more efficient; defence and buffs
 //// ahead of attacks of the same cost). A test checks every card in
 //// `components()`; `gleam run -m balance` shows each card's goal.
 
-import robots/builder.{type Chassis, Chassis}
-import robots/card.{
+import robots/construction/builder.{type Chassis, Chassis}
+import robots/construction/part.{type Component}
+import robots/construction/robot.{type Robot}
+import robots/rules/card.{
   type Card, type Scope, type Tag, All, Attack, Beam, Buff, Card, Defence, Drone,
   Energy, Explosive, Fire, Kinetic, Melee, Mobility, One, Opponent, OpponentHp,
   Range, Self,
 }
-import robots/part.{type Component}
-import robots/robot.{type Robot}
 
 // Shorthands. The tags `attack`, `defence` and `buff` are descriptive only:
 // what a card does comes from its target.

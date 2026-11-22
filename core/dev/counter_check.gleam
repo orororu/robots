@@ -12,13 +12,13 @@ import gleam/float
 import gleam/int
 import gleam/io
 import gleam/list
-import robots/build_search.{type Build, Build}
-import robots/builder
-import robots/catalog
-import robots/game.{P1, P2, Running, Won}
-import robots/part.{type Component}
-import robots/rng
-import robots/simulation
+import robots/balance/simulation
+import robots/construction/build_search.{type Build, Build}
+import robots/construction/builder
+import robots/construction/part.{type Component}
+import robots/content/catalog
+import robots/rules/game.{P1, P2, Running, Won}
+import robots/rules/rng
 
 const limits = build_search.Limits(max_card_parts: 4, max_copies: 4)
 

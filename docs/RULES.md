@@ -244,7 +244,7 @@ after playtesting:
   **grows with cost**. Cheap ones get no margin, so fast small defences can't
   stall the round. Big ones always outclass attacks of the same cost, so no
   attack is ever big enough to beat defence, and builds aren't glass cannons.
-- Target value per cost (`robots/efficiency.gleam`):
+- Target value per cost (`robots/balance/efficiency.gleam`):
   `1.0 + 0.5 × (cost − 1) + bonus × max(0, cost − 0.5)`, with bonus 0 for
   damage, 0.6 for weaken (defence) and 0.4 for strengthen (buffs). Cards hitting
   `all(...)` are rated as if they hit 2 cards. A test checks every catalog card
@@ -283,15 +283,15 @@ after playtesting:
 
 ## Implementation
 
-These rules are implemented in `core/`:
+These rules are implemented in `core/src/robots/`:
 
-- `card.gleam`: tags, `Target` (side) and `Scope` (hp / one / all), relative `cost` and `value`.
-- `table.gleam`: table slots with current values, and automatic `one`/`all` targeting (`affect`).
-- `game.gleam`: playing a card, resolving it, discarding it, and refilling the slot.
-- `scale.gleam`: the display scale (default ×10 for costs and values).
-- `catalog.gleam`: all components and the starter robots.
-- `efficiency.gleam`: card roles and their value-per-cost bands.
-- `simulation.gleam` and `core/dev/balance.gleam`: AI-vs-AI matches and the balance report.
+- `rules/card.gleam`: tags, `Target` (side) and `Scope` (hp / one / all), relative `cost` and `value`.
+- `rules/table.gleam`: table slots with current values, and automatic `one`/`all` targeting (`affect`).
+- `rules/game.gleam`: playing a card, resolving it, discarding it, and refilling the slot.
+- `rules/scale.gleam`: the display scale (default ×10 for costs and values).
+- `content/catalog.gleam`: all components and the starter robots.
+- `balance/efficiency.gleam`: card roles and their value-per-cost bands.
+- `balance/simulation.gleam` and `core/dev/balance.gleam`: AI-vs-AI matches and the balance report.
 
 `core/test/simulation_test.gleam` fails on stalemates and prints a warning when
 match length, pace or win rate drift from the targets.
