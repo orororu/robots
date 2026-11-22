@@ -163,10 +163,12 @@ pub fn machine_gun() -> Component {
 }
 
 /// Two Missiles, each playable once per match and much stronger than a
-/// normal attack, plus two ordinary rockets for the rest of the match.
+/// normal attack, plus two ordinary rockets for the rest of the match. At
+/// 15/30 the rack lost to a Laser in the same builds (58% vs 69%): two
+/// early shots, then only weak rockets.
 pub fn missile_rack() -> Component {
   let missile =
-    Card(..attack("Missile", [Range, Explosive], 1.5, 3.0), traits: [card.Once])
+    Card(..attack("Missile", [Range, Explosive], 1.8, 4.0), traits: [card.Once])
   let rocket = attack("Micro rocket", [Range, Explosive], 0.7, 0.6)
   part.new("Missile rack", part.Weapon, 3.0, [missile, missile, rocket, rocket])
 }

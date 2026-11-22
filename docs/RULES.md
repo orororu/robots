@@ -162,8 +162,10 @@ after playtesting:
 - A deck with fewer than 4 cards leaves table slots empty (robots need 16).
 - **Traits** are special rules on a card. `Once`: playable once per match;
   afterwards the card leaves the game instead of going to the discard pile.
-  Example: **Missile** (Missile rack: 2 Missiles, cost 15, 30 damage, plus 2
+  Example: **Missile** (Missile rack: 2 Missiles, cost 18, 40 damage, plus 2
   ordinary Micro rockets). Once cards are rated ×1.6 above their role's goal.
+  At 15/30 the rack lost to a Laser in the same builds (58% vs 69%): two
+  early shots, then only weak rockets for the rest of the match.
 - **Drones.** A Drone bay (weapon) has 4 `Launch drone` cards (each once
   per match) and nothing else. A robot whose only weapon is a Drone bay runs
   out of attacks and may stall; that's allowed: not every build has to be
