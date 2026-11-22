@@ -11,6 +11,7 @@ import gleam/int
 import gleam/io
 import gleam/list
 import gleam/string
+import robots/ai/brain
 import robots/balance/efficiency
 import robots/balance/simulation.{type Outcome}
 import robots/construction/robot.{type Robot}
@@ -21,7 +22,7 @@ import robots/rules/scale
 
 const matches_per_seating = 100
 
-const think_ms = 1600
+const reaction = brain.human
 
 pub fn main() -> Nil {
   let config = game.default_config()
@@ -32,8 +33,10 @@ pub fn main() -> Nil {
     <> f1(config.energy_rate *. s.cost)
     <> "/s, start "
     <> int.to_string(scale.cost(s, config.starting_energy))
-    <> " · AI think "
-    <> f1(int.to_float(think_ms) /. 1000.0)
+    <> " · AI reaction "
+    <> f1(int.to_float(reaction.min_ms) /. 1000.0)
+    <> "-"
+    <> f1(int.to_float(reaction.max_ms) /. 1000.0)
     <> "s · targets: ~120s matches, ~4s per move",
   )
   matchup(config, catalog.tinker(), catalog.scrapper())
@@ -49,8 +52,8 @@ type Seat {
 }
 
 fn matchup(config: game.Config, a: Robot, b: Robot) -> Nil {
-  let as_p1 = simulation.series(config, a, b, matches_per_seating, think_ms)
-  let as_p2 = simulation.series(config, b, a, matches_per_seating, think_ms)
+  let as_p1 = simulation.series(config, a, b, matches_per_seating, reaction)
+  let as_p2 = simulation.series(config, b, a, matches_per_seating, reaction)
   let seats_a =
     list.append(list.map(as_p1, seat(_, P1)), list.map(as_p2, seat(_, P2)))
   let seats_b =
@@ -83,7 +86,7 @@ fn matchup(config: game.Config, a: Robot, b: Robot) -> Nil {
 }
 
 fn mirror(config: game.Config, bot: Robot) -> Nil {
-  let all = simulation.series(config, bot, bot, matches_per_seating, think_ms)
+  let all = simulation.series(config, bot, bot, matches_per_seating, reaction)
   let p1 = list.count(all, fn(o) { o.status == Won(P1) })
   io.println(
     "\n== Mirror "

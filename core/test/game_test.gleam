@@ -418,17 +418,33 @@ pub fn destroying_the_robot_wins_test() {
 
 // AI --------------------------------------------------------------------------
 
-pub fn ai_waits_until_it_has_thought_test() {
+pub fn ai_reacts_after_a_delay_test() {
   let g = arena([laser()], [laser()])
-  let #(_, after) = brain.act(brain.new(P2, think_ms: 1000, now: 0), g, 500)
+  let ai = brain.new(P2, reaction: brain.Reaction(500, 800), seed: 1)
+  // It notices it can fire, but doesn't play yet.
+  let #(ai, after) = brain.act(ai, g, 0)
   assert after == g
+  assert ai.act_at >= 500 && ai.act_at <= 800
+  let #(ai, after) = brain.act(ai, g, 499)
+  assert after == g
+  // After its reaction delay it fires.
+  let #(ai, after) = brain.act(ai, g, 800)
+  assert after.p1.robot.hp == 4.0
+  // The next situation is new: it reacts again before the next play.
+  let #(_, again) = brain.act(ai, after, 800)
+  assert again == after
 }
 
-pub fn ai_plays_after_thinking_test() {
+pub fn ai_restarts_its_reaction_when_its_plan_changes_test() {
   let g = arena([laser()], [laser()])
-  let #(brain, g) = brain.act(brain.new(P2, think_ms: 1000, now: 0), g, 1000)
-  assert g.p1.robot.hp == 4.0
-  assert brain.next_action_at == 2000
+  let ai = brain.new(P2, reaction: brain.Reaction(500, 500), seed: 1)
+  let #(ai, _) = brain.act(ai, g, 0)
+  assert ai.act_at == 500
+  // The Laser it meant to fire is gone: a new plan, a new reaction.
+  let changed = Game(..g, p2: Combatant(..g.p2, table: [slot(punch())]))
+  let #(ai, after) = brain.act(ai, changed, 300)
+  assert after == changed
+  assert ai.act_at == 800
 }
 
 pub fn ai_defends_against_a_big_attack_test() {

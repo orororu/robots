@@ -28,8 +28,6 @@ import robots_client/browser
 
 const frame_ms = 50
 
-const ai_think_ms = 1600
-
 const flash_ms = 1500
 
 pub fn main() -> Nil {
@@ -62,7 +60,7 @@ fn new_match(now: Int) -> Model {
     )
   Model(
     game: state,
-    brain: brain.new(P2, think_ms: ai_think_ms, now:),
+    brain: brain.new(P2, reaction: brain.human, seed: browser.random_seed()),
     scale: scale.default(),
     now:,
     flash: "",

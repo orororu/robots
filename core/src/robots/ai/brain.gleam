@@ -1,4 +1,10 @@
-//// A simple, pure AI opponent. It "thinks" for `think_ms` between plays.
+//// A simple, pure AI opponent that reacts like a human.
+////
+//// Each step it works out what it would do right now (play a card or wait).
+//// When that intent changes (a card became affordable, the opponent's play
+//// changed the best answer, a new card was drawn) it waits a random
+//// reaction delay, then acts if its intent is still the same. After playing,
+//// the next situation is new again, so every play takes a reaction.
 ////
 //// It can see both tables (everyone can) and rates every card on its own
 //// table by *efficiency*: how much the card would achieve right now, per
@@ -9,55 +15,88 @@
 import gleam/float
 import gleam/int
 import gleam/list
+import gleam/option.{type Option, None, Some}
 import gleam/order
 import robots/rules/amount
 import robots/rules/card.{type Scope, All, One}
 import robots/rules/energy
 import robots/rules/game.{type Game, type Side, PlayCard, Running}
+import robots/rules/rng.{type Seed}
 import robots/rules/table.{type Slot}
 
-pub type Brain {
-  Brain(side: Side, think_ms: Int, next_action_at: Int)
+/// How long it takes to react to a change, in ms (picked at random).
+pub type Reaction {
+  Reaction(min_ms: Int, max_ms: Int)
 }
 
-/// How soon to look again when nothing was played.
-const recheck_ms = 250
+/// A human-like reaction: 0.5 to 0.8 s.
+pub const human = Reaction(min_ms: 500, max_ms: 800)
+
+pub type Brain {
+  Brain(
+    side: Side,
+    reaction: Reaction,
+    /// What it means to do (`Ok(#(slot, card))` or `Error(Nil)` = wait),
+    /// as of the last change it noticed; `None` right after it played.
+    intent: Option(Result(#(Int, String), Nil)),
+    /// When it will act on `intent`.
+    act_at: Int,
+    seed: Seed,
+  )
+}
 
 /// Energy this close to the cap would be wasted by waiting longer.
 const nearly_full = 0.9
 
 const finishing_blow = 1000.0
 
-pub fn new(side: Side, think_ms think_ms: Int, now now: Int) -> Brain {
-  Brain(side:, think_ms:, next_action_at: now + think_ms)
+pub fn new(side: Side, reaction reaction: Reaction, seed seed: Int) -> Brain {
+  Brain(side:, reaction:, intent: None, act_at: 0, seed: rng.new(seed))
 }
 
+/// Call often (every frame or simulation step). Plays at most one card.
 pub fn act(brain: Brain, state: Game, now: Int) -> #(Brain, Game) {
-  case state.status, now >= brain.next_action_at {
-    Running, True -> {
-      let played = case choose(state, brain.side, now) {
-        Ok(slot) ->
-          game.update(state, PlayCard(brain.side, slot, now))
-          |> result_nil
-        Error(Nil) -> Error(Nil)
-      }
-      case played {
-        Ok(state) -> #(
-          Brain(..brain, next_action_at: now + brain.think_ms),
-          state,
-        )
-        Error(Nil) -> #(Brain(..brain, next_action_at: now + recheck_ms), state)
+  case state.status {
+    Running -> {
+      let intent = intent(state, brain.side, now)
+      case brain.intent == Some(intent), intent {
+        // Something changed: react to it after a delay.
+        False, _ -> {
+          let #(delay, seed) = reaction_delay(brain)
+          #(
+            Brain(..brain, intent: Some(intent), act_at: now + delay, seed:),
+            state,
+          )
+        }
+        // Same plan as before, and the reaction time has passed.
+        True, Ok(#(slot, _)) if now >= brain.act_at ->
+          case game.update(state, PlayCard(brain.side, slot, now)) {
+            Ok(state) -> #(Brain(..brain, intent: None), state)
+            Error(_) -> #(Brain(..brain, intent: None), state)
+          }
+        True, _ -> #(brain, state)
       }
     }
-    _, _ -> #(brain, state)
+    _ -> #(brain, state)
   }
 }
 
-fn result_nil(result: Result(a, e)) -> Result(a, Nil) {
-  case result {
-    Ok(a) -> Ok(a)
-    Error(_) -> Error(Nil)
+/// The slot it would play now and which card is there, or `Error(Nil)`.
+fn intent(state: Game, side: Side, now: Int) -> Result(#(Int, String), Nil) {
+  case choose(state, side, now) {
+    Ok(slot) ->
+      case list.drop(game.combatant_of(state, side).table, slot) {
+        [s, ..] -> Ok(#(slot, s.card.name))
+        [] -> Error(Nil)
+      }
+    Error(Nil) -> Error(Nil)
   }
+}
+
+fn reaction_delay(brain: Brain) -> #(Int, Seed) {
+  let Reaction(min_ms:, max_ms:) = brain.reaction
+  let #(extra, seed) = rng.int_below(brain.seed, max_ms - min_ms + 1)
+  #(min_ms + extra, seed)
 }
 
 type Choice {

@@ -35,11 +35,12 @@ pub fn run(
   p1: Robot,
   p2: Robot,
   seed: Int,
-  think_ms: Int,
+  reaction: brain.Reaction,
 ) -> Outcome {
   let state = game.new(config, p1:, p2:, seed:, now: 0)
-  let a = brain.new(P1, think_ms:, now: 0)
-  let b = brain.new(P2, think_ms:, now: 0)
+  // Each AI has its own random stream for reaction delays.
+  let a = brain.new(P1, reaction:, seed: seed * 2 + 1)
+  let b = brain.new(P2, reaction:, seed: seed * 2 + 2)
   // A separate random stream decides who acts first within a step, so the
   // game's own seed (shuffles, targeting) is unaffected.
   loop(state, a, b, rng.new(seed + 1_000_003), 0, [])
@@ -51,10 +52,10 @@ pub fn series(
   p1: Robot,
   p2: Robot,
   count: Int,
-  think_ms: Int,
+  reaction: brain.Reaction,
 ) -> List(Outcome) {
   list.repeat(0, count)
-  |> list.index_map(fn(_, seed) { run(config, p1, p2, seed, think_ms) })
+  |> list.index_map(fn(_, seed) { run(config, p1, p2, seed, reaction) })
 }
 
 fn loop(

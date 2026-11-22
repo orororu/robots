@@ -8,6 +8,7 @@ import gleam/float
 import gleam/int
 import gleam/io
 import gleam/list
+import robots/ai/brain
 import robots/balance/simulation.{type Outcome}
 import robots/content/catalog
 import robots/rules/game.{P1, P2, Running, Won}
@@ -19,8 +20,20 @@ fn results() -> List(Outcome) {
   let half = matches / 2
   let config = game.default_config()
   list.append(
-    simulation.series(config, catalog.tinker(), catalog.scrapper(), half, 1600),
-    simulation.series(config, catalog.scrapper(), catalog.tinker(), half, 1600),
+    simulation.series(
+      config,
+      catalog.tinker(),
+      catalog.scrapper(),
+      half,
+      brain.human,
+    ),
+    simulation.series(
+      config,
+      catalog.scrapper(),
+      catalog.tinker(),
+      half,
+      brain.human,
+    ),
   )
 }
 

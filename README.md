@@ -25,7 +25,8 @@ core/     pure game logic (Gleam, runs on JavaScript and BEAM): no IO, no clock
     content/
       catalog.gleam   all chassis, parts and starter robots (balance here)
     ai/
-      brain.gleam     pure AI opponent (efficiency-based, saves energy)
+      brain.gleam     pure AI opponent: efficiency-based, saves energy, reacts
+                      to changes after a human-like 0.5-0.8 s delay
     balance/      balancing tools used by tests and dev reports
       simulation.gleam  AI-vs-AI matches
       efficiency.gleam  card roles and value-per-cost bands

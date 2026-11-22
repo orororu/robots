@@ -11,6 +11,7 @@ import gleam/int
 import gleam/io
 import gleam/list
 import gleam/string
+import robots/ai/brain
 import robots/balance/simulation
 import robots/construction/build_search.{type Build}
 import robots/construction/builder.{type Chassis}
@@ -29,7 +30,7 @@ const finalists = 24
 
 const final_seeds = 5
 
-const think_ms = 1600
+const reaction = brain.human
 
 /// One process per item on BEAM (fast; use `gleam run -m tournament`);
 /// sequential on JavaScript.
@@ -120,8 +121,8 @@ fn score_against(b: Build, opponents: List(Build), seeds: Int) -> Score {
       list.repeat(0, seeds)
       |> list.index_map(fn(_, seed) { seed })
       |> list.flat_map(fn(seed) {
-        let as_p1 = simulation.run(config, b.robot, o.robot, seed, think_ms)
-        let as_p2 = simulation.run(config, o.robot, b.robot, seed, think_ms)
+        let as_p1 = simulation.run(config, b.robot, o.robot, seed, reaction)
+        let as_p2 = simulation.run(config, o.robot, b.robot, seed, reaction)
         [points(as_p1.status, P1), points(as_p2.status, P2)]
       })
     })

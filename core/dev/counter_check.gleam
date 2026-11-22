@@ -12,6 +12,7 @@ import gleam/float
 import gleam/int
 import gleam/io
 import gleam/list
+import robots/ai/brain
 import robots/balance/simulation
 import robots/construction/build_search.{type Build, Build}
 import robots/construction/builder
@@ -22,7 +23,7 @@ import robots/rules/rng
 
 const limits = build_search.Limits(max_card_parts: 4, max_copies: 4)
 
-const think_ms = 1600
+const reaction = brain.human
 
 const pairs = 60
 
@@ -177,11 +178,11 @@ fn score(b: Build, against: List(Build)) -> Float {
       list.flat_map(int.range(0, seeds, [], list.prepend), fn(seed) {
         [
           points(
-            simulation.run(config, b.robot, o.robot, seed, think_ms).status,
+            simulation.run(config, b.robot, o.robot, seed, reaction).status,
             P1,
           ),
           points(
-            simulation.run(config, o.robot, b.robot, seed, think_ms).status,
+            simulation.run(config, o.robot, b.robot, seed, reaction).status,
             P2,
           ),
         ]

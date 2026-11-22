@@ -437,7 +437,9 @@ pub fn tinker() -> Robot {
     buckler(),
     reactor(),
     big_battery(),
-    plating(),
+    // Overclocked (+15% HP) evens the starters: 38% vs Scrapper without it,
+    // and a whole extra Plating overshoots to 93%.
+    part.with(plating(), part.overclocked()),
   ])
 }
 
