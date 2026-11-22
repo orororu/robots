@@ -15,7 +15,7 @@
 import gleam/float
 import gleam/list
 import robots/card.{
-  type Card, All, Both, Launch, One, Opponent, OpponentHp, Self,
+  type Card, All, Both, Burn, Launch, NoEffect, One, Opponent, OpponentHp, Self,
 }
 
 pub type Role {
@@ -33,7 +33,7 @@ pub const tolerance = 0.1
 pub fn role(card: Card) -> Role {
   case card.target {
     OpponentHp | Launch(_) -> Damage
-    Opponent(_) | Both(_) -> Weaken
+    Opponent(_) | Both(_) | Burn(_) | NoEffect -> Weaken
     Self(_) -> Strengthen
   }
 }
@@ -96,7 +96,8 @@ fn total_cost(card: Card) -> Float {
 pub fn outside_band(card: Card) -> Bool {
   case card.target {
     // Smoke also lowers your own cards: its worth depends on the matchup.
-    Launch(_) | Both(_) -> True
+    // Burn only works in a combo (after a defence zeroes a card).
+    Launch(_) | Both(_) | Burn(_) -> True
     _ -> narrow_counter(card)
   }
 }

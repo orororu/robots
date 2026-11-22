@@ -157,6 +157,17 @@ fn score(state: Game, side: Side, slot: Slot) -> Float {
         -. game.lowered(target, slot.value, state.config.defence_floor)
       })
     card.Self(scope) -> scope_score(me.table, scope, fn(_) { slot.value })
+    // Worth the card it destroys for the rest of the match.
+    card.Burn(_) -> {
+      let burnable =
+        list.filter(foe.table, table.burnable)
+        |> list.map(fn(s) { s.card.value })
+      case burnable {
+        [] -> 0.0
+        _ -> float.sum(burnable) /. int.to_float(list.length(burnable))
+      }
+    }
+    card.NoEffect -> 0.0
     // Worth what it takes off their cards, minus what it takes off ours.
     card.Both(scope) -> {
       let cut = fn(target: Slot) {

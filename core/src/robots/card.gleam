@@ -25,6 +25,7 @@ pub type Tag {
   Explosive
   /// Drones are not attacks: shields and attack buffs don't affect them.
   Drone
+  Fire
 }
 
 /// What a card affects.
@@ -39,6 +40,11 @@ pub type Target {
   Both(scope: Scope)
   /// Put this drone card into the played card's table slot.
   Launch(drone: Card)
+  /// Burn one opponent card that was lowered to 0: it leaves the match and
+  /// this `fire` card takes its slot.
+  Burn(fire: Card)
+  /// Does nothing (a Fire card: it only takes up a slot).
+  NoEffect
 }
 
 /// Which table cards are affected.
@@ -107,6 +113,7 @@ pub fn tag_name(tag: Tag) -> String {
     Mobility -> "mobility"
     Explosive -> "explosive"
     Drone -> "drone"
+    Fire -> "fire"
   }
 }
 

@@ -67,6 +67,7 @@ which cards:
 | `self(one(tags))` | raise one of your cards | Lock on `one[attack,range]` |
 | `self(all(tags))` | raise all your matching cards | Overclock `all[attack]` |
 | `both(scope)` | lower matching cards on **both** tables, yours too | Smoke `all[attack,range]` |
+| `burn(fire)` | burn one opponent card at 0: it leaves the match, Fire takes its slot | Ignite |
 
 The `attack`, `defence` and `buff` tags are just names for common kinds of
 cards. A card tagged `defence` usually targets `opponent(one(...))`, but the
@@ -196,6 +197,19 @@ after playtesting:
     the table, and Missiles are fired before they can be intercepted.
   - It replaced a Flak gun weapon: no one gave up a weapon mount for it, and
     against drones it was no better than a Laser.
+- **Combos: the Flamethrower** (weapon, weight 3): Scorch 6/5, Flame ×2 8/7,
+  Blaze 13/15 (all tagged `fire`) and 2 **Ignite** (cost 4).
+  - Ignite burns one opponent card that a defence has lowered to 0: the card
+    **leaves the match**, and a **Fire** card takes its slot. Fire does
+    nothing, costs as much to clear as the burnt card (at least 5), and
+    leaves the match when played. Without a zeroed card, Ignite does nothing.
+  - So the combo is: zero an attack with a defence, then burn it. Burning
+    destroys the card without making its dead slot cheaper to clear.
+  - Tuning (tournament lift, 1 = average): 3 attacks + 2 Ignites at cost 8
+    with a 5-cost Fire: 0.1–0.2. Fire costing as much as the burnt card,
+    a 4th attack (Blaze), Ignite at cost 4: 0.9. Removing Scorch (5 cards
+    instead of 6): 0.6.
+  - No defence blocks `fire` yet, except the chassis' general cards.
 - **Smoke.** A Smoke launcher (defence part, weight 2) has 4 Smoke cards
   (cost 6, value 16): each lowers **every range attack on both tables**,
   yours too. A specialist part for melee builds against range builds, and

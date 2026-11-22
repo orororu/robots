@@ -10,7 +10,7 @@ import gleam/list
 import gleam/order
 import robots/amount
 import robots/card.{
-  type Card, All, Both, Launch, One, Opponent, OpponentHp, Self,
+  type Card, All, Both, Burn, Launch, NoEffect, One, Opponent, OpponentHp, Self,
 }
 import robots/part.{type Component, Battery, Body, Weapon}
 import robots/robot.{type Robot}
@@ -180,7 +180,7 @@ fn can_ever_affect(c: Card, deck: List(Card)) -> Bool {
   case c.target {
     Self(One(tags)) | Self(All(tags)) ->
       list.any(deck, fn(other) { other != c && card.matches(other, tags) })
-    OpponentHp | Opponent(_) | Both(_) | Launch(_) -> True
+    OpponentHp | Opponent(_) | Both(_) | Launch(_) | Burn(_) | NoEffect -> True
   }
 }
 

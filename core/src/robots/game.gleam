@@ -86,6 +86,9 @@ pub type Event {
   DroneHit(side: Side, drone: Card, damage: Float, destroyed: Bool)
   /// One of `side`'s drones was lowered to 0 by a table effect (e.g. Shoot down).
   DroneDestroyed(side: Side, drone: Card)
+  /// One of `side`'s cards was burnt: it left the match, and a Fire card
+  /// took its slot.
+  Burned(side: Side, card: Card)
   Destroyed(side: Side)
 }
 
@@ -240,6 +243,42 @@ fn resolve(game: Game, side: Side, played: Slot) -> #(Game, Int, Float) {
       #(game, foe_targets + own_targets, foe_effect +. own_effect)
     }
     card.Launch(_) -> #(game, 1, 0.0)
+    card.Burn(fire) -> burn(game, other(side), fire)
+    card.NoEffect -> #(game, 0, 0.0)
+  }
+}
+
+/// Burn a random card of `target`'s that was lowered to 0. It leaves the
+/// match (not to the discard pile), and `fire` takes its slot. Fire costs at
+/// least as much to clear as the burnt card did, so burning never makes a
+/// dead slot cheaper to clear.
+fn burn(game: Game, target: Side, fire: Card) -> #(Game, Int, Float) {
+  let c = combatant_of(game, target)
+  let candidates =
+    c.table
+    |> list.index_map(fn(s, i) { #(i, s) })
+    |> list.filter(fn(pair) { table.burnable(pair.1) })
+  case candidates {
+    [] -> #(game, 0, 0.0)
+    _ -> {
+      let #(pick, seed) = rng.int_below(game.seed, list.length(candidates))
+      let assert Ok(#(index, burnt)) = list.drop(candidates, pick) |> list.first
+      let table =
+        list.index_map(c.table, fn(s, i) {
+          case i == index {
+            True ->
+              table.slot(
+                card.Card(..fire, cost: float.max(fire.cost, burnt.card.cost)),
+              )
+            False -> s
+          }
+        })
+      let game =
+        Game(..game, seed:)
+        |> put(target, Combatant(..c, table:))
+        |> log(Burned(target, burnt.card))
+      #(game, 1, 0.0)
+    }
   }
 }
 

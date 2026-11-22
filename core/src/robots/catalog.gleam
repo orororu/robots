@@ -9,8 +9,8 @@
 import robots/builder.{type Chassis, Chassis}
 import robots/card.{
   type Card, type Scope, type Tag, All, Attack, Beam, Buff, Card, Defence, Drone,
-  Energy, Explosive, Kinetic, Melee, Mobility, One, Opponent, OpponentHp, Range,
-  Self,
+  Energy, Explosive, Fire, Kinetic, Melee, Mobility, One, Opponent, OpponentHp,
+  Range, Self,
 }
 import robots/part.{type Component}
 import robots/robot.{type Robot}
@@ -84,6 +84,7 @@ pub fn components() -> List(Component) {
     drone_bay(),
     point_defence(),
     smoke_launcher(),
+    flamethrower(),
     cell(),
     battery(),
     big_battery(),
@@ -200,6 +201,45 @@ pub fn drone_bay() -> Component {
       traits: [card.Once],
     )
   part.new("Drone bay", part.Weapon, 3.0, [launch, launch, launch, launch])
+}
+
+/// What a burnt card leaves behind: it does nothing, costs as much to clear
+/// as the burnt card (at least 5), and then leaves the match.
+pub fn fire() -> Card {
+  Card(
+    name: "Fire",
+    tags: [Fire],
+    cost: 0.5,
+    value: 0.0,
+    target: card.NoEffect,
+    traits: [card.Once],
+  )
+}
+
+/// Flames, and Ignite: a combo card. Once a defence has lowered an enemy
+/// card to 0, Ignite burns it: the card leaves the match and Fire takes its
+/// slot. Without a zeroed card on their table, Ignite does nothing. Six
+/// cards, one more than usual: with 2 Ignites (often dead) and 3 attacks it
+/// was rarely picked (tournament lift 0.1-0.2).
+pub fn flamethrower() -> Component {
+  let flame = attack("Flame", [Fire], 0.8, 0.7)
+  let ignite =
+    Card(
+      name: "Ignite",
+      tags: [Fire],
+      cost: 0.4,
+      value: 0.0,
+      target: card.Burn(fire()),
+      traits: [],
+    )
+  part.new("Flamethrower", part.Weapon, 3.0, [
+    attack("Scorch", [Fire], 0.6, 0.48),
+    flame,
+    flame,
+    attack("Blaze", [Fire], 1.3, 1.5),
+    ignite,
+    ignite,
+  ])
 }
 
 /// Smoke lowers every range attack on *both* tables: it blinds you too. A

@@ -265,6 +265,8 @@ fn target_text(c: Card) -> String {
     card.Opponent(scope) -> "foe " <> scope_text(scope)
     card.Self(scope) -> "self " <> scope_text(scope)
     card.Both(scope) -> "both " <> scope_text(scope)
+    card.Burn(_) -> "burn a foe card at 0"
+    card.NoEffect -> "nothing"
     card.Launch(drone) -> "launch " <> drone.name
   }
 }
@@ -292,6 +294,8 @@ fn describe_event(state: Game, s: Scale, event: game.Event) -> String {
         True -> ": destroyed!"
         False -> ""
       }
+    game.Burned(side:, card: c) ->
+      "  → " <> name(side) <> "'s " <> c.name <> " burns up!"
     game.DroneDestroyed(side:, drone:) ->
       "  → " <> name(side) <> "'s " <> drone.name <> " is destroyed!"
     game.Played(side:, card: c, targets:, effect:, ..) -> {
@@ -303,6 +307,9 @@ fn describe_event(state: Game, s: Scale, event: game.Event) -> String {
       <> case c.target, targets {
         card.OpponentHp, _ -> " for " <> shown <> " damage"
         card.Launch(drone), _ -> ": launches a " <> drone.name
+        card.NoEffect, _ -> ": does nothing"
+        card.Burn(_), 0 -> ": nothing to burn"
+        card.Burn(_), _ -> ": sets a card on fire"
         _, 0 -> ": no target"
         card.Opponent(_), n -> ": -" <> shown <> " on " <> cards(n)
         card.Self(_), n -> ": +" <> shown <> " on " <> cards(n)

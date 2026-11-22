@@ -542,3 +542,46 @@ pub fn a_machine_gun_sweep_destroys_a_fresh_drone_test() {
   let assert Ok(g) = game.update(g, PlayCard(P2, 0, 0))
   assert list.map(g.p1.table, fn(s) { s.card.name }) == ["Laser"]
 }
+
+fn ignite() -> Card {
+  let assert Ok(c) =
+    list.find(catalog.flamethrower().cards, fn(c) { c.name == "Ignite" })
+  c
+}
+
+fn names_everywhere(c: game.Combatant) -> List(String) {
+  list.flatten([
+    list.map(c.table, fn(s) { s.card.name }),
+    list.map(c.deck, fn(c) { c.name }),
+    list.map(c.discard, fn(c) { c.name }),
+  ])
+}
+
+pub fn ignite_burns_a_zeroed_card_test() {
+  let g =
+    arena([], [ignite()])
+    |> with_tables([Slot(punch(), 0.0, 0), slot(laser())], [slot(ignite())])
+  let assert Ok(g) = game.update(g, PlayCard(P2, 0, 0))
+  // The zeroed Punch is gone for the match; Fire takes its slot, and costs
+  // at least as much to clear as the Punch did.
+  assert list.map(g.p1.table, fn(s) { s.card.name }) == ["Fire", "Laser"]
+  assert !list.contains(names_everywhere(g.p1), "Punch")
+  let assert [fire, ..] = g.p1.table
+  assert fire.card.cost >=. punch().cost
+}
+
+pub fn ignite_needs_a_zeroed_card_test() {
+  let g =
+    arena([], [ignite()])
+    |> with_tables([slot(punch()), slot(laser())], [slot(ignite())])
+  let assert Ok(g) = game.update(g, PlayCard(P2, 0, 0))
+  assert list.map(g.p1.table, fn(s) { s.card.name }) == ["Punch", "Laser"]
+}
+
+pub fn fire_leaves_the_match_when_played_test() {
+  let g =
+    arena([], [laser()])
+    |> with_tables([slot(catalog.fire()), slot(laser())], [slot(laser())])
+  let assert Ok(g) = game.update(g, PlayCard(P1, 0, 0))
+  assert !list.contains(names_everywhere(g.p1), "Fire")
+}

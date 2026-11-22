@@ -8,6 +8,7 @@
 import gleam/float
 import gleam/int
 import gleam/list
+import robots/amount
 import robots/card.{type Card, type Scope, All, One}
 import robots/rng.{type Seed}
 
@@ -47,6 +48,12 @@ pub fn settle(slot: Slot, now: Int) -> Slot {
 
 pub fn is_drone(slot: Slot) -> Bool {
   card.has(slot.card, card.Drone)
+}
+
+/// A card that was lowered to 0 can be burnt. Cards printed at 0 (a Launch
+/// drone, a Fire card) can't.
+pub fn burnable(slot: Slot) -> Bool {
+  amount.is_zero(slot.value) && slot.card.value >. 0.0
 }
 
 /// Apply `change` to the table cards that `scope` selects. Returns the new
