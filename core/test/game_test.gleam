@@ -489,14 +489,42 @@ pub fn ai_goes_for_the_kill_test() {
   assert brain.choose(g, P2, 0) == Ok(1)
 }
 
-pub fn ai_clears_a_dead_slot_only_when_energy_is_nearly_full_test() {
-  let g = arena([laser()], [parry()])
-  // Parry has no target: not worth playing with half-full energy...
-  let half =
-    Game(..g, p2: Combatant(..g.p2, energy: energy.new(2.5, 0.5, 5.0, 0)))
-  assert brain.choose(half, P2, 0) == Error(Nil)
-  // ...but with full energy, clearing the slot beats wasting the energy.
-  assert brain.choose(g, P2, 0) == Ok(0)
+pub fn ai_keeps_one_parry_for_later_until_energy_is_nearly_full_test() {
+  let g = arena([laser()], [parry(), laser()])
+  // The foe has a Punch in its deck, so the Parry may matter later.
+  let g =
+    Game(
+      ..g,
+      p1: Combatant(..g.p1, robot: bot("Alpha", [laser(), punch()])),
+      p2: Combatant(..g.p2, energy: energy.new(0.8, 0.5, 5.0, 0)),
+    )
+  // Saving for its Laser: it keeps the Parry...
+  assert brain.choose(g, P2, 0) == Error(Nil)
+  // ...but with energy nearly full, clearing the slot beats wasting it.
+  let full =
+    Game(..g, p2: Combatant(..g.p2, energy: energy.new(4.6, 0.5, 5.0, 0)))
+  assert brain.choose(full, P2, 0) == Ok(1)
+}
+
+pub fn ai_clears_a_card_that_can_never_matter_test() {
+  // The foe has no melee at all: the Parry is cleared even while saving.
+  let g = arena([laser()], [laser(), parry()])
+  let g = Game(..g, p2: Combatant(..g.p2, energy: energy.new(0.8, 0.5, 5.0, 0)))
+  assert brain.choose(g, P2, 0) == Ok(1)
+}
+
+pub fn ai_clears_one_of_several_dead_cards_test() {
+  // Two Parries, nothing to parry yet: it clears one while saving.
+  let g = arena([laser()], [parry(), parry(), laser()])
+  let g =
+    Game(
+      ..g,
+      p1: Combatant(..g.p1, robot: bot("Alpha", [laser(), punch()])),
+      p2: Combatant(..g.p2, energy: energy.new(0.8, 0.5, 5.0, 0)),
+    )
+  let assert Ok(slot) = brain.choose(g, P2, 0)
+  assert slot == 0 || slot == 1
+  // (With one Parry left it keeps it: see the test above.)
 }
 
 fn rng_seed(n: Int) {

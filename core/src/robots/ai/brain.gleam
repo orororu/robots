@@ -17,6 +17,7 @@ import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/order
+import robots/construction/robot
 import robots/rules/amount
 import robots/rules/card.{type Scope, All, One}
 import robots/rules/energy
@@ -100,7 +101,16 @@ fn reaction_delay(brain: Brain) -> #(Int, Seed) {
 }
 
 type Choice {
-  Choice(slot: Int, cost: Float, score: Float, affordable: Bool, drone: Bool)
+  Choice(
+    slot: Int,
+    cost: Float,
+    score: Float,
+    affordable: Bool,
+    drone: Bool,
+    /// Can never do anything in this match (e.g. a Parry against a robot
+    /// with no melee attacks at all).
+    hopeless: Bool,
+  )
 }
 
 /// The table slot to play now, or `Error(Nil)` to wait (save energy).
@@ -118,15 +128,27 @@ pub fn choose(state: Game, side: Side, now: Int) -> Result(Int, Nil) {
         score: score(state, side, s),
         affordable: amount.at_least(available, s.card.cost),
         drone: table.is_drone(s),
+        hopeless: hopeless(state, side, s.card),
       )
     })
     // A card costing more than the cap can never be paid for.
     |> list.filter(fn(o) { amount.at_least(me.energy.cap, o.cost) })
   let useful = list.filter(options, fn(o) { o.score >. 0.0 })
   let full = available >=. me.energy.cap *. nearly_full
+  // Cards that do nothing now take table slots that fresh draws could use.
+  // Clear one that can never matter, or one of several that can't now (one
+  // is kept, in case the opponent plays something it answers).
+  let dead = list.filter(options, fn(o) { o.score <=. 0.0 && !o.drone })
+  let clutter = case list.length(dead) >= 2 {
+    True -> dead
+    False -> list.filter(dead, fn(o) { o.hopeless })
+  }
+  let clear = cheapest(list.filter(clutter, fn(o) { o.affordable }))
   case most_efficient(useful), full {
     // The best card is affordable: play it.
     Ok(best), _ if best.affordable -> Ok(best.slot)
+    // While saving up (or with nothing useful), clear clutter.
+    _, _ if clear != Error(Nil) -> clear
     // Energy is about to be wasted: spend it on the best thing we can afford,
     // or clear a dead slot.
     _, True ->
@@ -225,6 +247,36 @@ fn score(state: Game, side: Side, slot: Slot) -> Float {
       }
       scope_score(foe.table, scope, cut) -. scope_score(me.table, scope, cut)
     }
+  }
+}
+
+/// A card with no possible target in this match: a defence against cards
+/// the opponent doesn't have, or a buff for cards this robot doesn't have.
+fn hopeless(state: Game, side: Side, c: card.Card) -> Bool {
+  let pool = fn(s: Side) {
+    let cards = robot.deck(game.combatant_of(state, s).robot)
+    // Drones are launched by cards, so they are possible targets too.
+    let drones =
+      list.filter_map(cards, fn(c) {
+        case c.target {
+          card.Launch(drone) -> Ok(drone)
+          _ -> Error(Nil)
+        }
+      })
+    list.append(cards, drones)
+  }
+  let none_match = fn(s: Side, scope: Scope) {
+    let tags = case scope {
+      All(tags) | One(tags) -> tags
+    }
+    !list.any(pool(s), fn(target) { card.matches(target, tags) })
+  }
+  case c.target {
+    card.Opponent(scope) -> none_match(game.other(side), scope)
+    card.Self(scope) -> none_match(side, scope)
+    card.Both(scope) ->
+      none_match(game.other(side), scope) && none_match(side, scope)
+    _ -> False
   }
 }
 

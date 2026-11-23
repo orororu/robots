@@ -104,6 +104,8 @@ type Pick {
   /// A spare chassis and the spare parts chosen for a new robot; `last` is
   /// the spare clicked last, whose cards are shown.
   Draft(chassis: Int, parts: List(Int), last: Option(Int))
+  /// The chassis of robot `robot` (to see its cards, or repair it).
+  OwnChassis(robot: Int)
 }
 
 const no_pick = Picked(None, None)
@@ -153,13 +155,14 @@ type Msg {
   Continue
   // Repair shop
   Repair(robot: Int)
-  RepairOne(target: state.Repair)
-  Sell(spare: Int)
+  RepairPicked
+  SellPicked
   Leave
   // Garage
   ClickInstalled(robot: Int, part: Int)
   ClickSpare(part: Int)
   ClickChassis(chassis: Int)
+  ClickOwnChassis(robot: Int)
   Install(robot: Int)
   Swap
   Remove
@@ -182,13 +185,22 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
     Play(slot) -> play(model, slot)
     Continue -> continue(model)
     Repair(robot) -> attempt(model, state.repair(model.run, robot), "")
-    RepairOne(target) -> attempt(model, state.repair_one(model.run, target), "")
-    Sell(spare) -> attempt(model, state.sell(model.run, spare), "")
+    RepairPicked ->
+      case repair_target(model.pick) {
+        Some(target) -> attempt(model, state.repair_one(model.run, target), "")
+        None -> model
+      }
+    SellPicked ->
+      case model.pick {
+        Picked(None, Some(spare)) ->
+          attempt(model, state.sell(model.run, spare), "")
+        _ -> model
+      }
     Leave -> attempt(model, state.leave(model.run), "")
     ClickInstalled(robot, p) -> {
       let spare = case model.pick {
         Picked(_, spare) -> spare
-        Draft(..) -> None
+        Draft(..) | OwnChassis(_) -> None
       }
       let installed = case model.pick {
         Picked(Some(picked), _) if picked == #(robot, p) -> None
@@ -198,6 +210,11 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
     }
     ClickSpare(spare) -> click_spare(model, spare)
     ClickChassis(chassis) -> Model(..model, pick: Draft(chassis, [], None))
+    ClickOwnChassis(robot) ->
+      Model(..model, pick: case model.pick {
+        OwnChassis(r) if r == robot -> no_pick
+        _ -> OwnChassis(robot)
+      })
     Install(robot) ->
       case model.pick {
         Picked(_, Some(spare)) ->
@@ -287,6 +304,17 @@ fn click_spare(model: Model, spare: Int) -> Model {
     Picked(installed, Some(picked)) if picked == spare ->
       Model(..model, pick: Picked(installed, None))
     Picked(installed, _) -> Model(..model, pick: Picked(installed, Some(spare)))
+    OwnChassis(_) -> Model(..model, pick: Picked(None, Some(spare)))
+  }
+}
+
+/// What a repair would fix for this selection: one chassis or one part.
+fn repair_target(pick: Pick) -> Option(state.Repair) {
+  case pick {
+    OwnChassis(robot) -> Some(state.RepairChassis(robot))
+    Picked(Some(#(robot, p)), None) -> Some(state.RepairPart(robot, p))
+    Picked(None, Some(spare)) -> Some(state.RepairSpare(spare))
+    _ -> None
   }
 }
 
@@ -622,7 +650,13 @@ fn view_map(model: Model) -> Element(Msg) {
         )
       }),
     ),
-    view_garage(model),
+    text("", "YOUR ROBOTS · change parts in the garage before a fight"),
+    html.div(
+      [attribute.class("table")],
+      list.map(run.robots, fn(bot) {
+        text("ally", "  " <> bot_line(model.scale, bot))
+      }),
+    ),
   ])
 }
 
@@ -861,33 +895,9 @@ fn view_prebattle(model: Model) -> Element(Msg) {
 fn view_shop(model: Model) -> Element(Msg) {
   let run = model.run
   let s = model.scale
-  let hp = fn(x) { int.to_string(scale.value(s, x)) }
-  // A button for one worn chassis or part, or nothing if it's as new.
-  let item = fn(label, target) {
-    case state.repair_one_price(run, target) {
-      Ok(0) | Error(_) -> []
-      Ok(cost) -> [
-        button(
-          "    Repair " <> label <> " · " <> int.to_string(cost) <> " credits",
-          RepairOne(target),
-        ),
-      ]
-    }
-  }
-  let plate_label = fn(p: Component) {
-    part.display_name(p)
-    <> " · HP "
-    <> hp(part.remaining_hp(p))
-    <> "/"
-    <> hp(part.hp(p))
-    <> case wear.is_broken(p) {
-      True -> " BROKEN"
-      False -> ""
-    }
-  }
   let robots =
     list.index_map(run.robots, fn(bot, r) {
-      let header = case state.repair_price(bot) {
+      case state.repair_price(bot) {
         0 -> text("dim", "  " <> bot_line(s, bot) <> " · as new")
         cost ->
           button(
@@ -899,51 +909,15 @@ fn view_shop(model: Model) -> Element(Msg) {
             Repair(r),
           )
       }
-      let chassis =
-        item(
-          bot.chassis.name
-            <> " chassis · HP "
-            <> hp(builder.chassis_hp(bot.chassis))
-            <> "/"
-            <> hp(bot.chassis.hp),
-          state.RepairChassis(r),
-        )
-      let parts =
-        list.index_map(bot.parts, fn(p, i) {
-          item(plate_label(p), state.RepairPart(r, i))
-        })
-        |> list.flatten
-      [header, ..list.append(chassis, parts)]
     })
-    |> list.flatten
-  let spares =
-    list.index_map(run.parts, fn(p, i) {
-      item("spare " <> plate_label(p), state.RepairSpare(i))
-    })
-    |> list.flatten
   html.div([], [
     text(
       "",
       "REPAIR SHOP · "
         <> int.to_string(price.repair(1.0) / scale.value(s, 1.0))
-        <> " credits per HP · repair a whole robot or one part at a time",
+        <> " credits per HP · select a part or chassis below to repair or sell it",
     ),
-    html.div([attribute.class("table")], list.append(robots, spares)),
-    text("", "SELL SPARE PARTS · the shop pays half their price"),
-    html.div([attribute.class("table")], case run.parts {
-      [] -> [text("dim", "  no spare parts")]
-      parts ->
-        list.index_map(parts, fn(p, i) {
-          button(
-            "  Sell "
-              <> part.display_name(p)
-              <> " · +"
-              <> int.to_string(price.sell(p))
-              <> " credits",
-            Sell(i),
-          )
-        })
-    }),
+    html.div([attribute.class("table")], robots),
     button_class(">>> Leave", "banner", Leave),
     view_garage(model),
   ])
@@ -971,6 +945,7 @@ fn view_garage(model: Model) -> Element(Msg) {
   let #(installed, spare, drafted, chassis_pick) = case model.pick {
     Picked(installed, spare) -> #(installed, spare, [], None)
     Draft(chassis, parts, _) -> #(None, None, parts, Some(chassis))
+    OwnChassis(_) -> #(None, None, [], None)
   }
   let picked = fn(yes) {
     case yes {
@@ -984,6 +959,11 @@ fn view_garage(model: Model) -> Element(Msg) {
         text("ally", bot_line(model.scale, bot)),
         text("", "    " <> weight_line(bot)),
         text("", "    " <> mounts_line(bot)),
+        button_class(
+          "    " <> own_chassis_line(model.scale, bot),
+          picked(model.pick == OwnChassis(r)),
+          ClickOwnChassis(r),
+        ),
         ..list.index_map(bot.parts, fn(p, i) {
           button_class(
             "    " <> part_line(model.scale, p),
@@ -1019,27 +999,50 @@ fn view_garage(model: Model) -> Element(Msg) {
         ClickChassis(i),
       )
     })
+  let at_shop = case run.phase {
+    state.Repairing(_) -> True
+    _ -> False
+  }
+  // At a repair shop: repair what's selected, if it's worn.
+  let repair = case at_shop, repair_target(model.pick) {
+    True, Some(target) ->
+      case state.repair_one_price(run, target) {
+        Ok(cost) if cost > 0 -> [
+          button(
+            "[Repair · " <> int.to_string(cost) <> " credits]",
+            RepairPicked,
+          ),
+        ]
+        _ -> []
+      }
+    _, _ -> []
+  }
   let actions = case model.pick {
-    Picked(Some(_), Some(_)) -> [
-      button("[Swap them]", Swap),
-      button("[Cancel]", Cancel),
-    ]
-    Picked(Some(_), None) -> [
-      button("[Remove part]", Remove),
-      button("[Cancel]", Cancel),
-    ]
-    Picked(None, Some(_)) ->
-      list.append(
+    Picked(Some(_), Some(_)) -> [button("[Swap them]", Swap)]
+    Picked(Some(_), None) -> [button("[Remove part]", Remove), ..repair]
+    Picked(None, Some(spare)) ->
+      list.flatten([
         list.index_map(run.robots, fn(bot, r) {
           button("[Install on " <> bot.name <> "]", Install(r))
         }),
-        [button("[Cancel]", Cancel)],
-      )
+        repair,
+        case at_shop, list.drop(run.parts, spare) {
+          True, [p, ..] -> [
+            button(
+              "[Sell · +" <> int.to_string(price.sell(p)) <> " credits]",
+              SellPicked,
+            ),
+          ]
+          _, _ -> []
+        },
+      ])
     Picked(None, None) -> []
-    Draft(..) -> [
-      button("[Assemble robot]", Assemble),
-      button("[Cancel]", Cancel),
-    ]
+    Draft(..) -> [button("[Assemble robot]", Assemble)]
+    OwnChassis(_) -> repair
+  }
+  let actions = case model.pick {
+    Picked(None, None) -> []
+    _ -> list.append(actions, [button("[Cancel]", Cancel)])
   }
   html.div([attribute.class("garage")], [
     html.div([], [
@@ -1112,6 +1115,11 @@ fn view_selected(model: Model) -> Element(Msg) {
         },
       ])
     }
+    OwnChassis(r) ->
+      case list.drop(run.robots, r) {
+        [bot, ..] -> [preview_section(model, "", builder.body(bot.chassis))]
+        [] -> []
+      }
   }
   html.div([attribute.class("preview")], sections)
 }
@@ -1158,6 +1166,7 @@ fn hint(pick: Pick) -> String {
     Picked(None, Some(_)) -> "install it, or select an installed part to swap"
     Picked(Some(_), Some(_)) -> "swap them, or change either selection"
     Draft(..) -> "select spare parts for the new robot, then assemble"
+    OwnChassis(_) -> "the chassis' own cards; it can be repaired at a shop"
   }
 }
 
@@ -1176,6 +1185,15 @@ fn bot_line(s: Scale, bot: Bot) -> String {
       <> int.to_string(scale.value(s, r.max_hp))
     Error(_) -> bot.name <> " (" <> bot.chassis.name <> ") can't fight as built"
   }
+}
+
+/// "Frame chassis · HP 28/45"
+fn own_chassis_line(s: Scale, bot: Bot) -> String {
+  bot.chassis.name
+  <> " chassis · HP "
+  <> int.to_string(scale.value(s, builder.chassis_hp(bot.chassis)))
+  <> "/"
+  <> int.to_string(scale.value(s, bot.chassis.hp))
 }
 
 /// "Weight 11 of max 12 · 1 free"
