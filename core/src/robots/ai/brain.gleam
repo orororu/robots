@@ -195,7 +195,17 @@ fn score(state: Game, side: Side, slot: Slot) -> Float {
         target.value
         -. game.lowered(target, slot.value, state.config.defence_floor)
       })
-    card.Self(scope) -> scope_score(me.table, scope, fn(_) { slot.value })
+    // Worth how much more the raised card would achieve now: raising a
+    // defence that has nothing to lower is worth nothing.
+    card.Self(scope) ->
+      scope_score(me.table, scope, fn(target) {
+        score(
+          state,
+          side,
+          table.Slot(..target, value: target.value +. slot.value),
+        )
+        -. score(state, side, target)
+      })
     // Worth the card it destroys for the rest of the match.
     card.Burn(_) -> {
       let burnable =

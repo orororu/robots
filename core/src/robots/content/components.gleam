@@ -17,7 +17,8 @@ pub fn all() -> List(Component) {
     buckler(),
     targeting_computer(),
     hydraulics(),
-    reactor(),
+    shield_booster(),
+    gyroscope(),
     cannon(),
     machine_gun(),
     missile_rack(),
@@ -28,6 +29,10 @@ pub fn all() -> List(Component) {
     cell(),
     battery(),
     big_battery(),
+    capacitor(),
+    big_capacitor(),
+    servo_pack(),
+    big_servo_pack(),
     plating(),
     heavy_plating(),
   ]
@@ -204,16 +209,28 @@ pub fn hydraulics() -> Component {
   ])
 }
 
-pub fn reactor() -> Component {
-  part.new("Reactor", part.Utility, 2.0, [
-    cards.spike(),
-    cards.overclock(),
-    cards.overclock(),
-    cards.overdrive(),
+/// Raises your own defence cards: any of them.
+pub fn shield_booster() -> Component {
+  part.new("Shield booster", part.Utility, 1.0, [
+    cards.quick_boost(),
+    cards.boost(),
+    cards.boost(),
+    cards.full_boost(),
   ])
 }
 
-// BATTERIES (energy storage) -------------------------------------------------
+/// Raises your own movement defences: the chassis' dodges (and Smoke).
+/// Dead weight on a chassis without them (Brute, Tank).
+pub fn gyroscope() -> Component {
+  part.new("Gyroscope", part.Utility, 1.0, [
+    cards.balance(),
+    cards.steady(),
+    cards.steady(),
+    cards.gyro_lock(),
+  ])
+}
+
+// BATTERIES (energy storage, some with buffs) -------------------------------------------------
 
 pub fn cell() -> Component {
   part.battery("Cell", 1.0, 3.0, [])
@@ -225,6 +242,35 @@ pub fn battery() -> Component {
 
 pub fn big_battery() -> Component {
   part.battery("Big battery", 4.0, 9.0, [])
+}
+
+/// Energy batteries: store as much as a Battery, and raise energy attacks
+/// (Laser, Drone). A little heavier for their cards.
+pub fn capacitor() -> Component {
+  part.battery("Capacitor", 1.5, 5.0, [cards.quick_charge(), cards.charge()])
+}
+
+pub fn big_capacitor() -> Component {
+  part.battery("Big capacitor", 3.0, 9.0, [
+    cards.quick_charge(),
+    cards.charge(),
+    cards.charge(),
+    cards.full_charge(),
+  ])
+}
+
+/// Melee batteries: raise melee attacks.
+pub fn servo_pack() -> Component {
+  part.battery("Servo pack", 1.5, 5.0, [cards.quick_torque(), cards.torque()])
+}
+
+pub fn big_servo_pack() -> Component {
+  part.battery("Big servo pack", 3.0, 9.0, [
+    cards.quick_torque(),
+    cards.torque(),
+    cards.torque(),
+    cards.full_torque(),
+  ])
 }
 
 // ARMOR (HP) ----

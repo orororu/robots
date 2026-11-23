@@ -1,13 +1,15 @@
 //// Generating legal builds, for the build tournament (`gleam run -m
 //// tournament`) and, later, for AI opponents and garage suggestions.
 ////
-//// A build is a chassis, some *card parts* (weapons, defences, utilities),
-//// one battery, and armor filling all remaining weight. Spare weight always
+//// A build is a chassis, some *card parts* (weapons, defences, utilities,
+//// batteries with cards), a plain battery if those can't pay for its
+//// priciest card, and armor filling all remaining weight. Spare weight always
 //// goes to armor, because that's what a player would do with it.
 
 import gleam/float
 import gleam/int
 import gleam/list
+import gleam/result
 import gleam/string
 import robots/construction/builder.{type Chassis}
 import robots/construction/part.{type Component, Armor, Battery}
@@ -22,9 +24,12 @@ pub type Limits {
   Limits(max_card_parts: Int, max_copies: Int)
 }
 
-/// Parts that add cards: everything except batteries and armor.
+/// Parts picked for their cards: everything except armor and plain
+/// (cardless) batteries.
 pub fn card_parts(components: List(Component)) -> List(Component) {
-  list.filter(components, fn(c) { c.kind != Battery && c.kind != Armor })
+  list.filter(components, fn(c) {
+    c.kind != Armor && { c.kind != Battery || c.cards != [] }
+  })
 }
 
 /// Every legal build without warnings, for each chassis.
@@ -36,7 +41,7 @@ pub fn all(
   let options = card_parts(components)
   let batteries =
     components
-    |> list.filter(fn(c) { c.kind == Battery })
+    |> list.filter(fn(c) { c.kind == Battery && c.cards == [] })
     |> list.sort(fn(a, b) {
       float.compare(part.energy_cap(a), part.energy_cap(b))
     })
@@ -50,7 +55,8 @@ pub fn all(
   })
 }
 
-/// Add the smallest battery that pays for the most expensive card, then armor.
+/// Add the smallest plain battery that pays for the most expensive card
+/// (unless the picks' own batteries already do), then armor.
 fn complete(
   chassis: Chassis,
   picks: List(Component),
@@ -61,10 +67,13 @@ fn complete(
     picks
     |> list.flat_map(part.cards)
     |> list.fold(0.0, fn(m, c) { float.max(m, c.cost) })
-  use battery <- result_try(
-    list.find(batteries, fn(b) { part.energy_cap(b) >=. most_expensive }),
-  )
-  let core = list.append(picks, [battery])
+  let own_cap = picks |> list.map(part.energy_cap) |> float.sum
+  use core <- result_try(case own_cap >=. most_expensive && own_cap >. 0.0 {
+    True -> Ok(picks)
+    False ->
+      list.find(batteries, fn(b) { part.energy_cap(b) >=. most_expensive })
+      |> result.map(fn(battery) { list.append(picks, [battery]) })
+  })
   let spare = chassis.capacity -. part.total_weight(core)
   let parts = list.append(core, fill(spare, armors))
   case builder.build(label(chassis, parts), chassis, parts) {

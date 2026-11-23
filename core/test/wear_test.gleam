@@ -61,8 +61,7 @@ pub fn a_worn_robot_keeps_its_deck_size_test() {
   let parts = [
     components.laser(),
     components.buckler(),
-    components.reactor(),
-    components.big_battery(),
+    components.big_capacitor(),
     components.plating(),
   ]
   let #(frame, parts) = wear.assign(frame, parts, 2.0)
@@ -81,15 +80,14 @@ pub fn chassis_wear_never_exceeds_its_hp_test() {
 pub fn a_robot_starts_with_what_its_worn_parts_have_left_test() {
   let fresh = starters.tinker()
   let worn_frame = builder.Chassis(..components.frame(), wear: 2.0)
-  let worn_plating =
-    Component(..part.with(components.plating(), part.overclocked()), wear: 1.0)
+  let worn_plating = Component(..components.plating(), wear: 1.0)
   let assert Ok(worn) =
     builder.build("Tinker", worn_frame, [
       components.laser(),
       components.buckler(),
-      components.reactor(),
-      components.big_battery(),
+      components.big_capacitor(),
       worn_plating,
+      components.plating(),
     ])
   // Max HP counts parts as new; current HP is 3.0 lower.
   assert worn.max_hp == fresh.max_hp

@@ -51,7 +51,8 @@ undecided ones under "Open questions".
   - Level 1: small, simple parts (Fist, Saw arm, Machine gun, light
     defences, small batteries, Plating).
   - Level 2: specialists (Laser more often, Flamethrower, Missile rack,
-    Smoke, Point defence, Reactor, Heavy plating, Big battery).
+    Smoke, Point defence, Heavy plating, Big battery, the new batteries
+    with buffs and the defensive buffs).
   - Level 3: heavy weapons (Cannon, Drone bay) and more heavy armor.
   - Levels past the last chart use the last one.
 - **Plating drops often on every level,** since looted armor is the only

@@ -331,18 +331,64 @@ pub fn surge() -> Card {
   buff("Surge", [Kinetic], 1.0, 1.2, One([Attack, Melee]))
 }
 
-/// Reactor: raises any attack.
-pub fn spike() -> Card {
-  buff("Spike", [Energy], 0.6, 0.5, One([Attack]))
+// BATTERY CARDS ---------------------------------------------------------------
+// Batteries store energy and some also bring buffs: capacitors for energy
+// attacks (Laser, Drone), servo packs for melee.
+
+/// Capacitors: raise energy attacks.
+pub fn quick_charge() -> Card {
+  buff("Quick charge", [Energy], 0.5, 0.38, One([Attack, Energy]))
 }
 
-/// Raises every attack, so its value per card is low.
-pub fn overclock() -> Card {
-  buff("Overclock", [Energy], 0.9, 0.5, All([Attack]))
+pub fn charge() -> Card {
+  buff("Charge", [Energy], 0.6, 0.5, One([Attack, Energy]))
 }
 
-pub fn overdrive() -> Card {
-  buff("Overdrive", [Energy], 1.4, 1.09, All([Attack]))
+/// Raises every energy attack, so its value per card is low.
+pub fn full_charge() -> Card {
+  buff("Full charge", [Energy], 0.9, 0.5, All([Attack, Energy]))
+}
+
+/// Servo packs: raise melee attacks.
+pub fn quick_torque() -> Card {
+  buff("Quick torque", [Kinetic], 0.5, 0.38, One([Attack, Melee]))
+}
+
+pub fn torque() -> Card {
+  buff("Torque", [Kinetic], 0.6, 0.5, One([Attack, Melee]))
+}
+
+pub fn full_torque() -> Card {
+  buff("Full torque", [Kinetic], 0.9, 0.5, All([Attack, Melee]))
+}
+
+// DEFENSIVE BUFFS -------------------------------------------------------------
+// Raise your own defence cards, so they lower more when played.
+
+/// Shield booster: any defence.
+pub fn quick_boost() -> Card {
+  buff("Quick boost", [Energy], 0.5, 0.38, One([Defence]))
+}
+
+pub fn boost() -> Card {
+  buff("Boost", [Energy], 0.6, 0.5, One([Defence]))
+}
+
+pub fn full_boost() -> Card {
+  buff("Full boost", [Energy], 1.0, 1.2, One([Defence]))
+}
+
+/// Gyroscope: movement defences (Sidestep, Dodge, Jump, Smoke).
+pub fn balance() -> Card {
+  buff("Balance", [Mobility], 0.5, 0.38, One([Defence, Mobility]))
+}
+
+pub fn steady() -> Card {
+  buff("Steady", [Mobility], 0.6, 0.5, One([Defence, Mobility]))
+}
+
+pub fn gyro_lock() -> Card {
+  buff("Gyro lock", [Mobility], 1.0, 1.2, One([Defence, Mobility]))
 }
 
 // CHASSIS ---------------------------------------------------------------------

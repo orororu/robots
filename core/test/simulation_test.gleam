@@ -52,8 +52,8 @@ pub fn match_length_balance_test() {
   let secs = list.map(results(), fn(o) { o.duration_ms / 1000 })
   let average = int.sum(secs) / list.length(secs)
   balance_check(
-    average >= 90 && average <= 150,
-    "average match " <> int.to_string(average) <> "s (target ~120s)",
+    average >= 45 && average <= 75,
+    "average match " <> int.to_string(average) <> "s (target ~60s)",
   )
 }
 

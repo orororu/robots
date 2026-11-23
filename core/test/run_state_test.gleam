@@ -148,7 +148,7 @@ pub fn garage_changes_must_leave_a_legal_build_test() {
       part.with(components.plating(), part.overclocked()),
       components.laser(),
     ])
-  // The Tinker is at full capacity: nothing more fits.
+  // A Cannon is too heavy for the Tinker.
   let assert Error(state.CantBuild("Tinker", _)) = state.install(run, 0, 0)
   // Its only weapon can't just be taken off...
   let assert Error(state.CantBuild("Tinker", _)) = state.uninstall(run, 0, 0)
@@ -161,9 +161,10 @@ pub fn garage_changes_must_leave_a_legal_build_test() {
   // A broken plate is swapped for a fresh one; it goes to the spares, still
   // broken.
   let assert [tinker] = run.robots
-  let #(chassis, parts) = wear.assign(tinker.chassis, tinker.parts, 3.0)
+  // 2 damage: the first Plating breaks, the second is worn.
+  let #(chassis, parts) = wear.assign(tinker.chassis, tinker.parts, 2.0)
   let run = Run(..run, robots: [state.Bot(..tinker, chassis:, parts:)])
-  let assert Ok(fixed) = state.swap(run, 0, 4, 1)
+  let assert Ok(fixed) = state.swap(run, 0, 3, 1)
   let assert [tinker] = fixed.robots
   assert !list.any(tinker.parts, wear.is_broken)
   assert list.any(fixed.parts, wear.is_broken)

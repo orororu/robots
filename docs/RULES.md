@@ -65,7 +65,7 @@ which cards:
 | `opponent(one(tags))` | lower one opponent card | Parry `one[attack,melee]`, Kinetic shield `one[attack,kinetic]` |
 | `opponent(all(tags))` | lower all matching opponent cards | Jump `all[attack,melee]` |
 | `self(one(tags))` | raise one of your cards | Lock on `one[attack,range]` |
-| `self(all(tags))` | raise all your matching cards | Overclock `all[attack]` |
+| `self(all(tags))` | raise all your matching cards | Full charge `all[attack,energy]` |
 | `both(scope)` | lower matching cards on **both** tables, yours too | Smoke `all[attack,range]` |
 | `burn(fire)` | burn one opponent card at 0: it leaves the match, Fire takes its slot | Ignite |
 

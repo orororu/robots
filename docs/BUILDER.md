@@ -179,6 +179,17 @@ so over a match your energy is spent roughly in proportion to your deck.
   Chassis HP / capacity: Frame 45/12, Brute 35/12, Tank 45/16, Scout 40/12.
   (All HP was halved to make battles about 2.5 times shorter.)
   Shown at display scale ×10.
+- **Batteries with cards:** some batteries also bring buffs, a little
+  heavier than plain ones. Capacitor 1.5 (cap 50) and Big capacitor 3 (90)
+  raise energy attacks (Laser, Drone); Servo pack 1.5 (50) and Big servo
+  pack 3 (90) raise melee attacks. The build tournament tries them as card
+  parts; a build gets a plain battery only if its own can't pay for its
+  priciest card.
+- **Defensive buffs:** the Shield booster raises your own defence cards,
+  the Gyroscope your movement defences (Sidestep, Dodge, Jump, Smoke).
+  The Reactor (raised all attacks) was removed: batteries do that job now.
+- **Movement belongs to the chassis:** dodges, jumps and sidesteps are
+  chassis cards; a chassis may bring more than 4 cards.
 - Chassis may be unequal: better chassis will cost more, and counter cards
   (e.g. Smoke against `range`) can keep strong builds in check. Tank + Cannon
   currently tops the tournament; Scout is weakest (it lacks good light

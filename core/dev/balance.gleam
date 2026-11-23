@@ -37,7 +37,7 @@ pub fn main() -> Nil {
     <> f1(int.to_float(reaction.min_ms) /. 1000.0)
     <> "-"
     <> f1(int.to_float(reaction.max_ms) /. 1000.0)
-    <> "s · targets: ~120s matches, ~4s per move",
+    <> "s · targets: ~60s matches, ~4s per move",
   )
   matchup(config, starters.tinker(), starters.scrapper())
   mirror(config, starters.tinker())
