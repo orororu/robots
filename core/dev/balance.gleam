@@ -15,7 +15,7 @@ import robots/ai/brain
 import robots/balance/efficiency
 import robots/balance/simulation.{type Outcome}
 import robots/construction/robot.{type Robot}
-import robots/content/catalog
+import robots/content/starters
 import robots/rules/card.{type Card}
 import robots/rules/game.{type Side, P1, P2, Won}
 import robots/rules/scale
@@ -39,9 +39,9 @@ pub fn main() -> Nil {
     <> f1(int.to_float(reaction.max_ms) /. 1000.0)
     <> "s · targets: ~120s matches, ~4s per move",
   )
-  matchup(config, catalog.tinker(), catalog.scrapper())
-  mirror(config, catalog.tinker())
-  mirror(config, catalog.scrapper())
+  matchup(config, starters.tinker(), starters.scrapper())
+  mirror(config, starters.tinker())
+  mirror(config, starters.scrapper())
 }
 
 // MATCHUPS --------------------------------------------------------------------

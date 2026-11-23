@@ -1,7 +1,7 @@
 import gleam/list
 import robots/construction/attribute
 import robots/construction/part
-import robots/content/catalog
+import robots/content/components
 import robots/content/enemies
 import robots/rules/card.{type Card}
 import robots/rules/rng
@@ -15,18 +15,18 @@ fn nth(cards: List(Card), i: Int) -> Card {
 
 pub fn an_attribute_changes_the_card_and_its_name_test() {
   // Laser cards: Pulse, Laser, Laser, Focused beam, Overcharge.
-  let gun = part.attach(catalog.laser(), 1, attribute.rapid())
+  let gun = part.attach(components.laser(), 1, attribute.rapid())
   let c = nth(part.cards(gun), 1)
   assert c.name == "Rapid Laser"
   assert c.cost == 0.8
   assert c.value == 1.0
   // The other cards are untouched.
-  assert nth(part.cards(gun), 2) == nth(catalog.laser().cards, 2)
+  assert nth(part.cards(gun), 2) == nth(components.laser().cards, 2)
 }
 
 pub fn a_card_has_at_most_one_attribute_test() {
   let gun =
-    catalog.laser()
+    components.laser()
     |> part.attach(1, attribute.rapid())
     |> part.attach(1, attribute.broken())
   assert list.length(gun.attributes) == 1
@@ -35,14 +35,14 @@ pub fn a_card_has_at_most_one_attribute_test() {
 
 pub fn value_attributes_skip_cards_whose_value_does_nothing_test() {
   // Drone bay cards launch drones: their own value is unused.
-  let bay = part.attach(catalog.drone_bay(), 0, attribute.strong())
+  let bay = part.attach(components.drone_bay(), 0, attribute.strong())
   assert bay.attributes == []
-  let bay = part.attach(catalog.drone_bay(), 0, attribute.rapid())
+  let bay = part.attach(components.drone_bay(), 0, attribute.rapid())
   assert list.length(bay.attributes) == 1
 }
 
 pub fn precise_makes_a_bigger_card_on_the_band_test() {
-  let base = nth(catalog.laser().cards, 1)
+  let base = nth(components.laser().cards, 1)
   let c = attribute.apply(attribute.precise(), base)
   assert c.cost >. base.cost
   // Bigger cards are more efficient: value grows faster than cost.
@@ -51,7 +51,7 @@ pub fn precise_makes_a_bigger_card_on_the_band_test() {
 
 pub fn the_name_shows_the_two_most_impactful_attributes_test() {
   let gun =
-    catalog.machine_gun()
+    components.machine_gun()
     // Burst ×3, Long burst, Sweep. Worn on a small Burst changes little;
     // Rapid on Long burst and Broken on Sweep change more.
     |> part.attach(0, attribute.worn())
@@ -61,7 +61,7 @@ pub fn the_name_shows_the_two_most_impactful_attributes_test() {
 }
 
 pub fn attributes_change_the_price_test() {
-  let gun = catalog.laser()
+  let gun = components.laser()
   assert price.of(part.attach(gun, 1, attribute.masterwork())) > price.of(gun)
   assert price.of(part.attach(gun, 1, attribute.broken())) < price.of(gun)
 }

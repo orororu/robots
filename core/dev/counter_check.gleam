@@ -17,7 +17,7 @@ import robots/balance/simulation
 import robots/construction/build_search.{type Build, Build}
 import robots/construction/builder
 import robots/construction/part.{type Component}
-import robots/content/catalog
+import robots/content/components
 import robots/rules/game.{P1, P2, Running, Won}
 import robots/rules/rng
 
@@ -55,17 +55,17 @@ const melee_weapons = ["Saw arm", "Fist"]
 const range_weapons = ["Cannon", "Machine gun", "Missile rack"]
 
 pub fn main() -> Nil {
-  let builds = build_search.all(catalog.chassis(), catalog.components(), limits)
+  let builds = build_search.all(components.chassis(), components.all(), limits)
   let checks = [
     Check(
-      counter: catalog.point_defence(),
+      counter: components.point_defence(),
       users: fn(_) { True },
       users_name: "builds",
       targets: uses(_, "Drone bay"),
       targets_name: "drone builds",
     ),
     Check(
-      counter: catalog.smoke_launcher(),
+      counter: components.smoke_launcher(),
       users: fn(b) { !uses_any(b, range_weapons) },
       users_name: "builds without range weapons",
       targets: fn(b) {

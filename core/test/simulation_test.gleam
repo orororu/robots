@@ -10,7 +10,7 @@ import gleam/io
 import gleam/list
 import robots/ai/brain
 import robots/balance/simulation.{type Outcome}
-import robots/content/catalog
+import robots/content/starters
 import robots/rules/game.{P1, P2, Running, Won}
 
 const matches = 40
@@ -22,15 +22,15 @@ fn results() -> List(Outcome) {
   list.append(
     simulation.series(
       config,
-      catalog.tinker(),
-      catalog.scrapper(),
+      starters.tinker(),
+      starters.scrapper(),
       half,
       brain.human,
     ),
     simulation.series(
       config,
-      catalog.scrapper(),
-      catalog.tinker(),
+      starters.scrapper(),
+      starters.tinker(),
       half,
       brain.human,
     ),

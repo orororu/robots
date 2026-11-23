@@ -14,7 +14,7 @@ import gleam/list
 import robots/construction/attribute.{type Attribute} as a
 import robots/construction/builder.{type Chassis}
 import robots/construction/part.{type Component}
-import robots/content/catalog as c
+import robots/content/components as c
 import robots/rules/rng.{type Seed}
 
 pub type Chart {

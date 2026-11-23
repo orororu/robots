@@ -17,7 +17,7 @@ import robots/construction/attribute
 import robots/construction/builder.{type Chassis}
 import robots/construction/part.{type Component}
 import robots/construction/robot.{type Robot}
-import robots/content/catalog as c
+import robots/content/components as c
 import robots/rules/rng.{type Seed}
 import robots/run/loot
 import robots/run/price

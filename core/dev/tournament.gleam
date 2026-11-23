@@ -17,7 +17,8 @@ import robots/construction/build_search.{type Build}
 import robots/construction/builder.{type Chassis}
 import robots/construction/part
 import robots/construction/robot.{type Robot}
-import robots/content/catalog
+import robots/content/components
+import robots/content/starters
 import robots/rules/game.{P1, P2, Running, Won}
 import robots/rules/rng
 import robots/rules/scale
@@ -40,10 +41,10 @@ fn parallel_map(items: List(a), f: fn(a) -> b) -> List(b) {
 }
 
 pub fn main() -> Nil {
-  let builds = build_search.all(catalog.chassis(), catalog.components(), limits)
+  let builds = build_search.all(components.chassis(), components.all(), limits)
   let starters = [
-    starter("Tinker (starter)", catalog.frame(), catalog.tinker()),
-    starter("Scrapper (starter)", catalog.brute(), catalog.scrapper()),
+    starter("Tinker (starter)", components.frame(), starters.tinker()),
+    starter("Scrapper (starter)", components.brute(), starters.scrapper()),
   ]
   let #(shuffled, _) = rng.shuffle(builds, rng.new(42))
   let gauntlet = list.append(list.take(shuffled, gauntlet_size), starters)
@@ -212,7 +213,7 @@ fn print_chassis(results: List(#(Build, Score))) -> Nil {
   )
   let top_n = list.length(results) / 10
   let top = list.take(results, top_n)
-  list.each(catalog.chassis(), fn(ch) {
+  list.each(components.chassis(), fn(ch) {
     let mine =
       results
       |> list.filter(fn(r) { { r.0 }.chassis == ch })
@@ -233,7 +234,7 @@ fn print_chassis(results: List(#(Build, Score))) -> Nil {
 /// second weapon pay for the armor it replaces?
 fn print_weapon_counts(results: List(#(Build, Score))) -> Nil {
   io.println("\n== By chassis and weapon count (phase 1 avg score, builds)")
-  list.each(catalog.chassis(), fn(ch) {
+  list.each(components.chassis(), fn(ch) {
     let mine = list.filter(results, fn(r) { { r.0 }.chassis == ch })
     let counts =
       list.repeat(0, list.length(ch.weapon_mounts))
@@ -286,7 +287,7 @@ fn print_parts(results: List(#(Build, Score)), builds: List(Build)) -> Nil {
   let uses = fn(b: Build, name: String) {
     list.any(b.parts, fn(p) { p.name == name })
   }
-  catalog.components()
+  components.all()
   |> build_search.card_parts
   |> list.map(fn(p) {
     let all_share =

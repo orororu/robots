@@ -27,7 +27,9 @@ core/     pure game logic (Gleam, runs on JavaScript and BEAM): no IO, no clock
       wear.gleam      damage kept on armor plates and chassis between battles
       attribute.gleam card attributes from loot (Broken, Rapid, Precise...)
     content/
-      catalog.gleam   all chassis, parts and starter robots (balance here)
+      cards.gleam     every card, one function each (balance here)
+      components.gleam  every part and chassis, built from those cards
+      starters.gleam  the starter robots
       enemies.gleam   the named enemy roster for each level of a run
     ai/
       brain.gleam     pure AI opponent: efficiency-based, saves energy, reacts

@@ -9,7 +9,7 @@ import gleam/list
 import gleam/string
 import robots/construction/attribute.{Resize, Scale}
 import robots/construction/part
-import robots/content/catalog
+import robots/content/components
 import robots/content/enemies
 import robots/rules/rng
 import robots/run/loot
@@ -18,7 +18,7 @@ import robots/run/price
 pub fn main() -> Nil {
   attribute_table()
   io.println("CHASSIS PRICES")
-  list.each(catalog.chassis(), fn(ch) {
+  list.each(components.chassis(), fn(ch) {
     io.println(
       "  "
       <> string.pad_end(ch.name, 8, " ")
@@ -68,7 +68,7 @@ pub fn main() -> Nil {
 /// Each attribute on a Laser card (cost 10, value 10): new numbers, and how
 /// much its worth changes.
 fn attribute_table() -> Nil {
-  let assert [laser, ..] = list.drop(catalog.laser().cards, 1)
+  let assert [laser, ..] = list.drop(components.laser().cards, 1)
   io.println("CARD ATTRIBUTES (on a Laser card: cost 10, value 10)")
   io.println(
     "  attribute     effect                     cost value   worth  levels 1/2/3",

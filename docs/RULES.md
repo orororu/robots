@@ -247,7 +247,7 @@ after playtesting:
 - Target value per cost (`robots/balance/efficiency.gleam`):
   `1.0 + 0.5 × (cost − 1) + bonus × max(0, cost − 0.5)`, with bonus 0 for
   damage, 0.6 for weaken (defence) and 0.4 for strengthen (buffs). Cards hitting
-  `all(...)` are rated as if they hit 2 cards. A test checks every catalog card
+  `all(...)` are rated as if they hit 2 cards. A test checks every component card
   against its goal (±0.1).
 
   | Cost (shown) | 5 | 6 | 8 | 10 | 16 |
@@ -289,7 +289,7 @@ These rules are implemented in `core/src/robots/`:
 - `rules/table.gleam`: table slots with current values, and automatic `one`/`all` targeting (`affect`).
 - `rules/game.gleam`: playing a card, resolving it, discarding it, and refilling the slot.
 - `rules/scale.gleam`: the display scale (default ×10 for costs and values).
-- `content/catalog.gleam`: all components and the starter robots.
+- `content/cards.gleam`: every card; `content/components.gleam`: every part and chassis, built from those cards; `content/starters.gleam`: the starter robots.
 - `balance/efficiency.gleam`: card roles and their value-per-cost bands.
 - `balance/simulation.gleam` and `core/dev/balance.gleam`: AI-vs-AI matches and the balance report.
 

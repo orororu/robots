@@ -2,7 +2,7 @@ import gleam/int
 import gleam/list
 import robots/construction/builder
 import robots/construction/part.{Component}
-import robots/content/catalog
+import robots/content/components
 import robots/rules/rng
 import robots/run/loot
 import robots/run/price
@@ -29,18 +29,18 @@ pub fn rolls_are_reproducible_and_from_the_chart_test() {
 }
 
 pub fn every_part_has_a_price_test() {
-  assert list.all(catalog.components(), fn(c) { price.of(c) > 0 })
+  assert list.all(components.all(), fn(c) { price.of(c) > 0 })
 }
 
 pub fn modifiers_raise_and_wear_lowers_the_price_test() {
-  let plating = catalog.plating()
+  let plating = components.plating()
   assert price.of(part.with(plating, part.light())) > price.of(plating)
   assert price.of(part.with(plating, part.overclocked())) > price.of(plating)
   assert price.of(Component(..plating, wear: 1.0)) < price.of(plating)
 }
 
 pub fn heavier_parts_cost_less_for_the_same_cards_test() {
-  let laser = catalog.laser()
+  let laser = components.laser()
   assert price.of(Component(..laser, weight: 4.0)) < price.of(laser)
 }
 
@@ -56,12 +56,14 @@ pub fn a_battle_drops_one_to_three_parts_test() {
 
 pub fn chassis_cost_more_than_any_part_test() {
   let priciest =
-    list.fold(catalog.components(), 0, fn(m, c) { int.max(m, price.of(c)) })
-  assert list.all(catalog.chassis(), fn(ch) { price.of_chassis(ch) > priciest })
+    list.fold(components.all(), 0, fn(m, c) { int.max(m, price.of(c)) })
+  assert list.all(components.chassis(), fn(ch) {
+    price.of_chassis(ch) > priciest
+  })
 }
 
 pub fn bigger_chassis_cost_more_test() {
-  let frame = catalog.frame()
+  let frame = components.frame()
   assert price.of_chassis(builder.Chassis(..frame, capacity: 16.0))
     > price.of_chassis(frame)
   assert price.of_chassis(builder.Chassis(..frame, wear: 3.0))

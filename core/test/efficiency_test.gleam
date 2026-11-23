@@ -2,17 +2,19 @@ import gleam/list
 import robots/balance/efficiency
 import robots/construction/part
 import robots/construction/robot
-import robots/content/catalog
+import robots/content/cards
+import robots/content/components
+import robots/content/starters
 import robots/rules/card
 
-/// Every catalog card must fit its role's efficiency band. Defence and buffs
+/// Every card must fit its role's efficiency band. Defence and buffs
 /// are rated above attacks, so builds aren't all glass cannons.
-pub fn every_catalog_card_is_within_its_band_test() {
+pub fn every_card_is_within_its_band_test() {
   let part_cards =
-    catalog.components()
+    components.all()
     |> list.filter(fn(component) { component.kind != part.Armor })
     |> list.flat_map(fn(component) { component.cards })
-  let chassis_cards = list.flat_map(catalog.chassis(), fn(ch) { ch.cards })
+  let chassis_cards = list.flat_map(components.chassis(), fn(ch) { ch.cards })
   let outliers =
     list.append(part_cards, chassis_cards)
     |> list.filter(fn(card) {
@@ -23,7 +25,7 @@ pub fn every_catalog_card_is_within_its_band_test() {
 }
 
 pub fn once_cards_are_rated_above_their_role_test() {
-  let missile = catalog.missile_rack().cards |> list.first
+  let missile = components.missile_rack().cards |> list.first
   let assert Ok(missile) = missile
   assert card.has_trait(missile, card.Once)
   assert efficiency.goal(missile)
@@ -33,19 +35,22 @@ pub fn once_cards_are_rated_above_their_role_test() {
 
 /// Armor's Block is weak on purpose, so stacking armor dilutes the deck.
 pub fn armor_cards_are_below_the_band_test() {
-  let block = catalog.block()
+  let block = cards.block()
   assert efficiency.rating(block) <. efficiency.goal(block)
   assert !efficiency.within_band(block)
 }
 
-pub fn starter_robots_only_use_catalog_components_test() {
-  let names = list.map(catalog.components(), fn(c) { c.name })
+pub fn starter_robots_only_use_known_components_test() {
+  let names = list.map(components.all(), fn(c) { c.name })
   let used =
-    list.flat_map([catalog.tinker(), catalog.scrapper()], fn(bot: robot.Robot) {
-      bot.components
-      |> list.filter(fn(c) { c.kind != part.Body })
-      |> list.map(fn(c) { c.name })
-    })
+    list.flat_map(
+      [starters.tinker(), starters.scrapper()],
+      fn(bot: robot.Robot) {
+        bot.components
+        |> list.filter(fn(c) { c.kind != part.Body })
+        |> list.map(fn(c) { c.name })
+      },
+    )
   assert list.all(used, list.contains(names, _))
 }
 

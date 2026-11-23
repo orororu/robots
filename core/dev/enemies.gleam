@@ -9,8 +9,8 @@ import gleam/string
 import robots/ai/brain
 import robots/balance/simulation
 import robots/construction/robot.{type Robot}
-import robots/content/catalog
 import robots/content/enemies.{type Enemy}
+import robots/content/starters
 import robots/rules/game.{P1, P2, Won}
 
 const matches_per_seating = 30
@@ -31,8 +31,8 @@ fn row(enemy: Enemy, label: String) -> Nil {
   io.println(
     "  "
     <> string.pad_end(label <> enemy.name, 30, " ")
-    <> string.pad_start(win_rate(catalog.tinker(), foe), 6, " ")
-    <> string.pad_start(win_rate(catalog.scrapper(), foe), 10, " "),
+    <> string.pad_start(win_rate(starters.tinker(), foe), 6, " ")
+    <> string.pad_start(win_rate(starters.scrapper(), foe), 10, " "),
   )
 }
 

@@ -4,7 +4,9 @@ import gleam/list
 import robots/ai/brain
 import robots/construction/part
 import robots/construction/robot
-import robots/content/catalog
+import robots/content/cards
+import robots/content/components
+import robots/content/starters
 import robots/rules/card.{
   type Card, All, Attack, Beam, Buff, Card, Defence, Energy, Melee, One,
   Opponent, OpponentHp, Range, Self,
@@ -117,14 +119,15 @@ pub fn tables_start_full_test() {
   let g =
     game.new(
       game.default_config(),
-      p1: catalog.tinker(),
-      p2: catalog.scrapper(),
+      p1: starters.tinker(),
+      p2: starters.scrapper(),
       seed: 99,
       now: 0,
     )
   assert list.length(g.p1.table) == 4
   assert list.length(g.p2.table) == 4
-  assert list.length(g.p1.deck) == list.length(robot.deck(catalog.tinker())) - 4
+  assert list.length(g.p1.deck)
+    == list.length(robot.deck(starters.tinker())) - 4
 }
 
 pub fn small_deck_leaves_slots_empty_test() {
@@ -143,8 +146,8 @@ pub fn same_seed_same_game_test() {
   let new = fn() {
     game.new(
       game.default_config(),
-      p1: catalog.tinker(),
-      p2: catalog.scrapper(),
+      p1: starters.tinker(),
+      p2: starters.scrapper(),
       seed: 5,
       now: 0,
     )
@@ -308,11 +311,11 @@ fn with_tables(g: Game, p1: List(Slot), p2: List(Slot)) -> Game {
 }
 
 fn drone_at(value: Float) -> Slot {
-  Slot(catalog.drone(), value, 0)
+  Slot(cards.drone(), value, 0)
 }
 
 pub fn launch_puts_a_drone_in_the_same_slot_test() {
-  let assert [launch, ..] = catalog.drone_bay().cards
+  let assert [launch, ..] = components.drone_bay().cards
   let g = arena([laser(), launch], [laser()])
   let assert Ok(g) = game.update(g, PlayCard(P1, 1, 0))
   assert list.map(g.p1.table, fn(s) { s.card.name }) == ["Laser", "Drone"]
@@ -321,7 +324,7 @@ pub fn launch_puts_a_drone_in_the_same_slot_test() {
 }
 
 pub fn drones_grow_up_to_their_cap_test() {
-  let slot = table.placed(catalog.drone(), 0)
+  let slot = table.placed(cards.drone(), 0)
   assert table.value_at(slot, 0) == 1.5
   assert table.value_at(slot, 10_000) == 2.5
   assert table.value_at(slot, 100_000) == 3.0
@@ -359,7 +362,7 @@ pub fn shields_do_not_affect_drones_test() {
 }
 
 pub fn shoot_down_destroys_a_full_drone_test() {
-  let assert [shoot_down, ..] = catalog.point_defence().cards
+  let assert [shoot_down, ..] = components.point_defence().cards
   let g =
     arena([], [shoot_down])
     |> with_tables([drone_at(3.0), slot(laser())], [slot(shoot_down)])
@@ -507,7 +510,7 @@ fn rng_seed(n: Int) {
 }
 
 pub fn an_unlaunched_drone_does_not_soak_attacks_test() {
-  let assert [launch, ..] = catalog.drone_bay().cards
+  let assert [launch, ..] = components.drone_bay().cards
   let g =
     arena([], [laser()])
     |> with_tables([slot(launch)], [slot(laser())])
@@ -518,8 +521,8 @@ pub fn an_unlaunched_drone_does_not_soak_attacks_test() {
 }
 
 pub fn smoke_lowers_range_attacks_on_both_tables_test() {
-  let assert [smoke, ..] = catalog.smoke_launcher().cards
-  let assert [jab, ..] = catalog.fist().cards
+  let assert [smoke, ..] = components.smoke_launcher().cards
+  let assert [jab, ..] = components.fist().cards
   let g =
     arena([smoke, laser(), jab], [laser()])
     |> with_tables([slot(smoke), slot(laser()), slot(jab)], [slot(laser())])
@@ -536,9 +539,9 @@ pub fn smoke_lowers_range_attacks_on_both_tables_test() {
 }
 
 pub fn smoke_does_not_block_beams_test() {
-  let assert [smoke, ..] = catalog.smoke_launcher().cards
-  let assert [_, laser_card, ..] = catalog.laser().cards
-  let assert [burst, ..] = catalog.machine_gun().cards
+  let assert [smoke, ..] = components.smoke_launcher().cards
+  let assert [_, laser_card, ..] = components.laser().cards
+  let assert [burst, ..] = components.machine_gun().cards
   let g =
     arena([], [smoke])
     |> with_tables([slot(laser_card), slot(burst)], [slot(smoke)])
@@ -551,7 +554,7 @@ pub fn smoke_does_not_block_beams_test() {
 
 pub fn a_machine_gun_sweep_destroys_a_fresh_drone_test() {
   let assert Ok(sweep) =
-    list.find(catalog.machine_gun().cards, fn(c) { c.name == "Sweep" })
+    list.find(components.machine_gun().cards, fn(c) { c.name == "Sweep" })
   let g =
     arena([], [sweep])
     |> with_tables([drone_at(1.5), slot(laser())], [slot(sweep)])
@@ -561,7 +564,7 @@ pub fn a_machine_gun_sweep_destroys_a_fresh_drone_test() {
 
 fn ignite() -> Card {
   let assert Ok(c) =
-    list.find(catalog.flamethrower().cards, fn(c) { c.name == "Ignite" })
+    list.find(components.flamethrower().cards, fn(c) { c.name == "Ignite" })
   c
 }
 
@@ -597,7 +600,7 @@ pub fn ignite_needs_a_zeroed_card_test() {
 pub fn fire_leaves_the_match_when_played_test() {
   let g =
     arena([], [laser()])
-    |> with_tables([slot(catalog.fire()), slot(laser())], [slot(laser())])
+    |> with_tables([slot(cards.fire()), slot(laser())], [slot(laser())])
   let assert Ok(g) = game.update(g, PlayCard(P1, 0, 0))
   assert !list.contains(names_everywhere(g.p1), "Fire")
 }

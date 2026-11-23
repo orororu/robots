@@ -18,7 +18,7 @@ import lustre/event
 import robots/ai/brain
 import robots/rules/amount
 import robots/rules/card.{type Card}
-import robots/content/catalog
+import robots/content/starters
 import robots/rules/energy
 import robots/rules/game.{type Combatant, type Game, P1, P2}
 import robots/construction/part
@@ -53,8 +53,8 @@ fn new_match(now: Int) -> Model {
   let state =
     game.new(
       game.default_config(),
-      p1: catalog.tinker(),
-      p2: catalog.scrapper(),
+      p1: starters.tinker(),
+      p2: starters.scrapper(),
       seed: browser.random_seed(),
       now:,
     )

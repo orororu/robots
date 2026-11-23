@@ -5,19 +5,20 @@ import robots/construction/builder.{
 }
 import robots/construction/part
 import robots/construction/robot
-import robots/content/catalog
+import robots/content/components
+import robots/content/starters
 import robots/rules/card.{Attack, Card, Defence, One, Opponent, OpponentHp}
 
 // STARTERS --------------------------------------------------------------------
 
 pub fn starters_use_different_chassis_test() {
-  assert catalog.tinker().chassis == "Frame"
-  assert catalog.scrapper().chassis == "Brute"
+  assert starters.tinker().chassis == "Frame"
+  assert starters.scrapper().chassis == "Brute"
 }
 
 /// A chassis with no cards of its own, for deck-size tests.
 fn bare() -> builder.Chassis {
-  builder.Chassis(..catalog.frame(), name: "Bare", cards: [])
+  builder.Chassis(..components.frame(), name: "Bare", cards: [])
 }
 
 /// The chassis plus 16 filler cards, so tests of other rules aren't tripped
@@ -33,11 +34,11 @@ fn padded(chassis: builder.Chassis) -> builder.Chassis {
 
 pub fn chassis_cards_join_every_deck_test() {
   let assert Ok(bot) =
-    builder.build("B", catalog.scout(), [
-      catalog.machine_gun(),
-      catalog.machine_gun(),
-      catalog.machine_gun(),
-      catalog.cell(),
+    builder.build("B", components.scout(), [
+      components.machine_gun(),
+      components.machine_gun(),
+      components.machine_gun(),
+      components.cell(),
     ])
   let names = list.map(robot.deck(bot), fn(c) { c.name })
   assert list.take(names, 5) == ["Jump", "Jump", "Dodge", "Dodge", "Burst"]
@@ -48,44 +49,44 @@ pub fn chassis_cards_join_every_deck_test() {
 pub fn armor_adds_block_cards_test() {
   let assert Ok(bot) =
     builder.build("B", padded(bare()), [
-      catalog.laser(),
-      catalog.cell(),
-      catalog.plating(),
-      catalog.heavy_plating(),
+      components.laser(),
+      components.cell(),
+      components.plating(),
+      components.heavy_plating(),
     ])
   let blocks = list.count(robot.deck(bot), fn(c) { c.name == "Block" })
   assert blocks == 3
 }
 
 pub fn starters_have_no_warnings_test() {
-  assert builder.warnings(catalog.tinker()) == []
-  assert builder.warnings(catalog.scrapper()) == []
+  assert builder.warnings(starters.tinker()) == []
+  assert builder.warnings(starters.scrapper()) == []
 }
 
 pub fn every_chassis_has_a_legal_signature_build_test() {
   let assert Ok(_) =
-    builder.build("Tank", catalog.tank(), [
-      catalog.cannon(),
-      catalog.cell(),
-      catalog.kinetic_shield(),
-      catalog.deflector(),
-      catalog.buckler(),
-      catalog.heavy_plating(),
+    builder.build("Tank", components.tank(), [
+      components.cannon(),
+      components.cell(),
+      components.kinetic_shield(),
+      components.deflector(),
+      components.buckler(),
+      components.heavy_plating(),
     ])
   let assert Ok(_) =
-    builder.build("Scout", catalog.scout(), [
-      catalog.machine_gun(),
-      catalog.machine_gun(),
-      catalog.machine_gun(),
-      catalog.cell(),
+    builder.build("Scout", components.scout(), [
+      components.machine_gun(),
+      components.machine_gun(),
+      components.machine_gun(),
+      components.cell(),
     ])
   let assert Ok(_) =
-    builder.build("Brute", catalog.brute(), [
-      catalog.saw_arm(),
-      catalog.fist(),
-      catalog.hydraulics(),
-      catalog.deflector(),
-      catalog.battery(),
+    builder.build("Brute", components.brute(), [
+      components.saw_arm(),
+      components.fist(),
+      components.hydraulics(),
+      components.deflector(),
+      components.battery(),
     ])
 }
 
@@ -93,12 +94,12 @@ pub fn every_chassis_has_a_legal_signature_build_test() {
 
 pub fn armor_adds_hp_and_batteries_stack_test() {
   let assert Ok(bot) =
-    builder.build("B", padded(catalog.frame()), [
-      catalog.laser(),
-      catalog.fist(),
-      catalog.cell(),
-      catalog.battery(),
-      catalog.plating(),
+    builder.build("B", padded(components.frame()), [
+      components.laser(),
+      components.fist(),
+      components.cell(),
+      components.battery(),
+      components.plating(),
     ])
   assert bot.max_hp == 9.0 +. 2.5
   assert bot.hp == bot.max_hp
@@ -109,24 +110,24 @@ pub fn armor_adds_hp_and_batteries_stack_test() {
 
 pub fn overweight_is_rejected_test() {
   // Frame carries 12: 3 + 1 + 2 + 4 + 4 = 14.
-  assert builder.build("B", padded(catalog.frame()), [
-      catalog.laser(),
-      catalog.fist(),
-      catalog.battery(),
-      catalog.heavy_plating(),
-      catalog.heavy_plating(),
+  assert builder.build("B", padded(components.frame()), [
+      components.laser(),
+      components.fist(),
+      components.battery(),
+      components.heavy_plating(),
+      components.heavy_plating(),
     ])
     == Error([Overweight(total: 14.0, capacity: 12.0)])
 }
 
 pub fn light_parts_make_room_test() {
   // The same build fits when the Heavy platings are Light (4 → 3 each).
-  let light_plating = catalog.heavy_plating() |> part.with(part.light())
+  let light_plating = components.heavy_plating() |> part.with(part.light())
   let assert Ok(bot) =
-    builder.build("B", padded(catalog.frame()), [
-      catalog.laser(),
-      catalog.fist(),
-      catalog.battery(),
+    builder.build("B", padded(components.frame()), [
+      components.laser(),
+      components.fist(),
+      components.battery(),
       light_plating,
       light_plating,
     ])
@@ -135,20 +136,20 @@ pub fn light_parts_make_room_test() {
 }
 
 pub fn too_many_weapons_is_rejected_test() {
-  assert builder.build("B", padded(catalog.frame()), [
-      catalog.fist(),
-      catalog.fist(),
-      catalog.fist(),
-      catalog.battery(),
+  assert builder.build("B", padded(components.frame()), [
+      components.fist(),
+      components.fist(),
+      components.fist(),
+      components.battery(),
     ])
     == Error([TooManyWeapons(count: 3, mounts: 2)])
 }
 
 pub fn weapon_too_heavy_for_any_mount_is_rejected_test() {
-  assert builder.build("B", padded(catalog.frame()), [
-      catalog.cannon(),
-      catalog.fist(),
-      catalog.battery(),
+  assert builder.build("B", padded(components.frame()), [
+      components.cannon(),
+      components.fist(),
+      components.battery(),
     ])
     == Error([WeaponTooHeavy(weapon: "Cannon", weight: 6.0, mount_limit: 4.0)])
 }
@@ -157,23 +158,23 @@ pub fn weapons_are_matched_to_mounts_by_size_test() {
   // Brute has mounts 4 and 2: a Saw arm (3) and a Fist (1) fit, two Saw
   // arms don't, because the second would need the small mount.
   let assert Ok(_) =
-    builder.build("B", padded(catalog.brute()), [
-      catalog.fist(),
-      catalog.saw_arm(),
-      catalog.battery(),
+    builder.build("B", padded(components.brute()), [
+      components.fist(),
+      components.saw_arm(),
+      components.battery(),
     ])
-  assert builder.build("B", padded(catalog.brute()), [
-      catalog.saw_arm(),
-      catalog.saw_arm(),
-      catalog.battery(),
+  assert builder.build("B", padded(components.brute()), [
+      components.saw_arm(),
+      components.saw_arm(),
+      components.battery(),
     ])
     == Error([WeaponTooHeavy(weapon: "Saw arm", weight: 3.0, mount_limit: 2.0)])
 }
 
 pub fn a_battery_is_required_test() {
-  assert builder.build("B", padded(catalog.frame()), [
-      catalog.laser(),
-      catalog.fist(),
+  assert builder.build("B", padded(components.frame()), [
+      components.laser(),
+      components.fist(),
     ])
     == Error([NoBattery])
 }
@@ -186,8 +187,8 @@ fn one_shot(weight: Float) -> part.Component {
 
 pub fn a_robot_needs_sixteen_cards_test() {
   assert builder.build("B", bare(), [
-      catalog.battery(),
-      catalog.plating(),
+      components.battery(),
+      components.plating(),
       one_shot(1.0),
     ])
     == Error([DeckTooSmall(cards: 2, minimum: 16)])
@@ -195,7 +196,7 @@ pub fn a_robot_needs_sixteen_cards_test() {
 
 pub fn all_problems_are_reported_together_test() {
   let assert Error(errors) =
-    builder.build("B", builder.Chassis(..catalog.scout(), cards: []), [
+    builder.build("B", builder.Chassis(..components.scout(), cards: []), [
       one_shot(6.0),
     ])
   assert list.length(errors) == 3
@@ -210,21 +211,21 @@ pub fn all_problems_are_reported_together_test() {
 // MODIFIERS -------------------------------------------------------------------
 
 pub fn overclocked_parts_are_stronger_test() {
-  let hot = catalog.laser() |> part.with(part.overclocked())
+  let hot = components.laser() |> part.with(part.overclocked())
   let values = list.map(part.cards(hot), fn(c) { c.value })
-  assert values == list.map(catalog.laser().cards, fn(c) { c.value *. 1.15 })
+  assert values == list.map(components.laser().cards, fn(c) { c.value *. 1.15 })
   // Costs and weight don't change.
   assert list.map(part.cards(hot), fn(c) { c.cost })
-    == list.map(catalog.laser().cards, fn(c) { c.cost })
+    == list.map(components.laser().cards, fn(c) { c.cost })
   assert part.weight(hot) == 3.0
   // Overclocked armor gives more HP.
-  assert part.hp(catalog.plating() |> part.with(part.overclocked()))
+  assert part.hp(components.plating() |> part.with(part.overclocked()))
     == 2.5 *. 1.15
 }
 
 pub fn modifiers_stack_and_name_the_part_test() {
   let loot =
-    catalog.laser()
+    components.laser()
     |> part.with(part.light())
     |> part.with(part.overclocked())
   assert part.display_name(loot) == "Light overclocked laser"
@@ -236,10 +237,10 @@ pub fn modifiers_stack_and_name_the_part_test() {
 pub fn buff_without_matching_own_cards_is_dead_test() {
   // Lock on raises [attack, range] cards; a Saw arm is melee only.
   let assert Ok(bot) =
-    builder.build("B", padded(catalog.frame()), [
-      catalog.saw_arm(),
-      catalog.targeting_computer(),
-      catalog.battery(),
+    builder.build("B", padded(components.frame()), [
+      components.saw_arm(),
+      components.targeting_computer(),
+      components.battery(),
     ])
   assert builder.warnings(bot)
     == [
@@ -261,10 +262,10 @@ pub fn card_costing_more_than_the_batteries_hold_is_flagged_test() {
 
 pub fn a_weapon_is_required_test() {
   // The Frame's own Kick isn't enough.
-  assert builder.build("B", padded(catalog.frame()), [
-      catalog.kinetic_shield(),
-      catalog.deflector(),
-      catalog.battery(),
+  assert builder.build("B", padded(components.frame()), [
+      components.kinetic_shield(),
+      components.deflector(),
+      components.battery(),
     ])
     == Error([NoWeapon])
 }
