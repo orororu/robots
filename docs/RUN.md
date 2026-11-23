@@ -274,8 +274,9 @@ plate on a battered robot would also count as battered.
 - **Money per win (placeholders):** 20 for an enemy, 40 for a strong enemy,
   100 for a boss. Runs start with no money.
 - **Drops per win:** 1 part for an enemy, 2 for a strong enemy or a boss.
-- **Repair shops** restore a robot fully (chassis and plates, including
-  broken ones) at 20 credits per HP, what HP is worth on a new plate. A
+- **Repair shops** restore a whole robot, or one part at a time: its
+  chassis, one plate, or a worn spare plate (`state.repair_one`). Each costs
+  20 credits per HP of its wear (2 per HP as the client shows it), what HP is worth on a new plate. A
   broken plate comes back with plain cards (any attribute it had before
   breaking is gone).
 - **The garage** (install, uninstall, swap, assemble a new robot from a
@@ -319,7 +320,7 @@ In `core/` (pure, like the rest):
   (most worn plate first, breaking plates, the rest on the chassis) and
   returns the worn chassis and parts. `wear.break` makes a broken plate.
 - **Map and run state (done):** `map.generate(level, seed)`; `state.new`,
-  `choices`/`go`, `battle`, `team`, `outcome`/`finish`, `repair`/`leave`,
+  `choices`/`go`, `battle`, `team`, `outcome`/`finish`, `repair`/`repair_one`/`leave`,
   `install`/`uninstall`/`swap`/`assemble`. `simulation.teams` plays a team
   battle between AIs.
 - **Battles between teams (done):** `game.teams(config, p1:, p2:, ...)` takes

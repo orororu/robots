@@ -1,4 +1,5 @@
 import gleam/list
+import gleam/option.{Some}
 import robots/construction/builder.{
   DeadCard, DeckTooSmall, NoBattery, NoWeapon, Overweight, TooManyWeapons,
   Unaffordable, WeaponTooHeavy,
@@ -268,4 +269,18 @@ pub fn a_weapon_is_required_test() {
       components.battery(),
     ])
     == Error([NoWeapon])
+}
+
+pub fn mounts_show_which_weapon_sits_where_test() {
+  let assert [#(4.0, Some(saw)), #(2.0, Some(fist))] =
+    builder.mounts(components.brute(), [
+      components.fist(),
+      components.plating(),
+      components.saw_arm(),
+    ])
+  assert saw.name == "Saw arm"
+  assert fist.name == "Fist"
+  assert builder.mounts(components.frame(), [components.laser()])
+    |> list.map(fn(m) { m.1 |> option.is_some })
+    == [True, False]
 }

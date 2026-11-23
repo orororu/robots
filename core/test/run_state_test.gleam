@@ -141,6 +141,35 @@ pub fn the_repair_shop_restores_wear_for_money_test() {
   assert left.phase == state.Choosing
 }
 
+pub fn the_repair_shop_can_fix_one_part_at_a_time_test() {
+  let run = at(state.new(1), fn(e) { e == map.RepairShop })
+  let assert [tinker] = run.robots
+  // 3 HP: both Platings (1.25 each) break, 0.5 reaches the Frame.
+  let #(chassis, parts) = wear.assign(tinker.chassis, tinker.parts, 3.0)
+  let run =
+    Run(..run, money: 30, robots: [state.Bot(..tinker, chassis:, parts:)])
+  assert state.repair_one_price(run, state.RepairChassis(0)) == Ok(10)
+  assert state.repair_one_price(run, state.RepairPart(0, 3)) == Ok(25)
+  // The Laser doesn't wear.
+  assert state.repair_one_price(run, state.RepairPart(0, 0)) == Ok(0)
+  let assert Ok(run) = state.repair_one(run, state.RepairPart(0, 3))
+  assert run.money == 5
+  let assert [bot] = run.robots
+  let assert [_, _, _, fixed, still_broken] = bot.parts
+  assert !wear.is_broken(fixed)
+  assert wear.is_broken(still_broken)
+  assert bot.chassis.wear == 0.5
+  assert state.repair_one(run, state.RepairChassis(0))
+    == Error(state.NotEnoughMoney(10, 5))
+  // A broken plate taken off can be repaired among the spares.
+  let run = Run(..run, money: 100, parts: [still_broken])
+  let assert Ok(run) = state.repair_one(run, state.RepairSpare(0))
+  let assert [spare] = run.parts
+  assert !wear.is_broken(spare)
+  assert run.money == 75
+  assert state.repair_one(run, state.RepairSpare(5)) == Error(state.NoSuchPart)
+}
+
 pub fn garage_changes_must_leave_a_legal_build_test() {
   let run =
     Run(..state.new(1), parts: [

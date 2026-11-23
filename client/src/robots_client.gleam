@@ -153,6 +153,7 @@ type Msg {
   Continue
   // Repair shop
   Repair(robot: Int)
+  RepairOne(target: state.Repair)
   Leave
   // Garage
   ClickInstalled(robot: Int, part: Int)
@@ -180,6 +181,7 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
     Play(slot) -> play(model, slot)
     Continue -> continue(model)
     Repair(robot) -> attempt(model, state.repair(model.run, robot), "")
+    RepairOne(target) -> attempt(model, state.repair_one(model.run, target), "")
     Leave -> attempt(model, state.leave(model.run), "")
     ClickInstalled(robot, p) -> {
       let spare = case model.pick {
@@ -533,7 +535,7 @@ fn view_report(model: Model) -> Element(Msg) {
       }
     })
   let loot =
-    list.map(r.reward.parts, fn(p) { "  + " <> part_line(p) })
+    list.map(r.reward.parts, fn(p) { "  + " <> part_line(s, p) })
     |> list.append(case r.reward.chassis {
       Some(c) -> ["  + " <> c.name <> " chassis"]
       None -> []
@@ -855,30 +857,76 @@ fn view_prebattle(model: Model) -> Element(Msg) {
 // Repair shop
 
 fn view_shop(model: Model) -> Element(Msg) {
+  let run = model.run
+  let s = model.scale
+  let hp = fn(x) { int.to_string(scale.value(s, x)) }
+  // A button for one worn chassis or part, or nothing if it's as new.
+  let item = fn(label, target) {
+    case state.repair_one_price(run, target) {
+      Ok(0) | Error(_) -> []
+      Ok(cost) -> [
+        button(
+          "    Repair " <> label <> " · " <> int.to_string(cost) <> " credits",
+          RepairOne(target),
+        ),
+      ]
+    }
+  }
+  let plate_label = fn(p: Component) {
+    part.display_name(p)
+    <> " · HP "
+    <> hp(part.remaining_hp(p))
+    <> "/"
+    <> hp(part.hp(p))
+    <> case wear.is_broken(p) {
+      True -> " BROKEN"
+      False -> ""
+    }
+  }
+  let robots =
+    list.index_map(run.robots, fn(bot, r) {
+      let header = case state.repair_price(bot) {
+        0 -> text("dim", "  " <> bot_line(s, bot) <> " · as new")
+        cost ->
+          button(
+            "  Repair all of "
+              <> bot_line(s, bot)
+              <> " · "
+              <> int.to_string(cost)
+              <> " credits",
+            Repair(r),
+          )
+      }
+      let chassis =
+        item(
+          bot.chassis.name
+            <> " chassis · HP "
+            <> hp(builder.chassis_hp(bot.chassis))
+            <> "/"
+            <> hp(bot.chassis.hp),
+          state.RepairChassis(r),
+        )
+      let parts =
+        list.index_map(bot.parts, fn(p, i) {
+          item(plate_label(p), state.RepairPart(r, i))
+        })
+        |> list.flatten
+      [header, ..list.append(chassis, parts)]
+    })
+    |> list.flatten
+  let spares =
+    list.index_map(run.parts, fn(p, i) {
+      item("spare " <> plate_label(p), state.RepairSpare(i))
+    })
+    |> list.flatten
   html.div([], [
     text(
       "",
-      "REPAIR SHOP · full repairs, "
-        <> int.to_string(price.repair(1.0))
-        <> " credits per HP",
+      "REPAIR SHOP · "
+        <> int.to_string(price.repair(1.0) / scale.value(s, 1.0))
+        <> " credits per HP · repair a whole robot or one part at a time",
     ),
-    html.div(
-      [attribute.class("table")],
-      list.index_map(model.run.robots, fn(bot, i) {
-        case state.repair_price(bot) {
-          0 -> text("dim", "  " <> bot_line(model.scale, bot) <> " · as new")
-          cost ->
-            button(
-              "Repair "
-                <> bot_line(model.scale, bot)
-                <> " · "
-                <> int.to_string(cost)
-                <> " credits",
-              Repair(i),
-            )
-        }
-      }),
-    ),
+    html.div([attribute.class("table")], list.append(robots, spares)),
     button_class(">>> Leave", "banner", Leave),
     view_garage(model),
   ])
@@ -916,17 +964,12 @@ fn view_garage(model: Model) -> Element(Msg) {
   let robots =
     list.index_map(run.robots, fn(bot, r) {
       html.div([attribute.class("robot")], [
-        text(
-          "ally",
-          bot_line(model.scale, bot)
-            <> " · weight "
-            <> num(part.total_weight(bot.parts))
-            <> "/"
-            <> num(bot.chassis.capacity),
-        ),
+        text("ally", bot_line(model.scale, bot)),
+        text("", "    " <> capacity_line(bot)),
+        text("", "    " <> mounts_line(bot)),
         ..list.index_map(bot.parts, fn(p, i) {
           button_class(
-            "    " <> part_line(p),
+            "    " <> part_line(model.scale, p),
             picked(installed == Some(#(r, i))),
             ClickInstalled(r, i),
           )
@@ -936,7 +979,7 @@ fn view_garage(model: Model) -> Element(Msg) {
   let spares =
     list.index_map(run.parts, fn(p, i) {
       button_class(
-        "  " <> part_line(p),
+        "  " <> part_line(model.scale, p),
         picked(spare == Some(i) || list.contains(drafted, i)),
         ClickSpare(i),
       )
@@ -948,11 +991,13 @@ fn view_garage(model: Model) -> Element(Msg) {
           <> c.name
           <> " chassis · "
           <> int.to_string(scale.value(model.scale, builder.chassis_hp(c)))
-          <> " HP · carries "
+          <> " HP · capacity "
           <> num(c.capacity)
-          <> " · "
-          <> int.to_string(list.length(c.weapon_mounts))
-          <> " weapon mounts",
+          <> " · weapon mounts "
+          <> string.join(
+          list.map(builder.mounts(c, []), fn(m) { num(m.0) }),
+          ", ",
+        ),
         picked(chassis_pick == Some(i)),
         ClickChassis(i),
       )
@@ -997,6 +1042,7 @@ fn view_garage(model: Model) -> Element(Msg) {
           ])
       },
       html.div([attribute.class("actions")], actions),
+      ..fit_lines(model)
     ]),
     view_selected(model),
   ])
@@ -1114,8 +1160,62 @@ fn bot_line(s: Scale, bot: Bot) -> String {
   }
 }
 
-/// "Broken plating · armor · weight 2 · HP 0/2.5 · 25 cr"
-fn part_line(p: Component) -> String {
+/// "Capacity 11 of 12 used · 1 free"
+fn capacity_line(bot: Bot) -> String {
+  let used = part.total_weight(bot.parts)
+  "Capacity "
+  <> num(used)
+  <> " of "
+  <> num(bot.chassis.capacity)
+  <> " used · "
+  <> num(float.max(0.0, bot.chassis.capacity -. used))
+  <> " free"
+}
+
+/// "Weapon mounts: [4] Laser (3) · [4] empty": a weapon fits a mount at
+/// least as big as its weight.
+fn mounts_line(bot: Bot) -> String {
+  "Weapon mounts: "
+  <> builder.mounts(bot.chassis, bot.parts)
+  |> list.map(fn(m) {
+    "["
+    <> num(m.0)
+    <> "] "
+    <> case m.1 {
+      Some(w) -> part.display_name(w) <> " (" <> num(part.weight(w)) <> ")"
+      None -> "empty"
+    }
+  })
+  |> string.join(" · ")
+}
+
+/// What the selected change would do to each robot it could apply to:
+/// "✓ fits on Tinker" or "✗ Tinker: Too heavy: 14 of 12 capacity".
+fn fit_lines(model: Model) -> List(Element(Msg)) {
+  let run = model.run
+  let line = fn(name, result) {
+    case result {
+      Ok(_) -> text("ally", "✓ " <> name)
+      Error(e) -> text("foe", "✗ " <> describe_error(e))
+    }
+  }
+  case model.pick {
+    Picked(None, Some(spare)) ->
+      list.index_map(run.robots, fn(bot, r) {
+        line("fits on " <> bot.name, state.install(run, r, spare))
+      })
+    Picked(Some(#(r, i)), Some(spare)) -> [
+      line("the swap works", state.swap(run, r, i, spare)),
+    ]
+    Picked(Some(#(r, i)), None) -> [
+      line("it can be removed", state.uninstall(run, r, i)),
+    ]
+    _ -> []
+  }
+}
+
+/// "Broken plating · armor · weight 2 · HP 0/25 · 25 cr"
+fn part_line(s: Scale, p: Component) -> String {
   part.display_name(p)
   <> " · "
   <> part.kind_name(p.kind)
@@ -1124,14 +1224,15 @@ fn part_line(p: Component) -> String {
   <> case p.kind {
     part.Armor ->
       " · HP "
-      <> num(part.remaining_hp(p))
+      <> int.to_string(scale.value(s, part.remaining_hp(p)))
       <> "/"
-      <> num(part.hp(p))
+      <> int.to_string(scale.value(s, part.hp(p)))
       <> case wear.is_broken(p) {
         True -> " BROKEN"
         False -> ""
       }
-    part.Battery -> " · stores " <> num(part.energy_cap(p))
+    part.Battery ->
+      " · stores " <> int.to_string(scale.energy(s, part.energy_cap(p)))
     _ -> " · " <> int.to_string(list.length(p.cards)) <> " cards"
   }
   <> " · "

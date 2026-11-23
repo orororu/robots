@@ -7,7 +7,9 @@
 import gleam/float
 import gleam/int
 import gleam/list
+import gleam/option.{type Option, None, Some}
 import gleam/order
+import gleam/result
 import robots/construction/part.{type Component, Battery, Body, Weapon}
 import robots/construction/robot.{type Robot}
 import robots/rules/amount
@@ -108,6 +110,25 @@ fn check_weight(chassis: Chassis, parts: List(Component)) -> List(BuildError) {
     True -> []
     False -> [Overweight(total:, capacity: chassis.capacity)]
   }
+}
+
+/// Each weapon mount, biggest first, with the weapon it holds (if any):
+/// heaviest weapon on the biggest mount, as `build` checks them. Weapons
+/// beyond the mounts are left out.
+pub fn mounts(
+  chassis: Chassis,
+  parts: List(Component),
+) -> List(#(Float, Option(Component))) {
+  let weapons =
+    parts
+    |> list.filter(fn(p) { p.kind == Weapon })
+    |> list.sort(fn(a, b) { float.compare(part.weight(b), part.weight(a)) })
+    |> list.map(Some)
+  chassis.weapon_mounts
+  |> list.sort(order.reverse(float.compare))
+  |> list.index_map(fn(limit, i) {
+    #(limit, list.drop(weapons, i) |> list.first |> result.unwrap(None))
+  })
 }
 
 /// Heaviest weapon goes on the biggest mount, and so on down. This greedy
@@ -223,6 +244,11 @@ pub fn describe_error(error: BuildError) -> String {
   }
 }
 
+/// "12", "4.5": no trailing ".0".
 fn num(x: Float) -> String {
-  float.to_string(float.to_precision(x, 2))
+  let rounded = float.to_precision(x, 2)
+  case rounded == float.floor(rounded) {
+    True -> int.to_string(float.truncate(rounded))
+    False -> float.to_string(rounded)
+  }
 }

@@ -290,6 +290,98 @@ fn next_level(run: Run) -> Run {
 
 // REPAIR SHOP -----------------------------------------------------------------
 
+/// One thing to repair at a repair shop.
+pub type Repair {
+  /// The chassis of robot `robot`.
+  RepairChassis(robot: Int)
+  /// Installed part `part` of robot `robot`.
+  RepairPart(robot: Int, part: Int)
+  /// Spare part `part`.
+  RepairSpare(part: Int)
+}
+
+/// What it costs to repair one chassis or part, by its wear.
+pub fn repair_one_price(run: Run, target: Repair) -> Result(Int, Error) {
+  case target {
+    RepairChassis(robot) -> {
+      use bot <- result.try(robot_at(run, robot))
+      Ok(price.repair(bot.chassis.wear))
+    }
+    RepairPart(robot, i) -> {
+      use bot <- result.try(robot_at(run, robot))
+      use p <- result.try(part_at(bot.parts, i))
+      Ok(price.repair(part_wear(p)))
+    }
+    RepairSpare(i) -> {
+      use p <- result.try(part_at(run.parts, i))
+      Ok(price.repair(part_wear(p)))
+    }
+  }
+}
+
+/// Repair just one chassis or part.
+pub fn repair_one(run: Run, target: Repair) -> Result(Run, Error) {
+  use <- require(at_shop(run), WrongPhase)
+  use cost <- result.try(repair_one_price(run, target))
+  use <- require(cost <= run.money, NotEnoughMoney(cost, run.money))
+  let run = Run(..run, money: run.money - cost)
+  case target {
+    RepairChassis(robot) -> {
+      use bot <- result.try(robot_at(run, robot))
+      let bot = Bot(..bot, chassis: wear.repair_chassis(bot.chassis))
+      Ok(Run(..run, robots: replace(run.robots, robot, bot)))
+    }
+    RepairPart(robot, i) -> {
+      use bot <- result.try(robot_at(run, robot))
+      let bot =
+        Bot(
+          ..bot,
+          parts: list.index_map(bot.parts, fn(p, j) {
+            case i == j {
+              True -> wear.repair_part(p)
+              False -> p
+            }
+          }),
+        )
+      Ok(Run(..run, robots: replace(run.robots, robot, bot)))
+    }
+    RepairSpare(i) ->
+      Ok(
+        Run(
+          ..run,
+          parts: list.index_map(run.parts, fn(p, j) {
+            case i == j {
+              True -> wear.repair_part(p)
+              False -> p
+            }
+          }),
+        ),
+      )
+  }
+}
+
+fn at_shop(run: Run) -> Bool {
+  case run.phase {
+    Repairing(_) -> True
+    _ -> False
+  }
+}
+
+fn part_wear(p: Component) -> Float {
+  case p.kind {
+    part.Armor -> p.wear
+    _ -> 0.0
+  }
+}
+
+fn part_at(parts: List(Component), i: Int) -> Result(Component, Error) {
+  case i >= 0 {
+    True ->
+      list.drop(parts, i) |> list.first |> result.replace_error(NoSuchPart)
+    False -> Error(NoSuchPart)
+  }
+}
+
 /// What it costs to repair a robot fully (its chassis and every plate).
 pub fn repair_price(bot: Bot) -> Int {
   price.repair(wear.total(bot.chassis, bot.parts))

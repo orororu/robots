@@ -95,20 +95,26 @@ pub fn repair(
   chassis: Chassis,
   parts: List(Component),
 ) -> #(Chassis, List(Component)) {
+  #(repair_chassis(chassis), list.map(parts, repair_part))
+}
+
+/// The chassis as new.
+pub fn repair_chassis(chassis: Chassis) -> Chassis {
+  Chassis(..chassis, wear: 0.0)
+}
+
+/// An armor plate as new, without its Broken cards. Other parts don't wear.
+pub fn repair_part(p: Component) -> Component {
   let broken = attribute.broken()
-  let parts =
-    list.map(parts, fn(p) {
-      case p.kind {
-        Armor ->
-          Component(
-            ..p,
-            wear: 0.0,
-            attributes: list.filter(p.attributes, fn(pair) { pair.1 != broken }),
-          )
-        _ -> p
-      }
-    })
-  #(Chassis(..chassis, wear: 0.0), parts)
+  case p.kind {
+    Armor ->
+      Component(
+        ..p,
+        wear: 0.0,
+        attributes: list.filter(p.attributes, fn(pair) { pair.1 != broken }),
+      )
+    _ -> p
+  }
 }
 
 /// An armor plate whose HP has run out.
