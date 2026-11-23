@@ -39,6 +39,7 @@ pub fn view(
           key: None,
           dim: False,
           on_click: None,
+          charge: Some(charge(state.p2, now)),
         )
       }),
     ),
@@ -55,6 +56,7 @@ pub fn view(
           key: Some(int.to_string(index + 1)),
           dim: !amount.at_least(available, slot.card.cost),
           on_click: Some(on_play(index)),
+          charge: Some(charge(state.p1, now)),
         )
       }),
     ),
@@ -165,4 +167,12 @@ pub fn bar(value: Float, max: Float, width: Int) -> String {
     False -> 0
   }
   "[" <> string.repeat("#", filled) <> string.repeat(".", width - filled) <> "]"
+}
+
+fn charge(c: Combatant, now: Int) -> card_view.Charge {
+  card_view.Charge(
+    available: energy.at(c.energy, now),
+    rate: c.energy.rate,
+    cap: c.energy.cap,
+  )
 }

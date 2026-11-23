@@ -1143,6 +1143,7 @@ fn preview_section(model: Model, label: String, p: Component) -> Element(Msg) {
           key: None,
           dim: False,
           on_click: None,
+          charge: None,
         )
       }),
     ),
@@ -1304,6 +1305,10 @@ pre { margin: 0 0 0.75rem; white-space: pre-wrap; font: inherit; }
 .cardbox.attack { border-color: #e06a5a; background: #2a1614; color: #f2c2ba; }
 .cardbox.defence { border-color: #5a9ae0; background: #141e2a; color: #bcd4f2; }
 .cardbox.buff { border-color: #6ad06a; background: #142a16; color: #c2f0c2; }
+.charge { position: relative; height: 0.9rem; margin-top: 0.3rem; border: 1px solid currentColor; border-radius: 3px; overflow: hidden; }
+.chargefill { height: 100%; background: rgba(240, 208, 96, 0.35); }
+.chargefill.ready { background: rgba(240, 208, 96, 0.8); }
+.chargelabel { position: absolute; inset: 0; text-align: center; font-size: 10px; line-height: 0.9rem; color: #fff; }
 .cardbox.special { border-color: #9a9a9a; background: #1e1e1e; color: #d0d0d0; }
 .card { font: inherit; color: inherit; background: none; border: none;
   text-align: left; padding: 2px 4px; cursor: pointer; white-space: pre-wrap; }

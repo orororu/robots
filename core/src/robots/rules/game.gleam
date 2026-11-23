@@ -50,7 +50,8 @@ pub type Config {
 pub fn default_config() -> Config {
   Config(
     table_size: 4,
-    starting_energy: 2.0,
+    // Start empty, so nobody has to play in the first second.
+    starting_energy: 0.0,
     // Relative cost units per second: 0.5 / 3 shows as ~1.7/s at scale x10.
     energy_rate: 0.5 /. 3.0,
     // Off for now; see docs/RULES.md "Defence floor".

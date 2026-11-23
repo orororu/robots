@@ -2,6 +2,7 @@
 //// says its role: red attacks, blue defences, green buffs, grey specials.
 //// Used on the battle table and in the garage.
 
+import gleam/float
 import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -12,6 +13,12 @@ import lustre/element/html
 import lustre/event
 import robots/rules/card.{type Card}
 import robots/rules/scale.{type Scale}
+
+/// The energy of whoever owns the card, for its charge bar: what they have
+/// now, how fast it grows (per second) and the most they can hold.
+pub type Charge {
+  Charge(available: Float, rate: Float, cap: Float)
+}
 
 pub type Role {
   Attack
@@ -51,7 +58,8 @@ fn role_name(role: Role) -> String {
 /// A card. `current` is its value now (on the table it may be raised or
 /// lowered; elsewhere pass `c.value`). `key` labels it ("1" for the key
 /// that plays it); `dim` greys it out (can't afford it); `on_click` makes
-/// it a button.
+/// it a button. `charge` adds a bar that fills as the owner's energy builds
+/// up toward the card's cost (in battle).
 pub fn view(
   s: Scale,
   c: Card,
@@ -59,6 +67,7 @@ pub fn view(
   key key: Option(String),
   dim dim: Bool,
   on_click on_click: Option(msg),
+  charge charge: Option(Charge),
 ) -> Element(msg) {
   let role = role(c)
   let shown = scale.value(s, current)
@@ -123,6 +132,44 @@ pub fn view(
         },
       ),
     ]),
+    ..case charge {
+      Some(ch) -> [charge_bar(c.cost, ch)]
+      None -> []
+    }
+  ])
+}
+
+/// A bar filling toward the card's cost, and how long until it's full.
+fn charge_bar(cost: Float, ch: Charge) -> Element(msg) {
+  let fraction = case cost >. 0.0 {
+    True -> float.min(1.0, ch.available /. cost)
+    False -> 1.0
+  }
+  let ready = fraction >=. 1.0
+  let label = case ready, cost >. ch.cap, ch.rate >. 0.0 {
+    True, _, _ -> "ready"
+    False, True, _ -> "can't hold enough"
+    False, False, False -> "not charging"
+    False, False, True -> {
+      let tenths =
+        float.ceiling({ cost -. ch.available } /. ch.rate *. 10.0)
+        |> float.truncate
+      int.to_string(tenths / 10) <> "." <> int.to_string(tenths % 10) <> "s"
+    }
+  }
+  let percent = float.truncate(fraction *. 100.0)
+  html.div([attribute.class("charge")], [
+    html.div(
+      [
+        attribute.class(case ready {
+          True -> "chargefill ready"
+          False -> "chargefill"
+        }),
+        attribute.style("width", int.to_string(percent) <> "%"),
+      ],
+      [],
+    ),
+    html.span([attribute.class("chargelabel")], [element.text(label)]),
   ])
 }
 
