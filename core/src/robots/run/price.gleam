@@ -12,6 +12,7 @@
 ////   every unit above takes 10% off (never below half).
 
 import gleam/float
+import gleam/int
 import gleam/list
 import robots/construction/attribute
 import robots/construction/builder.{type Chassis}
@@ -39,6 +40,14 @@ pub fn of(component: Component) -> Int {
     +. part.energy_cap(component)
     *. cap_worth
   float.round(worth *. weight_factor(part.weight(component)) *. credits)
+}
+
+/// Shops buy parts at this share of their price.
+pub const sell_share = 0.5
+
+/// What a shop pays for a spare part: half its price (worn plates less).
+pub fn sell(component: Component) -> Int {
+  float.round(int.to_float(of(component)) *. sell_share)
 }
 
 /// What a repair shop charges to restore `hp` points of HP: what that HP

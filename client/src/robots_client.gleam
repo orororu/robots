@@ -154,6 +154,7 @@ type Msg {
   // Repair shop
   Repair(robot: Int)
   RepairOne(target: state.Repair)
+  Sell(spare: Int)
   Leave
   // Garage
   ClickInstalled(robot: Int, part: Int)
@@ -182,6 +183,7 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
     Continue -> continue(model)
     Repair(robot) -> attempt(model, state.repair(model.run, robot), "")
     RepairOne(target) -> attempt(model, state.repair_one(model.run, target), "")
+    Sell(spare) -> attempt(model, state.sell(model.run, spare), "")
     Leave -> attempt(model, state.leave(model.run), "")
     ClickInstalled(robot, p) -> {
       let spare = case model.pick {
@@ -927,6 +929,21 @@ fn view_shop(model: Model) -> Element(Msg) {
         <> " credits per HP · repair a whole robot or one part at a time",
     ),
     html.div([attribute.class("table")], list.append(robots, spares)),
+    text("", "SELL SPARE PARTS · the shop pays half their price"),
+    html.div([attribute.class("table")], case run.parts {
+      [] -> [text("dim", "  no spare parts")]
+      parts ->
+        list.index_map(parts, fn(p, i) {
+          button(
+            "  Sell "
+              <> part.display_name(p)
+              <> " · +"
+              <> int.to_string(price.sell(p))
+              <> " credits",
+            Sell(i),
+          )
+        })
+    }),
     button_class(">>> Leave", "banner", Leave),
     view_garage(model),
   ])
@@ -965,7 +982,7 @@ fn view_garage(model: Model) -> Element(Msg) {
     list.index_map(run.robots, fn(bot, r) {
       html.div([attribute.class("robot")], [
         text("ally", bot_line(model.scale, bot)),
-        text("", "    " <> capacity_line(bot)),
+        text("", "    " <> weight_line(bot)),
         text("", "    " <> mounts_line(bot)),
         ..list.index_map(bot.parts, fn(p, i) {
           button_class(
@@ -991,7 +1008,7 @@ fn view_garage(model: Model) -> Element(Msg) {
           <> c.name
           <> " chassis · "
           <> int.to_string(scale.value(model.scale, builder.chassis_hp(c)))
-          <> " HP · capacity "
+          <> " HP · max weight "
           <> num(c.capacity)
           <> " · weapon mounts "
           <> string.join(
@@ -1160,14 +1177,14 @@ fn bot_line(s: Scale, bot: Bot) -> String {
   }
 }
 
-/// "Capacity 11 of 12 used · 1 free"
-fn capacity_line(bot: Bot) -> String {
+/// "Weight 11 of max 12 · 1 free"
+fn weight_line(bot: Bot) -> String {
   let used = part.total_weight(bot.parts)
-  "Capacity "
+  "Weight "
   <> num(used)
-  <> " of "
+  <> " of max "
   <> num(bot.chassis.capacity)
-  <> " used · "
+  <> " · "
   <> num(float.max(0.0, bot.chassis.capacity -. used))
   <> " free"
 }
@@ -1190,7 +1207,7 @@ fn mounts_line(bot: Bot) -> String {
 }
 
 /// What the selected change would do to each robot it could apply to:
-/// "✓ fits on Tinker" or "✗ Tinker: Too heavy: 14 of 12 capacity".
+/// "✓ fits on Tinker" or "✗ Tinker: Too heavy: 14, max weight 12".
 fn fit_lines(model: Model) -> List(Element(Msg)) {
   let run = model.run
   let line = fn(name, result) {

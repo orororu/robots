@@ -9,6 +9,7 @@ import robots/content/enemies
 import robots/content/starters
 import robots/rules/game
 import robots/run/map
+import robots/run/price
 import robots/run/state.{type Run, Outcome, Run}
 
 /// A run standing at its first battle.
@@ -168,6 +169,22 @@ pub fn the_repair_shop_can_fix_one_part_at_a_time_test() {
   assert !wear.is_broken(spare)
   assert run.money == 75
   assert state.repair_one(run, state.RepairSpare(5)) == Error(state.NoSuchPart)
+}
+
+pub fn spare_parts_sell_for_half_their_price_at_a_shop_test() {
+  let laser = components.laser()
+  let run =
+    Run(..at(state.new(1), fn(e) { e == map.RepairShop }), money: 5, parts: [
+      components.cell(),
+      laser,
+    ])
+  let assert Ok(sold) = state.sell(run, 1)
+  assert sold.money == 5 + price.sell(laser)
+  assert price.sell(laser) * 2 - price.of(laser) <= 1
+  assert sold.parts == [components.cell()]
+  assert state.sell(run, 2) == Error(state.NoSuchPart)
+  assert state.sell(Run(..run, phase: state.Choosing), 0)
+    == Error(state.WrongPhase)
 }
 
 pub fn garage_changes_must_leave_a_legal_build_test() {

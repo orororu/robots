@@ -279,6 +279,8 @@ plate on a battered robot would also count as battered.
   20 credits per HP of its wear (2 per HP as the client shows it), what HP is worth on a new plate. A
   broken plate comes back with plain cards (any attribute it had before
   breaking is gone).
+- **Selling:** at a repair shop, spare parts sell for half their price
+  (`price.sell`; wear already lowers a plate's price).
 - **The garage** (install, uninstall, swap, assemble a new robot from a
   spare chassis) works at any time except after the run is over; every
   change must leave a legal build.
@@ -320,7 +322,7 @@ In `core/` (pure, like the rest):
   (most worn plate first, breaking plates, the rest on the chassis) and
   returns the worn chassis and parts. `wear.break` makes a broken plate.
 - **Map and run state (done):** `map.generate(level, seed)`; `state.new`,
-  `choices`/`go`, `battle`, `team`, `outcome`/`finish`, `repair`/`repair_one`/`leave`,
+  `choices`/`go`, `battle`, `team`, `outcome`/`finish`, `repair`/`repair_one`/`sell`/`leave`,
   `install`/`uninstall`/`swap`/`assemble`. `simulation.teams` plays a team
   battle between AIs.
 - **Battles between teams (done):** `game.teams(config, p1:, p2:, ...)` takes

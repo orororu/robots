@@ -360,6 +360,19 @@ pub fn repair_one(run: Run, target: Repair) -> Result(Run, Error) {
   }
 }
 
+/// Sell spare part `spare` to the shop for `price.sell`.
+pub fn sell(run: Run, spare: Int) -> Result(Run, Error) {
+  use <- require(at_shop(run), WrongPhase)
+  use p <- result.try(part_at(run.parts, spare))
+  Ok(
+    Run(
+      ..run,
+      money: run.money + price.sell(p),
+      parts: remove_at(run.parts, spare),
+    ),
+  )
+}
+
 fn at_shop(run: Run) -> Bool {
   case run.phase {
     Repairing(_) -> True

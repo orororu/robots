@@ -222,7 +222,7 @@ fn can_ever_affect(c: Card, deck: List(Card)) -> Bool {
 pub fn describe_error(error: BuildError) -> String {
   case error {
     Overweight(total:, capacity:) ->
-      "Too heavy: " <> num(total) <> " of " <> num(capacity) <> " capacity"
+      "Too heavy: weight " <> num(total) <> ", max weight " <> num(capacity)
     TooManyWeapons(count:, mounts:) ->
       int.to_string(count)
       <> " weapons, but the chassis has "
