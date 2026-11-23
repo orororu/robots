@@ -43,7 +43,7 @@ core/     pure game logic (Gleam, runs on JavaScript and BEAM): no IO, no clock
       simulation.gleam  AI-vs-AI matches
       efficiency.gleam  card roles and value-per-cost bands
   dev/            reports: balance, tournament, counter_check, loot, enemies, run
-client/   Lustre browser app: text-mode view, clock, keyboard
+client/   Lustre browser app: text-mode run (map, garage, shop) and battles
 ```
 
 ## Commands
