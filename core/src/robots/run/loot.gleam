@@ -3,11 +3,14 @@
 //// as often as one with weight 5. Plating stays common on every level: there
 //// is no repair between nodes, so looted armor is how a robot heals.
 ////
-//// Each card of a drop may get one attribute (`attribute.gleam`): mostly bad
-//// ones on level 1 (scrap), more good ones later.
+//// Loot is worth picking up: never worse than a new part. Each card of a
+//// drop may get one attribute (`attribute.gleam`), only neutral trade-offs
+//// (Quick, Precise) and gains, likelier and better on later levels. (Bad
+//// attributes are for worn-down enemies and broken plates.)
 ////
-//// Every battle drops 1 to 3 parts from the level's chart. Bosses also drop
-//// a chassis: good chassis are special loot (or bought, expensively).
+//// How many parts a battle drops is up to the run (`run/state`). Bosses
+//// also drop a chassis: good chassis are special loot (or bought,
+//// expensively).
 
 import gleam/int
 import gleam/list
@@ -34,10 +37,6 @@ pub type Chart {
   )
 }
 
-pub const min_drops = 1
-
-pub const max_drops = 3
-
 pub fn charts() -> List(Chart) {
   [
     // The scrapyard: small, simple parts.
@@ -57,24 +56,19 @@ pub fn charts() -> List(Chart) {
         #(8, c.cell()),
         #(6, c.battery()),
       ],
-      light_percent: 5,
-      overclocked_percent: 5,
+      light_percent: 10,
+      overclocked_percent: 10,
       boss_chassis: [c.brute(), c.scout()],
       attribute_percent: 30,
       attributes: [
-        #(6, a.broken()),
-        #(8, a.damaged()),
-        #(4, a.wasteful()),
-        #(8, a.crude()),
-        #(10, a.weak()),
-        #(8, a.sluggish()),
-        #(12, a.worn()),
-        #(4, a.quick()),
-        #(4, a.precise()),
-        #(6, a.tuned()),
-        #(4, a.efficient()),
-        #(3, a.strong()),
-        #(2, a.rapid()),
+        #(4, a.worn()),
+        #(3, a.sluggish()),
+        #(6, a.quick()),
+        #(6, a.precise()),
+        #(10, a.tuned()),
+        #(8, a.efficient()),
+        #(5, a.strong()),
+        #(3, a.rapid()),
         #(1, a.overcharged()),
       ],
     ),
@@ -101,24 +95,19 @@ pub fn charts() -> List(Chart) {
         #(6, c.battery()),
         #(4, c.big_battery()),
       ],
-      light_percent: 10,
-      overclocked_percent: 10,
+      light_percent: 20,
+      overclocked_percent: 20,
       boss_chassis: [c.scout(), c.tank()],
-      attribute_percent: 35,
+      attribute_percent: 40,
       attributes: [
-        #(3, a.broken()),
-        #(5, a.damaged()),
-        #(3, a.wasteful()),
-        #(5, a.crude()),
-        #(7, a.weak()),
-        #(6, a.sluggish()),
-        #(8, a.worn()),
-        #(6, a.quick()),
+        #(2, a.worn()),
+        #(2, a.sluggish()),
+        #(5, a.quick()),
         #(6, a.precise()),
         #(8, a.tuned()),
-        #(6, a.efficient()),
-        #(6, a.strong()),
-        #(5, a.rapid()),
+        #(7, a.efficient()),
+        #(8, a.strong()),
+        #(6, a.rapid()),
         #(3, a.overcharged()),
         #(1, a.masterwork()),
       ],
@@ -144,24 +133,17 @@ pub fn charts() -> List(Chart) {
         #(3, c.battery()),
         #(6, c.big_battery()),
       ],
-      light_percent: 20,
-      overclocked_percent: 20,
+      light_percent: 30,
+      overclocked_percent: 30,
       boss_chassis: [c.tank()],
-      attribute_percent: 40,
+      attribute_percent: 50,
       attributes: [
-        #(1, a.broken()),
-        #(3, a.damaged()),
-        #(2, a.wasteful()),
-        #(3, a.crude()),
-        #(4, a.weak()),
-        #(4, a.sluggish()),
-        #(5, a.worn()),
-        #(6, a.quick()),
-        #(7, a.precise()),
-        #(8, a.tuned()),
-        #(8, a.efficient()),
-        #(8, a.strong()),
-        #(7, a.rapid()),
+        #(4, a.quick()),
+        #(6, a.precise()),
+        #(5, a.tuned()),
+        #(5, a.efficient()),
+        #(9, a.strong()),
+        #(8, a.rapid()),
         #(5, a.overcharged()),
         #(3, a.masterwork()),
       ],
@@ -223,9 +205,10 @@ pub fn roll_card_attributes(
   |> list.index_map(fn(card, i) { #(i, card) })
   |> list.fold(#(component, seed), fn(acc, pair) {
     let #(component, seed) = acc
-    let #(i, card) = pair
+    let #(i, _) = pair
     let #(chance, seed) = rng.int_below(seed, 100)
-    let options = list.filter(attributes, fn(e) { a.applies_to(e.1, card) })
+    let options =
+      list.filter(attributes, fn(e) { part.can_attach(component, i, e.1) })
     case chance < percent, options {
       True, [_, ..] -> {
         let total = int.sum(list.map(options, fn(e) { e.0 }))
@@ -245,12 +228,6 @@ pub fn rolls(level: Int, count: Int, seed: Seed) -> #(List(Component), Seed) {
       #(seed, drop)
     })
   #(drops, seed)
-}
-
-/// A battle's loot: 1 to 3 parts from the level's chart.
-pub fn battle_drops(level: Int, seed: Seed) -> #(List(Component), Seed) {
-  let #(extra, seed) = rng.int_below(seed, max_drops - min_drops + 1)
-  rolls(level, min_drops + extra, seed)
 }
 
 /// The boss's chassis drop.

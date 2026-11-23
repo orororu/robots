@@ -112,3 +112,17 @@ pub fn an_enemy_name_starts_with_its_top_attributes_test() {
   let e = enemies.Enemy(..e, parts: [buckler, buckler2, gun, ..rest])
   assert enemies.name(e) == "Broken machine gunner"
 }
+
+pub fn armor_and_batteries_have_their_own_words_test() {
+  let plating = part.with(components.plating(), part.overclocked())
+  assert part.display_name(plating) == "Reinforced plating"
+  let dented = part.attach(components.plating(), 0, attribute.damaged())
+  assert part.display_name(dented) == "Dented plating"
+  let assert [block] = part.cards(dented)
+  assert block.name == "Dented Block"
+  // No word for Precise on armor: it doesn't go on.
+  assert part.attach(components.plating(), 0, attribute.precise())
+    == components.plating()
+  let battery = part.with(components.battery(), part.overclocked())
+  assert part.display_name(battery) == "High-capacity battery"
+}

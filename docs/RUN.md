@@ -22,8 +22,9 @@ undecided ones under "Open questions".
   - More event types later.
 - **Every graph ends with a boss battle.**
 - **Battles are the duels we have now**: the real-time card game.
-- **After a battle** the player gets **money** and **1 to 3 random parts**
-  from the level's loot chart. Bosses also drop a **chassis**.
+- **After a battle** the player gets **money** and **a few good parts**
+  from the level's loot chart: 1 from an enemy, 2 from a strong enemy or a
+  boss. Bosses also drop a **chassis**.
 
 ### Robots
 
@@ -55,12 +56,16 @@ undecided ones under "Open questions".
   - Levels past the last chart use the last one.
 - **Plating drops often on every level,** since looted armor is the only
   healing between nodes.
-- **Modifiers get likelier by level:** Light and Overclocked, each 5% on
-  level 1, 10% on level 2, 20% on level 3. A drop can have both. They apply
+- **Loot is worth picking up:** never worse than a new part, so it's
+  interesting at the level it drops on.
+- **Modifiers get likelier by level:** Light and Overclocked, each 10% on
+  level 1, 20% on level 2, 30% on level 3. A drop can have both. They apply
   to the whole part (its weight, all its values).
 - **Card attributes:** each card of a drop can carry **one attribute**
-  (`construction/attribute.gleam`). The chance per card rises by level (30%,
-  35%, 40%), and so does the share of good attributes.
+  (`construction/attribute.gleam`). On loot, only neutral trade-offs and
+  gains: the chance per card rises by level (30%, 40%, 50%), and so does
+  the share of the best ones. Bad attributes come only on worn-down enemies
+  and broken plates.
   - The card's name gets the attribute: "Rapid Burst".
   - **The part's name shows its two most impactful attributes,** after any
     Light/Overclocked modifier: "Broken rapid machine gun".
@@ -71,25 +76,33 @@ undecided ones under "Open questions".
 
 Card attributes. Shown on a Laser card (cost 10, value 10); "worth" is the
 change in what the card is worth, which also changes the part's price. The
-last column is the attribute's loot weight on levels 1/2/3.
+last column is the attribute's loot weight on levels 1/2/3 (– means it
+never drops as loot).
 
 | Attribute | Effect | Laser card cost/value | Worth | Weights 1/2/3 |
 |---|---|---|---|---|
-| Broken | value −80% | 10 / 2 | −80% | 6/3/1 |
-| Damaged | value −40% | 10 / 6 | −40% | 8/5/3 |
-| Wasteful | cost +50% | 15 / 10 | −20% | 4/3/2 |
-| Crude | value −20%, cost +10% | 11 / 8 | −24% | 8/5/3 |
-| Weak | value −20% | 10 / 8 | −20% | 10/7/4 |
-| Sluggish | cost +20% | 12 / 10 | −9% | 8/6/4 |
-| Worn | value −10% | 10 / 9 | −10% | 12/8/5 |
-| Quick | cost −20%, value rescaled to stay on the band | 8 / 7 | −20% | 4/6/6 |
-| Precise | cost +20%, value rescaled to stay on the band | 12 / 13 | +20% | 4/6/7 |
-| Tuned | value +10% | 10 / 11 | +10% | 6/8/8 |
-| Efficient | cost −10% | 9 / 10 | +5% | 4/6/8 |
-| Strong | value +20% | 10 / 12 | +20% | 3/6/8 |
-| Rapid | cost −20% | 8 / 10 | +11% | 2/5/7 |
+| Broken | value −80% | 10 / 2 | −80% | –/–/– |
+| Damaged | value −40% | 10 / 6 | −40% | –/–/– |
+| Wasteful | cost +50% | 15 / 10 | −20% | –/–/– |
+| Crude | value −20%, cost +10% | 11 / 8 | −24% | –/–/– |
+| Weak | value −20% | 10 / 8 | −20% | –/–/– |
+| Sluggish | cost +20% | 12 / 10 | −9% | 3/2/– |
+| Worn | value −10% | 10 / 9 | −10% | 4/2/– |
+| Quick | cost −20%, value rescaled to stay on the band | 8 / 7 | −20% | 6/5/4 |
+| Precise | cost +20%, value rescaled to stay on the band | 12 / 13 | +20% | 6/6/6 |
+| Tuned | value +10% | 10 / 11 | +10% | 10/8/5 |
+| Efficient | cost −10% | 9 / 10 | +5% | 8/7/5 |
+| Strong | value +20% | 10 / 12 | +20% | 5/8/9 |
+| Rapid | cost −20% | 8 / 10 | +11% | 3/6/8 |
 | Overcharged | value +50%, cost +25% | 13 / 15 | +33% | 1/3/5 |
 | Masterwork | value +40% | 10 / 14 | +40% | –/1/3 |
+
+**Words depend on the part.** "Precise" fits a gun, not a plate. On armor,
+attributes speak of condition and toughness: Damaged is **Dented**, Weak
+**Thin**, Worn **Scratched**, Tuned **Hardened**, Strong **Thick** (Broken,
+Crude and Masterwork keep their names); the others never go on armor. An
+Overclocked plate is **Reinforced**, an Overclocked battery
+**High-capacity**. More armor materials may come later.
 
 **Light and Overclocked stay part-wide modifiers,** separate from card
 attributes: a Light or Overclocked part is effectively a different weapon
@@ -219,15 +232,26 @@ plate on a battered robot would also count as battered.
 
 ### The map (`run/map.gleam`)
 
+- **Terms:** a **level** is one whole map; a run goes level 1, 2, 3... A
+  node's **row** is how deep it is in its level's map: row 0 is the start,
+  row 6 the boss.
 - Each level's map is **6 rows of 2-4 nodes, then the boss** alone in a
-  last row. The player starts at any node of the first row and moves one
-  row at a time along links. **Links never cross;** every node has a way
-  in and a way on, so every path ends at the boss.
-- **Row 0** is ordinary enemies. **Middle rows** are enemies, **strong
-  enemies** (25%, not before row 2) and **repair shops** (20%). **The row
-  before the boss is all repair shops.**
+  last row. The player starts at any node of row 0 and moves one row at a
+  time along links. **Links never cross;** every node has a way in and a
+  way on, so every path ends at the boss.
+- **Row 0** is ordinary enemies. Other rows are enemies and **strong
+  enemies** (25%, not before row 2).
+- **Repair shops** stand only on the level's **shop rows** (`shop_rows`):
+  level 1 rows 2 and 5, levels 2 and 3 rows 3 and 5. On a shop row, one or
+  more nodes are shops but never all of them, so some branches pass by
+  with a battle. Shop rows are never next to each other, so two shops
+  never follow one another. Row 5 often offers the choice: repair before
+  the boss, or one more fight.
 - Enemies are spawned when the map is made, so the map can show who waits
   where (name and description).
+- The client draws the map: E enemy, S strong enemy, R repair shop, B boss;
+  your path in green, where you can go in yellow, nodes out of reach
+  faded.
 
 ### Run state (`run/state.gleam`)
 
@@ -242,6 +266,7 @@ plate on a battered robot would also count as battered.
   level's map. A loss ends the run.
 - **Money per win (placeholders):** 20 for an enemy, 40 for a strong enemy,
   100 for a boss. Runs start with no money.
+- **Drops per win:** 1 part for an enemy, 2 for a strong enemy or a boss.
 - **Repair shops** restore a robot fully (chassis and plates, including
   broken ones) at 10 credits per HP, what HP is worth on a new plate. A
   broken plate comes back with plain cards (any attribute it had before
@@ -254,16 +279,15 @@ plate on a battered robot would also count as battered.
 
 Plays whole runs with the starter alone: random paths, AI battles, repairs
 when affordable, broken plates swapped for looted ones; no buying, no new
-robots. With worn-down early enemies (40 runs): **80% reach level 2, 20%
-level 3**, none finish; 8 battles per run. Level 2 enemies (Firebug, Beam
+robots. With worn-down early enemies (40 runs): **63% reach level 2**
+(random paths often pass the shops), none finish; 7 battles per run. Level 2 enemies (Firebug, Beam
 knight, Rocket turtle) end most runs: the starter alone isn't meant to get
 far, and players will have second robots and bought parts. (Before enemies
 were worn down: 5% reached level 2.)
 
 ## Open questions
 
-1. **Money per battle:** placeholders are 20/40/100 (see Run state). Do
-   strong enemies and bosses drop more parts than 1-3?
+1. **Money per battle:** placeholders are 20/40/100 (see Run state).
 2. **Upgrades:** how much better is an upgrade card (e.g. +20% value)? Which
    card gets copied? How many upgrades per part, and at what price?
 3. **Selling:** can parts be sold, and for what share of their price?

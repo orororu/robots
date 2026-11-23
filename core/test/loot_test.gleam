@@ -44,14 +44,32 @@ pub fn heavier_parts_cost_less_for_the_same_cards_test() {
   assert price.of(Component(..laser, weight: 4.0)) < price.of(laser)
 }
 
-pub fn a_battle_drops_one_to_three_parts_test() {
-  let counts =
-    list.map(int.range(1, 41, [], list.prepend), fn(i) {
-      let #(drops, _) = loot.battle_drops(1, rng.new(i))
-      list.length(drops)
+pub fn loot_is_never_worse_than_new_test() {
+  let bad = ["Broken", "Damaged", "Weak", "Crude", "Wasteful"]
+  list.each([1, 2, 3], fn(level) {
+    let #(drops, _) = loot.rolls(level, 200, rng.new(level))
+    list.each(drops, fn(d) {
+      list.each(d.attributes, fn(pair) {
+        assert !list.contains(bad, { pair.1 }.name)
+      })
     })
-  assert list.all(counts, fn(n) { n >= 1 && n <= 3 })
-  assert list.contains(counts, 1) && list.contains(counts, 3)
+  })
+}
+
+pub fn armor_never_gets_gun_words_test() {
+  // Precise, Rapid... make no sense on a plate; they never go on one.
+  let #(drops, _) = loot.rolls(3, 400, rng.new(9))
+  let armor_words = ["Hardened", "Thick", "Masterwork", "Scratched"]
+  list.each(drops, fn(d) {
+    case d.kind {
+      part.Armor ->
+        list.each(d.attributes, fn(pair) {
+          let assert Ok(w) = part.attribute_word(part.Armor, pair.1)
+          assert list.contains(armor_words, w)
+        })
+      _ -> Nil
+    }
+  })
 }
 
 pub fn chassis_cost_more_than_any_part_test() {

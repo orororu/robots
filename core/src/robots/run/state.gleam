@@ -44,6 +44,13 @@ pub const money_boss = 100
 
 pub const starting_money = 0
 
+/// Parts a won battle drops, by tier: few, but worth having.
+pub const drops_normal = 1
+
+pub const drops_strong = 2
+
+pub const drops_boss = 2
+
 /// A robot the player owns, as the parts it's built from. It's assembled
 /// into a fighting `Robot` for each battle.
 pub type Bot {
@@ -67,6 +74,8 @@ pub type Run {
     map: Map,
     /// The node the player is at; `None` before the first step of a level.
     at: Option(Int),
+    /// The nodes visited on this level, in order.
+    path: List(Int),
     phase: Phase,
     robots: List(Bot),
     /// Spare parts and chassis, from loot.
@@ -109,6 +118,7 @@ pub fn new(seed: Int) -> Run {
     level: 1,
     map:,
     at: None,
+    path: [],
     phase: Choosing,
     robots: [Bot("Tinker", components.frame(), starters.tinker_parts())],
     parts: [],
@@ -142,7 +152,7 @@ pub fn go(run: Run, id: Int) -> Result(Run, Error) {
         map.Battle(..) -> Fighting(id)
         map.RepairShop -> Repairing(id)
       }
-      Ok(Run(..run, at: Some(id), phase:))
+      Ok(Run(..run, at: Some(id), path: list.append(run.path, [id]), phase:))
     }
   }
 }
@@ -195,7 +205,7 @@ pub fn outcome(state: Game, team_size: Int) -> Outcome {
 
 /// Report the battle at the current node. Damage goes on the robots'
 /// parts; destroyed robots are lost with their parts. A win pays money and
-/// loot (and a chassis for a boss, which also moves the run to the next
+/// loot (`drops_normal`...; and a chassis for a boss, which also moves the run to the next
 /// level); a loss ends the run.
 pub fn finish(
   run: Run,
@@ -243,7 +253,12 @@ fn reward(run: Run, tier: Tier) -> #(Run, Reward) {
     map.Strong -> money_strong
     map.Boss -> money_boss
   }
-  let #(parts, seed) = loot.battle_drops(run.level, run.seed)
+  let drops = case tier {
+    map.Normal -> drops_normal
+    map.Strong -> drops_strong
+    map.Boss -> drops_boss
+  }
+  let #(parts, seed) = loot.rolls(run.level, drops, run.seed)
   let #(chassis, seed) = case tier {
     map.Boss -> {
       let #(c, seed) = loot.boss_chassis(run.level, seed)
@@ -270,7 +285,7 @@ fn reward(run: Run, tier: Tier) -> #(Run, Reward) {
 fn next_level(run: Run) -> Run {
   let level = run.level + 1
   let #(map, seed) = map.generate(level, run.seed)
-  Run(..run, level:, map:, at: None, seed:)
+  Run(..run, level:, map:, at: None, path: [], seed:)
 }
 
 // REPAIR SHOP -----------------------------------------------------------------

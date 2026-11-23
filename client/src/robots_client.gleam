@@ -19,10 +19,12 @@ import lustre/attribute
 import lustre/effect.{type Effect}
 import lustre/element.{type Element}
 import lustre/element/html
+import lustre/element/svg
 import lustre/event
 import robots/ai/brain
 import robots/construction/builder
 import robots/construction/part.{type Component}
+import robots/construction/robot.{type Robot}
 import robots/construction/wear
 import robots/content/enemies
 import robots/rules/game.{type Game, P1, P2}
@@ -50,6 +52,8 @@ type Model {
     run: Run,
     /// The battle being fought, if any.
     battle: Option(Battle),
+    /// How the last battle went, shown until the player continues.
+    report: Option(Report),
     /// Battle order for the next battle: indexes into `run.robots`.
     order: List(Int),
     /// What's selected in the garage.
@@ -64,7 +68,31 @@ type Model {
 }
 
 type Battle {
-  Battle(game: Game, brain: brain.Brain, order: List(Int))
+  Battle(
+    game: Game,
+    brain: brain.Brain,
+    order: List(Int),
+    /// The player's robots as they entered, in order.
+    team: List(Robot),
+    enemy: String,
+    started: Int,
+  )
+}
+
+type Report {
+  Report(
+    won: Bool,
+    enemy: String,
+    enemy_hp: Float,
+    enemy_max_hp: Float,
+    /// Each robot that fought: name, HP before, HP after, max HP.
+    robots: List(#(String, Float, Float, Float)),
+    seconds: Int,
+    reward: state.Reward,
+    /// The run's level before and after (a boss moves it on).
+    level_before: Int,
+    level_after: Int,
+  )
 }
 
 type Pick {
@@ -82,6 +110,7 @@ fn new_run(now: Int) -> Model {
   Model(
     run:,
     battle: None,
+    report: None,
     order: default_order(run),
     pick: NoPick,
     news: "A new run. Pick where to go.",
@@ -174,7 +203,7 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
 
 fn key_down(model: Model, key: String) -> Model {
   case model.battle, key {
-    Some(_), "Enter" -> continue(model)
+    _, "Enter" if model.report != None -> continue(model)
     Some(_), _ ->
       case int.parse(key) {
         Ok(n) if n >= 1 && n <= 9 -> play(model, n - 1)
@@ -244,7 +273,17 @@ fn fight(model: Model) -> Model {
         )
       let brain =
         brain.new(P2, reaction: brain.human, seed: browser.random_seed())
-      Model(..model, battle: Some(Battle(game:, brain:, order: model.order)))
+      Model(
+        ..model,
+        battle: Some(Battle(
+          game:,
+          brain:,
+          order: model.order,
+          team:,
+          enemy: enemy.name,
+          started: now,
+        )),
+      )
     }
     Error(error), _ | _, Error(error) -> flash(model, describe_error(error))
   }
@@ -255,7 +294,9 @@ fn advance(model: Model, now: Int) -> Model {
   case model.battle {
     Some(b) -> {
       let #(brain, game) = brain.act(b.brain, b.game, now)
-      Model(..model, battle: Some(Battle(..b, game:, brain:)), now:)
+      end_if_over(
+        Model(..model, battle: Some(Battle(..b, game:, brain:)), now:),
+      )
     }
     None -> Model(..model, now:)
   }
@@ -267,7 +308,10 @@ fn play(model: Model, slot: Int) -> Model {
   case model.battle {
     Some(b) ->
       case game.update(b.game, game.PlayCard(P1, slot, model.now)) {
-        Ok(game) -> Model(..model, battle: Some(Battle(..b, game:)), flash: "")
+        Ok(game) ->
+          end_if_over(
+            Model(..model, battle: Some(Battle(..b, game:)), flash: ""),
+          )
         Error(rejection) ->
           flash(model, describe_rejection(model.scale, rejection))
       }
@@ -275,26 +319,51 @@ fn play(model: Model, slot: Int) -> Model {
   }
 }
 
-/// After a finished battle: report it to the run.
-fn continue(model: Model) -> Model {
+/// Once the battle is over, report it to the run (damage, losses, loot)
+/// and show the battle report. The battle stops: no more ticking.
+fn end_if_over(model: Model) -> Model {
   case model.battle {
     Some(b) if b.game.status != game.Running -> {
       let outcome = state.outcome(b.game, list.length(b.order))
       case state.finish(model.run, b.order, outcome) {
-        Ok(#(run, reward)) ->
+        Ok(#(run, reward)) -> {
+          let report =
+            Report(
+              won: outcome.won,
+              enemy: b.enemy,
+              enemy_hp: b.game.p2.robot.hp,
+              enemy_max_hp: b.game.p2.robot.max_hp,
+              robots: list.map(list.zip(b.team, outcome.hp_left), fn(pair) {
+                let #(r, after) = pair
+                #(r.name, r.hp, after, r.max_hp)
+              }),
+              seconds: { model.now - b.started } / 1000,
+              reward:,
+              level_before: model.run.level,
+              level_after: run.level,
+            )
           Model(
             ..model,
             run:,
             battle: None,
+            report: Some(report),
+            flash: "",
+            flash_until: 0,
             pick: NoPick,
             order: default_order(run),
             news: describe_reward(model.run, run, reward),
           )
+        }
         Error(error) -> flash(model, describe_error(error))
       }
     }
     _ -> model
   }
+}
+
+/// Leave the battle report.
+fn continue(model: Model) -> Model {
+  Model(..model, report: None)
 }
 
 // WORDING ---------------------------------------------------------------------
@@ -364,6 +433,7 @@ fn view(model: Model) -> Element(Msg) {
     html.style([], css),
     html.pre([], [element.text(header(model))]),
     case model.battle, model.run.phase {
+      _, _ if model.report != None -> view_report(model)
       Some(b), _ -> view_battle(model, b)
       None, state.Over -> view_over(model)
       None, state.Fighting(_) -> view_prebattle(model)
@@ -411,43 +481,301 @@ fn text(class: String, content: String) -> Element(Msg) {
 // Battle
 
 fn view_battle(model: Model, b: Battle) -> Element(Msg) {
-  let banner = case b.game.status {
-    game.Won(P1) ->
-      button_class(">>> VICTORY! Continue [Enter]", "banner", Continue)
-    game.Won(P2) ->
-      button_class(">>> DEFEAT. Continue [Enter]", "banner", Continue)
-    game.Running -> text("dim", "[1-9] play a card")
-  }
+  let banner = text("dim", "[1-9] play a card")
   battle_view.view(b.game, model.scale, model.now, banner, Play)
+}
+
+// Battle report
+
+fn view_report(model: Model) -> Element(Msg) {
+  let assert Some(r) = model.report
+  let s = model.scale
+  let hp = fn(x) { int.to_string(scale.value(s, x)) }
+  let robots =
+    list.map(r.robots, fn(entry) {
+      let #(name, before, after, max) = entry
+      "  "
+      <> string.pad_end(name, 12, " ")
+      <> battle_view.bar(after, max, 20)
+      <> " "
+      <> hp(before)
+      <> " → "
+      <> case after >. 0.0 {
+        True -> hp(after) <> "/" <> hp(max)
+        False -> "DESTROYED (lost with its parts)"
+      }
+    })
+  let loot =
+    list.map(r.reward.parts, fn(p) { "  + " <> part_line(p) })
+    |> list.append(case r.reward.chassis {
+      Some(c) -> ["  + " <> c.name <> " chassis"]
+      None -> []
+    })
+  html.div([], [
+    text(
+      case r.won {
+        True -> "banner big"
+        False -> "foe big"
+      },
+      case r.won {
+        True -> "VICTORY"
+        False -> "DEFEAT"
+      }
+        <> " against "
+        <> r.enemy
+        <> " · "
+        <> int.to_string(r.seconds)
+        <> " s",
+    ),
+    text(
+      "ally",
+      "YOUR ROBOTS (HP before → after)\n" <> string.join(robots, "\n"),
+    ),
+    text(
+      "foe",
+      "ENEMY  "
+        <> battle_view.bar(r.enemy_hp, r.enemy_max_hp, 20)
+        <> " "
+        <> hp(r.enemy_hp)
+        <> "/"
+        <> hp(r.enemy_max_hp),
+    ),
+    case r.won {
+      True ->
+        text(
+          "",
+          "REWARD: +"
+            <> int.to_string(r.reward.money)
+            <> " credits\n"
+            <> string.join(loot, "\n")
+            <> case r.level_after > r.level_before {
+            True ->
+              "\n\nThe boss is beaten! On to level "
+              <> int.to_string(r.level_after)
+              <> "."
+            False -> ""
+          },
+        )
+      False -> text("foe", "Every robot is gone. The run is over.")
+    },
+    button_class(">>> Continue [Enter]", "banner", Continue),
+  ])
 }
 
 // Map
 
 fn view_map(model: Model) -> Element(Msg) {
   let run = model.run
-  let choices = list.map(state.choices(run), fn(n) { n.id })
-  let rows =
-    int.range(0, map.rows + 1, [], list.prepend)
-    |> list.reverse
-    |> list.map(fn(r) {
-      html.div(
-        [attribute.class("row")],
-        list.map(map.row(run.map, r), fn(node) {
-          let label = node_label(node)
-          case list.contains(choices, node.id), run.at == Some(node.id) {
-            True, _ -> button_class("→ " <> label, "choice", Go(node.id))
-            _, True -> text("here", "● " <> label)
-            _, _ -> text("dim node", "  " <> label)
-          }
-        }),
-      )
-    })
+  let choices = state.choices(run)
   html.div([], [
     text("news", model.news),
-    text("", "MAP · level " <> int.to_string(run.level) <> " (top to bottom)"),
-    html.div([attribute.class("map")], rows),
+    text(
+      "",
+      "MAP · level "
+        <> int.to_string(run.level)
+        <> " · start at the top, the boss waits at the bottom",
+    ),
+    map_svg(run, choices),
+    text(
+      "dim",
+      "E enemy · S strong enemy · R repair shop · B boss · green: your path · yellow: where you can go · faded: out of reach",
+    ),
+    text("", "WHERE NEXT"),
+    html.div(
+      [attribute.class("table")],
+      list.map(choices, fn(n) {
+        button_class(
+          "→ " <> node_label(n) <> node_detail(n),
+          "choice",
+          Go(n.id),
+        )
+      }),
+    ),
     view_garage(model),
   ])
+}
+
+const map_width = 760
+
+const row_height = 84
+
+const map_top = 30
+
+fn node_xy(m: map.Map, node: map.Node) -> #(Int, Int) {
+  let row = map.row(m, node.row)
+  let index =
+    list.index_fold(row, 0, fn(found, n, i) {
+      case n.id == node.id {
+        True -> i
+        False -> found
+      }
+    })
+  let x = { index + 1 } * map_width / { list.length(row) + 1 }
+  #(x, map_top + node.row * row_height)
+}
+
+fn map_svg(run: Run, choices: List(map.Node)) -> Element(Msg) {
+  let m = run.map
+  let choice_ids = list.map(choices, fn(n) { n.id })
+  // What can still be reached from here.
+  let reachable = case run.at {
+    None -> map.reachable(m, map.start(m))
+    Some(id) ->
+      case map.node(m, id) {
+        Ok(here) -> map.reachable(m, [here])
+        Error(Nil) -> []
+      }
+  }
+  let steps = list.window_by_2(run.path)
+  let links =
+    list.flat_map(m.nodes, fn(from) {
+      list.filter_map(from.next, fn(to_id) {
+        case map.node(m, to_id) {
+          Ok(to) -> Ok(link(m, run, from, to, steps, choice_ids, reachable))
+          Error(Nil) -> Error(Nil)
+        }
+      })
+    })
+  let nodes =
+    list.map(m.nodes, fn(n) { map_node(m, run, n, choice_ids, reachable) })
+  svg.svg(
+    [
+      attribute.attribute(
+        "viewBox",
+        "0 0 "
+          <> int.to_string(map_width)
+          <> " "
+          <> int.to_string(map_top * 2 + map.rows * row_height + 20),
+      ),
+      attribute.class("map"),
+    ],
+    list.append(links, nodes),
+  )
+}
+
+fn link(
+  m: map.Map,
+  run: Run,
+  from: map.Node,
+  to: map.Node,
+  steps: List(#(Int, Int)),
+  choice_ids: List(Int),
+  reachable: List(Int),
+) -> Element(Msg) {
+  let #(x1, y1) = node_xy(m, from)
+  let #(x2, y2) = node_xy(m, to)
+  let #(color, width) = case
+    list.contains(steps, #(from.id, to.id)),
+    run.at == Some(from.id) && list.contains(choice_ids, to.id),
+    list.contains(reachable, from.id) && list.contains(reachable, to.id)
+  {
+    True, _, _ -> #("#8fd18f", "3")
+    _, True, _ -> #("#f0d060", "3")
+    _, _, True -> #("#6a766a", "1.5")
+    _, _, False -> #("#2a302a", "1")
+  }
+  svg.line([
+    attribute.attribute("x1", int.to_string(x1)),
+    attribute.attribute("y1", int.to_string(y1)),
+    attribute.attribute("x2", int.to_string(x2)),
+    attribute.attribute("y2", int.to_string(y2)),
+    attribute.attribute("stroke", color),
+    attribute.attribute("stroke-width", width),
+  ])
+}
+
+fn map_node(
+  m: map.Map,
+  run: Run,
+  node: map.Node,
+  choice_ids: List(Int),
+  reachable: List(Int),
+) -> Element(Msg) {
+  let #(x, y) = node_xy(m, node)
+  let #(letter, fill, stroke) = case node.event {
+    map.RepairShop -> #("R", "#1f3340", "#7ab0d0")
+    map.Battle(tier: map.Normal, ..) -> #("E", "#33241f", "#e08a7a")
+    map.Battle(tier: map.Strong, ..) -> #("S", "#4a1c1c", "#ff6a5a")
+    map.Battle(tier: map.Boss, ..) -> #("B", "#3a2048", "#c890f0")
+  }
+  let here = run.at == Some(node.id)
+  let visited = list.contains(run.path, node.id)
+  let choice = list.contains(choice_ids, node.id)
+  let #(stroke, stroke_width) = case here, choice {
+    True, _ -> #("#8fd18f", "4")
+    _, True -> #("#f0d060", "3")
+    _, _ -> #(stroke, "1.5")
+  }
+  let opacity = case here || visited || list.contains(reachable, node.id) {
+    True -> "1"
+    False -> "0.25"
+  }
+  let fill = case visited && !here {
+    True -> "#22331f"
+    False -> fill
+  }
+  let lines = label_lines(node_label(node))
+  let events = case choice {
+    True -> [event.on_click(Go(node.id)), attribute.class("clickable")]
+    False -> []
+  }
+  svg.g([attribute.attribute("opacity", opacity), ..events], [
+    svg.title([], [element.text(node_label(node) <> node_detail(node))]),
+    svg.circle([
+      attribute.attribute("cx", int.to_string(x)),
+      attribute.attribute("cy", int.to_string(y)),
+      attribute.attribute("r", "15"),
+      attribute.attribute("fill", fill),
+      attribute.attribute("stroke", stroke),
+      attribute.attribute("stroke-width", stroke_width),
+    ]),
+    svg_text(x, y + 5, "14", "#e8ece8", letter),
+    ..list.index_map(lines, fn(line, i) {
+      svg_text(x, y + 30 + i * 12, "11", "#b8c0b8", line)
+    })
+  ])
+}
+
+fn svg_text(
+  x: Int,
+  y: Int,
+  size: String,
+  color: String,
+  content: String,
+) -> Element(Msg) {
+  svg.text(
+    [
+      attribute.attribute("x", int.to_string(x)),
+      attribute.attribute("y", int.to_string(y)),
+      attribute.attribute("font-size", size),
+      attribute.attribute("fill", color),
+      attribute.attribute("text-anchor", "middle"),
+    ],
+    content,
+  )
+}
+
+/// A node's name in at most two short lines.
+fn label_lines(label: String) -> List(String) {
+  case string.length(label) <= 20 {
+    True -> [label]
+    False -> {
+      let words = string.split(label, " ")
+      let half = list.length(words) / 2
+      [
+        string.join(list.take(words, half), " "),
+        string.join(list.drop(words, half), " "),
+      ]
+    }
+  }
+}
+
+/// " · A small, quick scrapper..." for battles.
+fn node_detail(node: map.Node) -> String {
+  case node.event {
+    map.Battle(enemy:, ..) -> " · " <> enemy.description
+    map.RepairShop -> " · repair your robots for credits"
+  }
 }
 
 fn node_label(node: map.Node) -> String {
@@ -711,10 +1039,12 @@ pre { margin: 0 0 0.75rem; white-space: pre-wrap; font: inherit; }
 .ally { color: #8fd18f; }
 .dim { opacity: 0.45; }
 .banner { color: #f0d060; min-height: 1.3em; }
+.big { font-size: 1.4em; font-weight: bold; }
 .news { color: #f0d060; }
 .here { color: #8fd18f; margin: 0; }
 .table { display: flex; flex-direction: column; gap: 2px; margin-bottom: 0.75rem; }
-.map { margin-bottom: 1rem; }
+.map { width: 100%; max-width: 760px; display: block; margin-bottom: 0.5rem; }
+.clickable { cursor: pointer; }
 .row { display: flex; flex-wrap: wrap; gap: 0 1.5rem; margin-bottom: 0.25rem; }
 .row pre { margin: 0; }
 .choice { color: #f0d060; }

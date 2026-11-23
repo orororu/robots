@@ -72,8 +72,7 @@ pub fn a_win_wears_the_robot_and_pays_out_test() {
   assert reward.money == state.money_normal
   assert after.money == state.money_normal
   assert reward.chassis == None
-  let drops = list.length(reward.parts)
-  assert drops >= 1 && drops <= 3
+  assert list.length(reward.parts) == state.drops_normal
   assert after.parts == reward.parts
   // The plating (2.875 HP) broke and the Frame took the rest.
   let assert [tinker] = after.robots

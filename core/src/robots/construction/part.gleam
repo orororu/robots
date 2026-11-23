@@ -114,16 +114,48 @@ pub fn weight(component: Component) -> Float {
   })
 }
 
+/// What an attribute is called on this kind of part: "Precise" makes sense
+/// for a gun, not for a plate. Armor speaks of its condition and toughness
+/// ("Dented", "Thick"); attributes with no word for a kind never go on it.
+pub fn attribute_word(kind: Kind, a: Attribute) -> Result(String, Nil) {
+  case kind {
+    Armor ->
+      list.key_find(
+        [
+          #(attribute.broken(), "Broken"),
+          #(attribute.damaged(), "Dented"),
+          #(attribute.weak(), "Thin"),
+          #(attribute.worn(), "Scratched"),
+          #(attribute.crude(), "Crude"),
+          #(attribute.tuned(), "Hardened"),
+          #(attribute.strong(), "Thick"),
+          #(attribute.masterwork(), "Masterwork"),
+        ],
+        a,
+      )
+    _ -> Ok(a.name)
+  }
+}
+
+/// Whether the card at `index` can take the attribute: it must change the
+/// card, and make sense on this kind of part.
+pub fn can_attach(component: Component, index: Int, a: Attribute) -> Bool {
+  case list.drop(component.cards, index), attribute_word(component.kind, a) {
+    [c, ..], Ok(_) -> attribute.applies_to(a, c)
+    _, _ -> False
+  }
+}
+
 /// Give the card at `index` an attribute, replacing any it had. Does
-/// nothing if the attribute wouldn't affect that card.
+/// nothing if it can't take it (`can_attach`).
 pub fn attach(
   component: Component,
   index: Int,
   attribute: Attribute,
 ) -> Component {
   case list.drop(component.cards, index) {
-    [c, ..] ->
-      case attribute.applies_to(attribute, c) {
+    [_, ..] ->
+      case can_attach(component, index, attribute) {
         True ->
           Component(..component, attributes: [
             #(index, attribute),
@@ -140,7 +172,8 @@ pub fn cards(component: Component) -> List(Card) {
   let boost = strength(component)
   list.index_map(component.cards, fn(c, i) {
     let c = case list.key_find(component.attributes, i) {
-      Ok(a) -> attribute.apply(a, c)
+      Ok(a) ->
+        Card(..attribute.apply(a, c), name: word(component, a) <> " " <> c.name)
       Error(Nil) -> c
     }
     Card(..c, value: c.value *. boost)
@@ -181,20 +214,44 @@ pub fn strength(component: Component) -> Float {
   })
 }
 
-/// "Light overclocked laser", "Broken rapid machine gun": part modifiers,
-/// then the two most impactful card attributes, then the part.
+/// "Light overclocked laser", "Broken rapid machine gun", "Reinforced
+/// thick plating": part modifiers, then the two most impactful card
+/// attributes, then the part.
 pub fn display_name(component: Component) -> String {
   let modifiers =
-    list.map(component.modifiers, fn(m) {
-      case m {
-        Light(_) -> "Light"
-        Overclocked(_) -> "Overclocked"
+    list.map(component.modifiers, modifier_word(component.kind, _))
+  let attributes =
+    attribute.ranked(attached(component))
+    |> list.take(2)
+    |> list.map(fn(name) {
+      case
+        list.find(component.attributes, fn(pair) { { pair.1 }.name == name })
+      {
+        Ok(#(_, a)) -> word(component, a)
+        Error(Nil) -> name
       }
     })
-  let attributes = list.take(attribute.ranked(attached(component)), 2)
   list.flatten([modifiers, attributes, [component.name]])
   |> string.join(" ")
   |> sentence_case
+}
+
+/// What a modifier is called on this kind of part: an Overclocked plate is
+/// "Reinforced", an Overclocked battery "High-capacity".
+pub fn modifier_word(kind: Kind, modifier: Modifier) -> String {
+  case modifier, kind {
+    Light(_), _ -> "Light"
+    Overclocked(_), Armor -> "Reinforced"
+    Overclocked(_), Battery -> "High-capacity"
+    Overclocked(_), _ -> "Overclocked"
+  }
+}
+
+fn word(component: Component, a: Attribute) -> String {
+  case attribute_word(component.kind, a) {
+    Ok(w) -> w
+    Error(Nil) -> a.name
+  }
 }
 
 fn sentence_case(text: String) -> String {

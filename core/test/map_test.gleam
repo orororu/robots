@@ -73,8 +73,6 @@ pub fn events_follow_the_row_rules_test() {
         0, Battle(tier: Normal, ..) -> Nil
         0, _ -> panic as "row 0 must be ordinary enemies"
         1, Battle(tier: map.Strong, ..) -> panic as "no strong enemy in row 1"
-        r, RepairShop if r == map.rows - 1 -> Nil
-        r, _ if r == map.rows - 1 -> panic as "repair shops before the boss"
         r, Battle(tier: Boss, ..) if r == map.rows -> Nil
         r, _ if r == map.rows -> panic as "the boss row is a boss"
         _, Battle(tier: Boss, ..) -> panic as "a boss before the last row"
@@ -84,10 +82,35 @@ pub fn events_follow_the_row_rules_test() {
   })
 }
 
+pub fn repair_shops_are_on_some_branches_of_the_shop_rows_test() {
+  list.each(maps(), fn(m) {
+    let shop_rows = map.shop_rows(m.level)
+    list.each(int.range(0, map.rows + 1, [], list.prepend), fn(r) {
+      let row = map.row(m, r)
+      let shops = list.count(row, fn(n) { n.event == RepairShop })
+      case list.contains(shop_rows, r) {
+        // At least one shop, never the whole row.
+        True -> {
+          assert shops >= 1 && shops < list.length(row)
+        }
+        False -> {
+          assert shops == 0
+        }
+      }
+    })
+    // Never a shop right after a shop.
+    list.each(links(m), fn(link) {
+      assert !{
+        { link.0 }.event == RepairShop && { link.1 }.event == RepairShop
+      }
+    })
+  })
+}
+
 pub fn all_three_event_kinds_appear_in_the_middle_test() {
   let middle =
     list.flat_map(maps(), fn(m) {
-      list.filter(m.nodes, fn(n) { n.row >= 2 && n.row < map.rows - 1 })
+      list.filter(m.nodes, fn(n) { n.row >= 2 && n.row < map.rows })
     })
   let kind = fn(n: map.Node) {
     case n.event {
@@ -104,4 +127,22 @@ pub fn all_three_event_kinds_appear_in_the_middle_test() {
 pub fn maps_are_reproducible_test() {
   assert map.generate(2, rng.new(7)).0 == map.generate(2, rng.new(7)).0
   assert map.generate(2, rng.new(7)).0 != map.generate(2, rng.new(8)).0
+}
+
+pub fn reachable_follows_links_to_the_boss_test() {
+  list.each(maps(), fn(m) {
+    let assert Ok(boss) = list.last(m.nodes)
+    // From the start, everything is reachable.
+    assert list.length(map.reachable(m, map.start(m))) == list.length(m.nodes)
+    // From any node: itself, only later rows, and always the boss.
+    list.each(m.nodes, fn(n) {
+      let ids = map.reachable(m, [n])
+      assert list.contains(ids, n.id)
+      assert list.contains(ids, boss.id)
+      list.each(ids, fn(id) {
+        let assert Ok(other) = map.node(m, id)
+        assert other.row >= n.row
+      })
+    })
+  })
 }
