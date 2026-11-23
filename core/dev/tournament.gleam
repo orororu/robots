@@ -33,7 +33,7 @@ const final_seeds = 5
 
 const reaction = brain.human
 
-/// One process per item on BEAM (fast; use `gleam run -m tournament`);
+/// Parallel on BEAM, leaving 2 cores free (fast; use `gleam run -m tournament`);
 /// sequential on JavaScript.
 @external(erlang, "tournament_ffi", "parallel_map")
 fn parallel_map(items: List(a), f: fn(a) -> b) -> List(b) {

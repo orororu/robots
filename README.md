@@ -52,7 +52,7 @@ client/   Lustre browser app: text-mode run (map, garage, shop) and battles
 cd core   && gleam test                         # tests on BEAM
 cd core   && gleam test --target javascript     # same tests on JS
 cd core   && gleam run -m balance               # AI-vs-AI balance report
-cd core   && gleam run -m tournament            # every legal build vs each other (~35 s)
+cd core   && gleam run -m tournament            # every legal build vs each other (~2.5 min)
 cd core   && gleam run -m loot                  # loot charts with chances and prices
 cd core   && gleam run -m enemies               # starters vs every enemy in the roster
 cd core   && gleam run -m run                   # sample maps, then whole runs on autopilot
@@ -60,5 +60,8 @@ cd core   && gleam run -m counter_check         # do counter parts beat their ta
 cd client && gleam run -m lustre/dev start      # dev server with live reload
 cd client && gleam run -m lustre/dev build      # production bundle in client/dist
 ```
+
+`tournament` and `counter_check` run in parallel but leave 2 cores free;
+set `ROBOTS_WORKERS=4` (for example) to use fewer.
 
 Controls: `1`–`4` (or click) to play a card, `R` to restart.
