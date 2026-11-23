@@ -14,9 +14,13 @@ A run (`robots/run/state` in core) drives the screens:
   send it in first. FIGHT starts the battle.
 - **Battle:** keys 1-9 play cards; Enter continues once it's over.
 - **Repair shop:** repair robots for credits, then leave.
-- **Garage:** click a robot, then a spare part to install it; click an
-  installed part, then a spare to swap them (or Remove); click a spare
-  chassis, then spare parts, then Assemble to build a new robot.
+- **Garage:** select a part (installed or spare) to see its cards. Then
+  Remove an installed one, Install a spare on a robot, or select one of
+  each and Swap them (the panel shows what goes out and what comes in).
+  Select a spare chassis, then spare parts, then Assemble to build a new
+  robot.
+- **Cards** are boxes colored by role: red attacks, blue defences, green
+  buffs, grey specials (`src/robots_client/card_view.gleam`).
 - **Run over:** start a new run.
 
 `src/robots_client/battle_view.gleam` draws the battle screen.

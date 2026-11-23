@@ -24,7 +24,8 @@ pub const credits = 10.0
 /// A typical part's weight: no bonus, no discount.
 pub const reference_weight = 3.0
 
-pub const hp_worth = 1.0
+/// Doubled when all HP was halved, so prices stayed the same.
+pub const hp_worth = 2.0
 
 pub const cap_worth = 0.5
 

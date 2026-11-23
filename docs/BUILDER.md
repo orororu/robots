@@ -175,8 +175,9 @@ so over a match your energy is spent roughly in proportion to your deck.
   values, armor HP and battery capacity.
 - Weights for now: weapons 1–6 (Fist 1, Laser and Saw arm 3, Cannon 6),
   defences and utilities 1–2, Cell 1 (cap 30), Battery 2 (50), Big battery 4
-  (90), Plating 2 (+25 HP, 1 Block), Heavy plating 4 (+50 HP, 2 Blocks).
-  Chassis HP / capacity: Frame 90/12, Brute 70/12, Tank 90/16, Scout 80/12.
+  (90), Plating 2 (+12.5 HP, 1 Block), Heavy plating 4 (+25 HP, 2 Blocks).
+  Chassis HP / capacity: Frame 45/12, Brute 35/12, Tank 45/16, Scout 40/12.
+  (All HP was halved to make battles about 2.5 times shorter.)
   Shown at display scale ×10.
 - Chassis may be unequal: better chassis will cost more, and counter cards
   (e.g. Smoke against `range`) can keep strong builds in check. Tank + Cannon

@@ -119,7 +119,8 @@ enemies for each level.
   - **Cards:** each counts its energy cost, scaled by how efficient it is
     against its role's goal. Cards outside the efficiency band (counters,
     launches, Smoke, Burn) count their cost.
-  - **Armor:** 1 per HP left, so worn plates are cheaper.
+  - **Armor:** 2 per HP left, so worn plates are cheaper (doubled when all
+    HP was halved, so prices stayed the same).
   - **Batteries:** 0.5 per point of energy cap.
   - **Weight:** each unit below 3 adds 10%, each above takes 10% off.
   - **Modifiers:** Light and Overclocked raise the price.
@@ -128,7 +129,7 @@ enemies for each level.
   several parts' worth:
   - **Capacity:** 15 credits per unit of weight it can carry (about what a
     part costs per unit of its weight).
-  - **HP:** 10 credits per HP left (less wear).
+  - **HP:** 20 credits per HP left (less wear).
   - **Rare cards:** chassis cards (Sidestep, Jump, Ram...) come from no part,
     so they count 3 times a part's card of the same worth.
 - `gleam run -m loot` prints chassis prices and each chart with chances and
@@ -158,7 +159,12 @@ enemies for each level.
 
   HP the Tinker loses per level 1 fight: 7-22% against enemies, about 35%
   against strong ones, 33% against the boss (it was 25-72% for enemies with
-  loot rolls).
+  loot rolls; both measured before all HP was halved).
+- **All HP is halved** (chassis and armor, for everyone: enemies are built
+  from the same parts as the player). Battles are about 2.5 times shorter
+  (Tinker vs Scrapper: 48 s instead of about 2 minutes), but each fight
+  takes a bigger share of a robot's HP: card values stayed. Easier fights
+  will come from weaker enemy robots, not from enemy-only numbers.
 - **Enemy names come from their parts.** When an enemy is met (`spawn`), its
   parts get card attributes by its condition (above). Its name is its two
   most impactful attributes plus the crew name of its main weapon (the most
@@ -268,7 +274,7 @@ plate on a battered robot would also count as battered.
   100 for a boss. Runs start with no money.
 - **Drops per win:** 1 part for an enemy, 2 for a strong enemy or a boss.
 - **Repair shops** restore a robot fully (chassis and plates, including
-  broken ones) at 10 credits per HP, what HP is worth on a new plate. A
+  broken ones) at 20 credits per HP, what HP is worth on a new plate. A
   broken plate comes back with plain cards (any attribute it had before
   breaking is gone).
 - **The garage** (install, uninstall, swap, assemble a new robot from a
@@ -279,8 +285,9 @@ plate on a battered robot would also count as battered.
 
 Plays whole runs with the starter alone: random paths, AI battles, repairs
 when affordable, broken plates swapped for looted ones; no buying, no new
-robots. With worn-down early enemies (40 runs): **63% reach level 2**
-(random paths often pass the shops), none finish; 7 battles per run. Level 2 enemies (Firebug, Beam
+robots. With worn-down early enemies and all HP halved (40 runs): **33%
+reach level 2**, none get further; 5.7 battles per run. Weaker enemy
+robots are to come. Level 2 enemies (Firebug, Beam
 knight, Rocket turtle) end most runs: the starter alone isn't meant to get
 far, and players will have second robots and bought parts. (Before enemies
 were worn down: 5% reached level 2.)

@@ -3,18 +3,18 @@
 import gleam/float
 import gleam/int
 import gleam/list
+import gleam/option.{None, Some}
 import gleam/string
 import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
-import lustre/event
 import robots/construction/part
 import robots/rules/amount
-import robots/rules/card.{type Card}
+import robots/rules/card
 import robots/rules/energy
 import robots/rules/game.{type Combatant, type Game}
 import robots/rules/scale.{type Scale}
-import robots/rules/table.{type Slot}
+import robots_client/card_view
 
 pub fn view(
   state: Game,
@@ -28,24 +28,34 @@ pub fn view(
   let available = energy.at(state.p1.energy, now)
   html.div([], [
     html.pre([attribute.class("foe")], [
-      element.text(
-        status_panel("ENEMY", state.p2, s, now)
-        <> "\n"
-        <> {
-          state.p2.table
-          |> list.map(fn(slot) { "      " <> slot_text(s, slot) })
-          |> string.join("\n")
-        },
-      ),
+      element.text(status_panel("ENEMY", state.p2, s, now)),
     ]),
+    card_view.row(
+      list.map(state.p2.table, fn(slot) {
+        card_view.view(
+          s,
+          slot.card,
+          current: slot.value,
+          key: None,
+          dim: False,
+          on_click: None,
+        )
+      }),
+    ),
     html.pre([attribute.class("dim")], [element.text(string.repeat("─", 64))]),
     html.pre([attribute.class("ally")], [
       element.text(status_panel("YOU", state.p1, s, now)),
     ]),
-    html.div(
-      [attribute.class("table")],
+    card_view.row(
       list.index_map(state.p1.table, fn(slot, index) {
-        table_card(s, slot, index, available, on_play)
+        card_view.view(
+          s,
+          slot.card,
+          current: slot.value,
+          key: Some(int.to_string(index + 1)),
+          dim: !amount.at_least(available, slot.card.cost),
+          on_click: Some(on_play(index)),
+        )
       }),
     ),
     banner,
@@ -95,76 +105,6 @@ fn status_panel(label: String, c: Combatant, s: Scale, now: Int) -> String {
       <> reserve,
   ]
   |> string.join("\n")
-}
-
-fn table_card(
-  s: Scale,
-  slot: Slot,
-  index: Int,
-  available: Float,
-  on_play: fn(Int) -> msg,
-) -> Element(msg) {
-  let affordable = amount.at_least(available, slot.card.cost)
-  html.button(
-    [
-      attribute.class(case affordable {
-        True -> "card"
-        False -> "card dim"
-      }),
-      event.on_click(on_play(index)),
-    ],
-    [
-      element.text(
-        "[" <> int.to_string(index + 1) <> "] " <> slot_text(s, slot),
-      ),
-    ],
-  )
-}
-
-/// "Laser          3 (10)  cost 10  [attack,range,beam]"
-fn slot_text(s: Scale, slot: Slot) -> String {
-  let card = slot.card
-  let shown = scale.value(s, slot.value)
-  let printed = scale.value(s, card.value)
-  let value = case shown == printed {
-    True -> int.to_string(shown)
-    False -> int.to_string(shown) <> " (" <> int.to_string(printed) <> ")"
-  }
-  string.pad_end(card.name, 18, " ")
-  <> string.pad_end(value, 9, " ")
-  <> "cost "
-  <> string.pad_end(int.to_string(scale.cost(s, card.cost)), 4, " ")
-  <> card.tags_text(card.tags)
-  <> case card.has_trait(card, card.Once) {
-    True -> " once"
-    False -> ""
-  }
-  <> case card.growth(card) {
-    Ok(#(_, cap)) -> " grows to " <> int.to_string(scale.value(s, cap))
-    Error(Nil) -> ""
-  }
-  <> "  → "
-  <> target_text(card)
-}
-
-/// "foe hp", "foe one [attack,melee]", "self all [attack]", ...
-fn target_text(c: Card) -> String {
-  case c.target {
-    card.OpponentHp -> "foe hp"
-    card.Opponent(scope) -> "foe " <> scope_text(scope)
-    card.Self(scope) -> "self " <> scope_text(scope)
-    card.Both(scope) -> "both " <> scope_text(scope)
-    card.Burn(_) -> "burn a foe card at 0"
-    card.NoEffect -> "nothing"
-    card.Launch(drone) -> "launch " <> drone.name
-  }
-}
-
-fn scope_text(scope: card.Scope) -> String {
-  case scope {
-    card.One(tags) -> "one " <> card.tags_text(tags)
-    card.All(tags) -> "all " <> card.tags_text(tags)
-  }
 }
 
 fn describe_event(state: Game, s: Scale, event: game.Event) -> String {

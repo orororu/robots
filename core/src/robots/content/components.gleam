@@ -227,16 +227,18 @@ pub fn big_battery() -> Component {
   part.battery("Big battery", 4.0, 9.0, [])
 }
 
-// ARMOR (HP) ------------------------------------------------------------------
+// ARMOR (HP) ----
+// HP was halved for everyone (chassis and armor) to make battles about
+// twice as quick; card values stayed.--------------------------------------------------------------
 // Armor adds HP and a weak Block card per 2 weight. Defence parts must beat
 // armor per weight.
 
 pub fn plating() -> Component {
-  part.armor("Plating", 2.0, 2.5, [cards.block()])
+  part.armor("Plating", 2.0, 1.25, [cards.block()])
 }
 
 pub fn heavy_plating() -> Component {
-  part.armor("Heavy plating", 4.0, 5.0, [cards.block(), cards.block()])
+  part.armor("Heavy plating", 4.0, 2.5, [cards.block(), cards.block()])
 }
 
 // CHASSIS ---------------------------------------------------------------------
@@ -246,7 +248,7 @@ pub fn heavy_plating() -> Component {
 pub fn frame() -> Chassis {
   Chassis(
     "Frame",
-    hp: 9.0,
+    hp: 4.5,
     capacity: 12.0,
     weapon_mounts: [4.0, 4.0],
     cards: [cards.sidestep(), cards.kick()],
@@ -258,7 +260,7 @@ pub fn frame() -> Chassis {
 pub fn brute() -> Chassis {
   Chassis(
     "Brute",
-    hp: 7.0,
+    hp: 3.5,
     capacity: 12.0,
     weapon_mounts: [4.0, 2.0],
     cards: [cards.ram(), cards.ram()],
@@ -270,7 +272,7 @@ pub fn brute() -> Chassis {
 pub fn tank() -> Chassis {
   Chassis(
     "Tank",
-    hp: 9.0,
+    hp: 4.5,
     capacity: 16.0,
     weapon_mounts: [8.0],
     cards: [cards.brace()],
@@ -282,7 +284,7 @@ pub fn tank() -> Chassis {
 pub fn scout() -> Chassis {
   Chassis(
     "Scout",
-    hp: 8.0,
+    hp: 4.0,
     capacity: 12.0,
     weapon_mounts: [2.0, 2.0, 2.0, 2.0],
     cards: [cards.jump(), cards.jump(), cards.dodge(), cards.dodge()],

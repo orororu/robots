@@ -34,6 +34,7 @@ import robots/run/price
 import robots/run/state.{type Bot, type Run}
 import robots_client/battle_view
 import robots_client/browser
+import robots_client/card_view
 
 const frame_ms = 50
 
@@ -95,15 +96,17 @@ type Report {
   )
 }
 
+/// What's selected in the garage; the selected parts' cards are shown.
 type Pick {
-  NoPick
-  /// A robot: clicking a spare part installs it there.
-  PickedRobot(robot: Int)
-  /// An installed part: clicking a spare swaps it in; or remove it.
-  PickedPart(robot: Int, part: Int)
-  /// A spare chassis and the spare parts chosen for a new robot.
-  Draft(chassis: Int, parts: List(Int))
+  /// An installed part (robot, part) and/or a spare part. With one, it can
+  /// be removed or installed; with both, swapped.
+  Picked(installed: Option(#(Int, Int)), spare: Option(Int))
+  /// A spare chassis and the spare parts chosen for a new robot; `last` is
+  /// the spare clicked last, whose cards are shown.
+  Draft(chassis: Int, parts: List(Int), last: Option(Int))
 }
+
+const no_pick = Picked(None, None)
 
 fn new_run(now: Int) -> Model {
   let run = state.new(browser.random_seed())
@@ -112,7 +115,7 @@ fn new_run(now: Int) -> Model {
     battle: None,
     report: None,
     order: default_order(run),
-    pick: NoPick,
+    pick: no_pick,
     news: "A new run. Pick where to go.",
     scale: scale.default(),
     now:,
@@ -152,10 +155,11 @@ type Msg {
   Repair(robot: Int)
   Leave
   // Garage
-  ClickRobot(robot: Int)
   ClickInstalled(robot: Int, part: Int)
   ClickSpare(part: Int)
   ClickChassis(chassis: Int)
+  Install(robot: Int)
+  Swap
   Remove
   Assemble
   Cancel
@@ -177,26 +181,47 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
     Continue -> continue(model)
     Repair(robot) -> attempt(model, state.repair(model.run, robot), "")
     Leave -> attempt(model, state.leave(model.run), "")
-    ClickRobot(robot) -> Model(..model, pick: PickedRobot(robot))
-    ClickInstalled(robot, p) -> Model(..model, pick: PickedPart(robot, p))
+    ClickInstalled(robot, p) -> {
+      let spare = case model.pick {
+        Picked(_, spare) -> spare
+        Draft(..) -> None
+      }
+      let installed = case model.pick {
+        Picked(Some(picked), _) if picked == #(robot, p) -> None
+        _ -> Some(#(robot, p))
+      }
+      Model(..model, pick: Picked(installed, spare))
+    }
     ClickSpare(spare) -> click_spare(model, spare)
-    ClickChassis(chassis) -> Model(..model, pick: Draft(chassis, []))
+    ClickChassis(chassis) -> Model(..model, pick: Draft(chassis, [], None))
+    Install(robot) ->
+      case model.pick {
+        Picked(_, Some(spare)) ->
+          attempt(model, state.install(model.run, robot, spare), "")
+        _ -> model
+      }
+    Swap ->
+      case model.pick {
+        Picked(Some(#(robot, p)), Some(spare)) ->
+          attempt(model, state.swap(model.run, robot, p, spare), "")
+        _ -> model
+      }
     Remove ->
       case model.pick {
-        PickedPart(robot, p) ->
+        Picked(Some(#(robot, p)), _) ->
           attempt(model, state.uninstall(model.run, robot, p), "")
         _ -> model
       }
     Assemble ->
       case model.pick {
-        Draft(chassis, parts) -> {
+        Draft(chassis, parts, _) -> {
           let name =
             "Robot " <> int.to_string(list.length(model.run.robots) + 1)
           attempt(model, state.assemble(model.run, name, chassis, parts), "")
         }
         _ -> model
       }
-    Cancel -> Model(..model, pick: NoPick)
+    Cancel -> Model(..model, pick: no_pick)
   }
   #(model, effect.none())
 }
@@ -209,7 +234,7 @@ fn key_down(model: Model, key: String) -> Model {
         Ok(n) if n >= 1 && n <= 9 -> play(model, n - 1)
         _ -> model
       }
-    None, "Escape" -> Model(..model, pick: NoPick)
+    None, "Escape" -> Model(..model, pick: no_pick)
     None, _ -> model
   }
 }
@@ -226,7 +251,7 @@ fn attempt(
       Model(
         ..model,
         run:,
-        pick: NoPick,
+        pick: no_pick,
         order: default_order(run),
         news: case news {
           "" -> model.news
@@ -243,19 +268,21 @@ fn flash(model: Model, text: String) -> Model {
 
 fn click_spare(model: Model, spare: Int) -> Model {
   case model.pick {
-    PickedRobot(robot) ->
-      attempt(model, state.install(model.run, robot, spare), "")
-    PickedPart(robot, p) ->
-      attempt(model, state.swap(model.run, robot, p, spare), "")
-    Draft(chassis, parts) ->
+    Draft(chassis, parts, _) ->
       Model(
         ..model,
-        pick: Draft(chassis, case list.contains(parts, spare) {
-          True -> list.filter(parts, fn(i) { i != spare })
-          False -> list.append(parts, [spare])
-        }),
+        pick: Draft(
+          chassis,
+          case list.contains(parts, spare) {
+            True -> list.filter(parts, fn(i) { i != spare })
+            False -> list.append(parts, [spare])
+          },
+          Some(spare),
+        ),
       )
-    NoPick -> flash(model, "Pick a robot or one of its parts first.")
+    Picked(installed, Some(picked)) if picked == spare ->
+      Model(..model, pick: Picked(installed, None))
+    Picked(installed, _) -> Model(..model, pick: Picked(installed, Some(spare)))
   }
 }
 
@@ -349,7 +376,7 @@ fn end_if_over(model: Model) -> Model {
             report: Some(report),
             flash: "",
             flash_until: 0,
-            pick: NoPick,
+            pick: no_pick,
             order: default_order(run),
             news: describe_reward(model.run, run, reward),
           )
@@ -876,46 +903,41 @@ fn view_over(model: Model) -> Element(Msg) {
 
 fn view_garage(model: Model) -> Element(Msg) {
   let run = model.run
+  let #(installed, spare, drafted, chassis_pick) = case model.pick {
+    Picked(installed, spare) -> #(installed, spare, [], None)
+    Draft(chassis, parts, _) -> #(None, None, parts, Some(chassis))
+  }
+  let picked = fn(yes) {
+    case yes {
+      True -> "picked"
+      False -> ""
+    }
+  }
   let robots =
     list.index_map(run.robots, fn(bot, r) {
-      let picked_robot = model.pick == PickedRobot(r)
       html.div([attribute.class("robot")], [
-        button_class(
+        text(
+          "ally",
           bot_line(model.scale, bot)
             <> " · weight "
             <> num(part.total_weight(bot.parts))
             <> "/"
             <> num(bot.chassis.capacity),
-          case picked_robot {
-            True -> "ally picked"
-            False -> "ally"
-          },
-          ClickRobot(r),
         ),
         ..list.index_map(bot.parts, fn(p, i) {
           button_class(
             "    " <> part_line(p),
-            case model.pick == PickedPart(r, i) {
-              True -> "picked"
-              False -> ""
-            },
+            picked(installed == Some(#(r, i))),
             ClickInstalled(r, i),
           )
         })
       ])
     })
-  let drafted = case model.pick {
-    Draft(_, parts) -> parts
-    _ -> []
-  }
   let spares =
     list.index_map(run.parts, fn(p, i) {
       button_class(
         "  " <> part_line(p),
-        case list.contains(drafted, i) {
-          True -> "picked"
-          False -> ""
-        },
+        picked(spare == Some(i) || list.contains(drafted, i)),
         ClickSpare(i),
       )
     })
@@ -931,51 +953,147 @@ fn view_garage(model: Model) -> Element(Msg) {
           <> " · "
           <> int.to_string(list.length(c.weapon_mounts))
           <> " weapon mounts",
-        case model.pick {
-          Draft(chosen, _) if chosen == i -> "picked"
-          _ -> ""
-        },
+        picked(chassis_pick == Some(i)),
         ClickChassis(i),
       )
     })
+  let actions = case model.pick {
+    Picked(Some(_), Some(_)) -> [
+      button("[Swap them]", Swap),
+      button("[Cancel]", Cancel),
+    ]
+    Picked(Some(_), None) -> [
+      button("[Remove part]", Remove),
+      button("[Cancel]", Cancel),
+    ]
+    Picked(None, Some(_)) ->
+      list.append(
+        list.index_map(run.robots, fn(bot, r) {
+          button("[Install on " <> bot.name <> "]", Install(r))
+        }),
+        [button("[Cancel]", Cancel)],
+      )
+    Picked(None, None) -> []
+    Draft(..) -> [
+      button("[Assemble robot]", Assemble),
+      button("[Cancel]", Cancel),
+    ]
+  }
   html.div([attribute.class("garage")], [
-    text("", "GARAGE · " <> hint(model.pick)),
-    html.div([attribute.class("table")], robots),
-    text("", "SPARE PARTS"),
-    html.div([attribute.class("table")], case spares {
-      [] -> [text("dim", "  none")]
-      _ -> spares
-    }),
-    case chassis {
-      [] -> text("", "")
-      _ ->
-        html.div([attribute.class("table")], [
-          text("", "SPARE CHASSIS"),
-          ..chassis
-        ])
-    },
-    html.div([attribute.class("actions")], case model.pick {
-      PickedPart(..) -> [
-        button("[Remove part]", Remove),
-        button("[Cancel]", Cancel),
-      ]
-      PickedRobot(_) -> [button("[Cancel]", Cancel)]
-      Draft(..) -> [
-        button("[Assemble robot]", Assemble),
-        button("[Cancel]", Cancel),
-      ]
-      NoPick -> []
-    }),
+    html.div([], [
+      text("", "GARAGE · " <> hint(model.pick)),
+      html.div([attribute.class("table")], robots),
+      text("", "SPARE PARTS"),
+      html.div([attribute.class("table")], case spares {
+        [] -> [text("dim", "  none")]
+        _ -> spares
+      }),
+      case chassis {
+        [] -> text("", "")
+        _ ->
+          html.div([attribute.class("table")], [
+            text("", "SPARE CHASSIS"),
+            ..chassis
+          ])
+      },
+      html.div([attribute.class("actions")], actions),
+    ]),
+    view_selected(model),
+  ])
+}
+
+/// The cards of what's selected: an installed part, a spare, both (what
+/// goes out and what comes in), or a chassis being built on.
+fn view_selected(model: Model) -> Element(Msg) {
+  let run = model.run
+  let installed_part = fn(r, i) {
+    case list.drop(run.robots, r) {
+      [bot, ..] -> list.drop(bot.parts, i) |> list.first |> option.from_result
+      [] -> None
+    }
+  }
+  let spare_part = fn(i) {
+    list.drop(run.parts, i) |> list.first |> option.from_result
+  }
+  let sections = case model.pick {
+    Picked(installed, spare) -> {
+      let out =
+        option.then(installed, fn(pair) { installed_part(pair.0, pair.1) })
+      let incoming = option.then(spare, spare_part)
+      case out, incoming {
+        Some(o), Some(n) -> [
+          preview_section(model, "OUT", o),
+          preview_section(model, "IN", n),
+        ]
+        Some(o), None -> [preview_section(model, "", o)]
+        None, Some(n) -> [preview_section(model, "", n)]
+        None, None -> [
+          text("dim", "Select a part, spare or chassis to see its cards."),
+        ]
+      }
+    }
+    Draft(chassis, _, last) -> {
+      let body =
+        list.drop(run.chassis, chassis)
+        |> list.first
+        |> option.from_result
+        |> option.map(builder.body)
+      list.flatten([
+        case body {
+          Some(b) -> [preview_section(model, "CHASSIS", b)]
+          None -> []
+        },
+        case option.then(last, spare_part) {
+          Some(p) -> [preview_section(model, "PART", p)]
+          None -> []
+        },
+      ])
+    }
+  }
+  html.div([attribute.class("preview")], sections)
+}
+
+fn preview_section(model: Model, label: String, p: Component) -> Element(Msg) {
+  let title = case label {
+    "" -> ""
+    _ -> label <> ": "
+  }
+  let cards = part.cards(p)
+  html.div([], [
+    text(
+      "",
+      title
+        <> part.display_name(p)
+        <> " · "
+        <> case cards {
+        [] -> "no cards"
+        [_] -> "1 card"
+        _ -> int.to_string(list.length(cards)) <> " cards"
+      },
+    ),
+    card_view.row(
+      list.map(cards, fn(c) {
+        card_view.view(
+          model.scale,
+          c,
+          current: c.value,
+          key: None,
+          dim: False,
+          on_click: None,
+        )
+      }),
+    ),
   ])
 }
 
 fn hint(pick: Pick) -> String {
   case pick {
-    NoPick ->
-      "click a robot to install spares on it, a part to swap or remove it, a chassis to build a robot"
-    PickedRobot(_) -> "click a spare part to install it"
-    PickedPart(..) -> "click a spare part to swap it in, or remove this one"
-    Draft(..) -> "click spare parts for the new robot, then assemble"
+    Picked(None, None) ->
+      "select a part or spare to see its cards; a chassis to build a robot"
+    Picked(Some(_), None) -> "remove it, or select a spare to swap it for"
+    Picked(None, Some(_)) -> "install it, or select an installed part to swap"
+    Picked(Some(_), Some(_)) -> "swap them, or change either selection"
+    Draft(..) -> "select spare parts for the new robot, then assemble"
   }
 }
 
@@ -1033,7 +1151,7 @@ const css =
   "
 body { margin: 0; background: #101214; color: #c8d0c8; }
 .screen { font-family: ui-monospace, 'JetBrains Mono', Menlo, Consolas, monospace;
-  font-size: 15px; max-width: 60rem; margin: 0 auto; padding: 1.5rem 1rem; }
+  font-size: 15px; max-width: 76rem; margin: 0 auto; padding: 1.5rem 1rem; }
 pre { margin: 0 0 0.75rem; white-space: pre-wrap; font: inherit; }
 .foe { color: #e08a7a; }
 .ally { color: #8fd18f; }
@@ -1050,7 +1168,25 @@ pre { margin: 0 0 0.75rem; white-space: pre-wrap; font: inherit; }
 .choice { color: #f0d060; }
 .robot { display: flex; flex-direction: column; gap: 1px; margin-bottom: 0.5rem; }
 .actions { display: flex; gap: 1rem; margin-bottom: 0.75rem; }
-.garage { border-top: 1px solid #2a302a; padding-top: 0.75rem; }
+.garage { border-top: 1px solid #2a302a; padding-top: 0.75rem;
+  display: grid; grid-template-columns: minmax(0, 1fr) 21rem; gap: 1.5rem; }
+.preview { position: sticky; top: 1rem; align-self: start; }
+@media (max-width: 900px) { .garage { grid-template-columns: 1fr; } }
+.cards { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 0.75rem; }
+.cardbox { width: 9.5rem; min-height: 7.5rem; border: 2px solid; border-radius: 7px;
+  padding: 5px 7px; font-size: 12px; display: flex; flex-direction: column; gap: 3px;
+  box-sizing: border-box; }
+.cardbox.clickable:hover { filter: brightness(1.35); }
+.cardhead { display: flex; justify-content: space-between; font-size: 10px; letter-spacing: 0.05em; opacity: 0.85; }
+.cardcost { font-weight: bold; color: #f0d060; }
+.cardname { font-weight: bold; font-size: 13px; }
+.cardvalue { font-size: 20px; font-weight: bold; }
+.cardtarget { font-size: 11px; }
+.cardtags { font-size: 10px; opacity: 0.7; white-space: pre-wrap; margin-top: auto; }
+.cardbox.attack { border-color: #e06a5a; background: #2a1614; color: #f2c2ba; }
+.cardbox.defence { border-color: #5a9ae0; background: #141e2a; color: #bcd4f2; }
+.cardbox.buff { border-color: #6ad06a; background: #142a16; color: #c2f0c2; }
+.cardbox.special { border-color: #9a9a9a; background: #1e1e1e; color: #d0d0d0; }
 .card { font: inherit; color: inherit; background: none; border: none;
   text-align: left; padding: 2px 4px; cursor: pointer; white-space: pre-wrap; }
 .card:hover { background: #1f2a1f; }

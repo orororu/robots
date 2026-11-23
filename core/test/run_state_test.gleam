@@ -124,10 +124,10 @@ pub fn beating_the_boss_opens_the_next_level_test() {
 pub fn the_repair_shop_restores_wear_for_money_test() {
   let run = at(state.new(1), fn(e) { e == map.RepairShop })
   let assert [tinker] = run.robots
-  let #(chassis, parts) = wear.assign(tinker.chassis, tinker.parts, 4.0)
+  let #(chassis, parts) = wear.assign(tinker.chassis, tinker.parts, 2.0)
   let worn = state.Bot(..tinker, chassis:, parts:)
   let run = Run(..run, robots: [worn])
-  // 4 HP of wear at 10 credits per HP.
+  // 2 HP of wear at 20 credits per HP.
   assert state.repair_price(worn) == 40
   assert state.repair(run, 0) == Error(state.NotEnoughMoney(40, 0))
   let assert Ok(repaired) = state.repair(Run(..run, money: 50), 0)
