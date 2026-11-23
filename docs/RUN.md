@@ -4,7 +4,9 @@ Status: **design draft.** Implemented so far: wear
 (`core/src/robots/construction/wear.gleam`), battles between teams
 (`game.teams`), part and chassis prices, loot charts and battle drops
 (`core/src/robots/run/`), card attributes
-(`construction/attribute.gleam`), the enemy roster (`content/enemies.gleam`). Agreed points are under "Agreed";
+(`construction/attribute.gleam`), the enemy roster (`content/enemies.gleam`),
+map generation (`run/map.gleam`) and run state (`run/state.gleam`). Not
+yet: any UI for runs, buying, upgrades. Agreed points are under "Agreed";
 undecided ones under "Open questions".
 
 ## Agreed
@@ -128,8 +130,24 @@ enemies for each level.
   - Each level's **strong enemies** are a step above its normal ones (level
     1's strong enemies are level 2's normal ones), and the **boss** another
     step: Foreman (~50%), Warhead (~70%), Siege tank (the top Cannon tank).
+- **Early enemies are worn down** (`enemies.conditions`), so a fight costs
+  little HP; HP doesn't come back between nodes. When an enemy is met
+  (`spawn`), every card gets an attribute for its **condition step**: the
+  level minus 1, plus 1 for a strong enemy and 2 for a boss.
+
+  | Step | Card attributes (weights) | Who |
+  |---|---|---|
+  | 0 | Broken 8, Damaged 2 | level 1 enemies |
+  | 1 | Broken 6, Damaged 3, Weak 1 | level 1 strong, level 2 enemies |
+  | 2 | Damaged 5, Weak 3, Broken 2 | level 1 boss, level 2 strong, level 3 enemies |
+  | 3 | Damaged 2, Weak 4, Worn 4 | level 2 boss, level 3 strong |
+  | 4+ | the level's loot chart (30-40% per card, any attribute) | level 3 boss |
+
+  HP the Tinker loses per level 1 fight: 7-22% against enemies, about 35%
+  against strong ones, 33% against the boss (it was 25-72% for enemies with
+  loot rolls).
 - **Enemy names come from their parts.** When an enemy is met (`spawn`), its
-  parts roll card attributes from the level's loot chart. Its name is its two
+  parts get card attributes by its condition (above). Its name is its two
   most impactful attributes plus the crew name of its main weapon (the most
   valuable one): "Broken machine gunner", "Strong rapid rocketeer".
   - Crew names: Laser → lancer, Saw arm → grinder, Fist → brawler, Cannon →
@@ -176,17 +194,22 @@ batteries have none, so swapping them never touches HP.
 - **After the battle, the damage is assigned to the parts, armor first:**
   - Plates absorb damage one at a time, **the most worn plate first** (the
     largest share of its HP gone). This leaves fewer half-broken plates.
-  - A plate whose HP runs out is **destroyed** and removed from the robot.
-  - **A destroyed plate's cards (Block) stay in the deck until the battle
-    ends,** since damage is only assigned to parts afterwards.
-  - Example: three plates of 2 HP and 5 damage. Two plates are destroyed and
-    the third is at 50%.
+  - A plate whose HP runs out **breaks but stays installed**: no HP left,
+    and **every card on it gets the Broken attribute** (value −80%), e.g.
+    "Broken plating" with a "Broken Block". It keeps its weight, so it's
+    dead weight until replaced, and the deck keeps its size (a robot never
+    drops below the minimum deck from losing armor). Broken plates take no
+    more damage: it goes to the next plate, then the chassis.
+  - Block cards keep their full value until the battle ends, since damage
+    is only assigned to parts afterwards.
+  - Example: three plates of 2 HP and 5 damage. Two plates break and the
+    third is at 50%.
   - Only damage beyond all the armor reaches the **chassis**.
 - **Swapping parts can't heal.** A worn plate keeps its wear when removed or
   moved to another robot. A worn chassis keeps its damage in any build.
   Looted parts come in their own condition, possibly worn.
 - **No HP is restored between nodes** (for now). The only way to heal on the
-  road is **looted armor**: a fresh plate replaces a worn or destroyed one.
+  road is **looted armor**: a fresh plate replaces a worn or broken one.
   Repair shops repair for money.
 
 Why on the parts and not on the robot: if the robot only remembered its
@@ -194,16 +217,62 @@ damage, installing fresh armor would heal it and removing a damaged plate
 would leave its damage behind. If it remembered an HP percentage, a brand-new
 plate on a battered robot would also count as battered.
 
+### The map (`run/map.gleam`)
+
+- Each level's map is **6 rows of 2-4 nodes, then the boss** alone in a
+  last row. The player starts at any node of the first row and moves one
+  row at a time along links. **Links never cross;** every node has a way
+  in and a way on, so every path ends at the boss.
+- **Row 0** is ordinary enemies. **Middle rows** are enemies, **strong
+  enemies** (25%, not before row 2) and **repair shops** (20%). **The row
+  before the boss is all repair shops.**
+- Enemies are spawned when the map is made, so the map can show who waits
+  where (name and description).
+
+### Run state (`run/state.gleam`)
+
+- A run holds the level, its map, the current node, the player's robots
+  (each a chassis and its parts, with their wear), spare parts and chassis,
+  and money.
+- **Battle order names every robot.** A robot sits out only by being taken
+  apart in the garage.
+- **After a battle,** each robot's damage goes on its parts (`wear.assign`),
+  destroyed robots are removed with their parts, and a win pays money, 1-3
+  parts, and a chassis for a boss. **Beating the boss** generates the next
+  level's map. A loss ends the run.
+- **Money per win (placeholders):** 20 for an enemy, 40 for a strong enemy,
+  100 for a boss. Runs start with no money.
+- **Repair shops** restore a robot fully (chassis and plates, including
+  broken ones) at 10 credits per HP, what HP is worth on a new plate. A
+  broken plate comes back with plain cards (any attribute it had before
+  breaking is gone).
+- **The garage** (install, uninstall, swap, assemble a new robot from a
+  spare chassis) works at any time except after the run is over; every
+  change must leave a legal build.
+
+### Autopilot (`gleam run -m run`)
+
+Plays whole runs with the starter alone: random paths, AI battles, repairs
+when affordable, broken plates swapped for looted ones; no buying, no new
+robots. With worn-down early enemies (40 runs): **80% reach level 2, 20%
+level 3**, none finish; 8 battles per run. Level 2 enemies (Firebug, Beam
+knight, Rocket turtle) end most runs: the starter alone isn't meant to get
+far, and players will have second robots and bought parts. (Before enemies
+were worn down: 5% reached level 2.)
+
 ## Open questions
 
-1. **Money per battle:** how much for an enemy, a strong enemy and a boss?
-   Do strong enemies and bosses drop more parts than 1-3?
+1. **Money per battle:** placeholders are 20/40/100 (see Run state). Do
+   strong enemies and bosses drop more parts than 1-3?
 2. **Upgrades:** how much better is an upgrade card (e.g. +20% value)? Which
    card gets copied? How many upgrades per part, and at what price?
 3. **Selling:** can parts be sold, and for what share of their price?
 4. **Enemy loot and wear:** do enemies arrive damaged on later nodes? Does
    their loot come from their own parts (with the attributes in their name)?
-5. **Prices and strength:** prices come from a formula, not from how parts
+5. **More enemy robots:** the roster comes from duel builds (the
+   tournament). Runs need more, and more varied, robots with distinct
+   strategies, made for the roguelike rather than for duels.
+6. **Prices and strength:** prices come from a formula, not from how parts
    do in the tournament. The Cannon is the strongest weapon but priced like
    a Laser.
 
@@ -215,10 +284,12 @@ In `core/` (pure, like the rest):
   minus wear (`part.remaining_hp`, `builder.chassis_hp`). The builder gives a
   robot max HP as if new, and starting HP from what its parts have left.
   `wear.assign(chassis, parts, damage)` puts a battle's damage on the parts
-  (most worn plate first, destroying plates, the rest on the chassis) and
-  returns the worn chassis and surviving parts.
-- **Run state**: the graph, the current node, the player's robots (chassis,
-  parts, wear), unused parts, money, the level.
+  (most worn plate first, breaking plates, the rest on the chassis) and
+  returns the worn chassis and parts. `wear.break` makes a broken plate.
+- **Map and run state (done):** `map.generate(level, seed)`; `state.new`,
+  `choices`/`go`, `battle`, `team`, `outcome`/`finish`, `repair`/`leave`,
+  `install`/`uninstall`/`swap`/`assemble`. `simulation.teams` plays a team
+  battle between AIs.
 - **Battles between teams (done):** `game.teams(config, p1:, p2:, ...)` takes
   each side's robots in order; `game.new` is a one-robot team. Each side keeps
   a `reserve`. When its robot is destroyed, the next enters fresh (events

@@ -1,8 +1,10 @@
 //// The enemy roster: named enemy types for each level (see docs/RUN.md).
 ////
 //// Each roster entry is a build. When one is met in a run (`spawn`), its
-//// parts roll card attributes from the level's loot chart, and its name comes
-//// from its parts: the main weapon's crew name plus the two most impactful
+//// cards get attributes by its **condition** (see `conditions`): early on,
+//// enemies are rusty, every card Broken, Damaged or Weak, so fights cost
+//// the player little HP; later they roll from the level's loot chart like
+//// loot does. Its name comes from its parts: the main weapon's crew name plus the two most impactful
 //// attributes, e.g. "Broken machine gunner". So a name says what the enemy
 //// carries. The roster's own names ("Rusty brawler") are for reports. Builds come from the build
 //// tournament, climbing its ranking level by level: level 1 enemies score
@@ -43,11 +45,43 @@ pub fn robot(enemy: Enemy) -> Robot {
 
 /// An enemy as met in a run: attributes rolled from the level's loot chart,
 /// and named after its parts.
-pub fn spawn(enemy: Enemy, level: Int, seed: Seed) -> #(Enemy, Seed) {
+/// How worn down enemies are, from the most (step 0) up. At each step,
+/// every card gets one of these attributes (weights). Steps past the list
+/// roll attributes from the level's loot chart instead. The run's map picks
+/// the step from the level and how strong the enemy is.
+pub fn conditions() -> List(List(#(Int, attribute.Attribute))) {
+  [
+    [#(8, attribute.broken()), #(2, attribute.damaged())],
+    [
+      #(6, attribute.broken()),
+      #(3, attribute.damaged()),
+      #(1, attribute.weak()),
+    ],
+    [
+      #(2, attribute.broken()),
+      #(5, attribute.damaged()),
+      #(3, attribute.weak()),
+    ],
+    [#(2, attribute.damaged()), #(4, attribute.weak()), #(4, attribute.worn())],
+  ]
+}
+
+/// Meet an enemy: roll its card attributes for its condition `step` (see
+/// `conditions`) on `level`, and name it after its parts.
+pub fn spawn(
+  enemy: Enemy,
+  level: Int,
+  step: Int,
+  seed: Seed,
+) -> #(Enemy, Seed) {
   let chart = loot.chart(level)
+  let condition = list.drop(conditions(), step) |> list.first
   let #(seed, parts) =
     list.map_fold(enemy.parts, seed, fn(seed, p) {
-      let #(p, seed) = loot.roll_attributes(chart, p, seed)
+      let #(p, seed) = case condition {
+        Ok(weights) -> loot.roll_card_attributes(p, 100, weights, seed)
+        Error(Nil) -> loot.roll_attributes(chart, p, seed)
+      }
       #(seed, p)
     })
   let spawned = Enemy(..enemy, parts:)

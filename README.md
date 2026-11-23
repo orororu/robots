@@ -37,10 +37,12 @@ core/     pure game logic (Gleam, runs on JavaScript and BEAM): no IO, no clock
     run/          the roguelike layer (docs/RUN.md)
       price.gleam     what parts and chassis are worth in credits
       loot.gleam      loot charts per level, battle drops, boss chassis
+      map.gleam       a level's map: layered graph of battles and repair shops
+      state.gleam     a run in progress: map, robots, spares, money, rewards
     balance/      balancing tools used by tests and dev reports
       simulation.gleam  AI-vs-AI matches
       efficiency.gleam  card roles and value-per-cost bands
-  dev/            reports: balance, tournament, counter_check, loot, enemies
+  dev/            reports: balance, tournament, counter_check, loot, enemies, run
 client/   Lustre browser app: text-mode view, clock, keyboard
 ```
 
@@ -53,6 +55,7 @@ cd core   && gleam run -m balance               # AI-vs-AI balance report
 cd core   && gleam run -m tournament            # every legal build vs each other (~35 s)
 cd core   && gleam run -m loot                  # loot charts with chances and prices
 cd core   && gleam run -m enemies               # starters vs every enemy in the roster
+cd core   && gleam run -m run                   # sample maps, then whole runs on autopilot
 cd core   && gleam run -m counter_check         # do counter parts beat their targets? (~2 min)
 cd client && gleam run -m lustre/dev start      # dev server with live reload
 cd client && gleam run -m lustre/dev build      # production bundle in client/dist

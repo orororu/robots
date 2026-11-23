@@ -40,6 +40,12 @@ pub fn of(component: Component) -> Int {
   float.round(worth *. weight_factor(part.weight(component)) *. credits)
 }
 
+/// What a repair shop charges to restore `hp` points of HP: what that HP
+/// is worth on a new plate.
+pub fn repair(hp: Float) -> Int {
+  float.round(hp *. hp_worth *. credits)
+}
+
 fn parts_cards_worth(component: Component) -> Float {
   let strength = part.strength(component)
   component.cards

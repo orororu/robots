@@ -43,7 +43,22 @@ pub fn run(
   let b = brain.new(P2, reaction:, seed: seed * 2 + 2)
   // A separate random stream decides who acts first within a step, so the
   // game's own seed (shuffles, targeting) is unaffected.
-  loop(state, a, b, rng.new(seed + 1_000_003), 0, [])
+  loop(state, a, b, rng.new(seed + 1_000_003), 0, []).1
+}
+
+/// A battle between teams (`game.teams`), played to the end by two AIs.
+/// Returns the final game, e.g. for `run/state.outcome`.
+pub fn teams(
+  config: game.Config,
+  p1: List(Robot),
+  p2: List(Robot),
+  seed: Int,
+  reaction: brain.Reaction,
+) -> Game {
+  let state = game.teams(config, p1:, p2:, seed:, now: 0)
+  let a = brain.new(P1, reaction:, seed: seed * 2 + 1)
+  let b = brain.new(P2, reaction:, seed: seed * 2 + 2)
+  loop(state, a, b, rng.new(seed + 1_000_003), 0, []).0
 }
 
 /// Many seeds at once: `0..count-1`.
@@ -65,7 +80,7 @@ fn loop(
   order: Seed,
   now: Int,
   plays: List(Play),
-) -> Outcome {
+) -> #(Game, Outcome) {
   case state.status, now > limit_ms {
     Running, False -> {
       // When both AIs are ready in the same step, a fair coin decides who
@@ -87,7 +102,10 @@ fn loop(
       }
       loop(state, a, b, order, now + step_ms, plays)
     }
-    status, _ -> Outcome(status:, duration_ms: now, plays: list.reverse(plays))
+    status, _ -> #(
+      state,
+      Outcome(status:, duration_ms: now, plays: list.reverse(plays)),
+    )
   }
 }
 

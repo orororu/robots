@@ -1,0 +1,442 @@
+//// A run in progress: the map, where the player is, their robots, spare
+//// parts and chassis, money (see docs/RUN.md). Pure: every step takes a run
+//// and returns a new one, or an error saying why the step isn't allowed.
+////
+//// The loop:
+////
+//// 1. `Choosing`: pick one of `choices` with `go`.
+//// 2. A battle node (`Fighting`): `battle` tells who waits there. Pick the
+////    order of your robots, get them built with `team`, play the battle
+////    (`game.teams`), then report it with `finish`: damage goes on the
+////    robots' parts, destroyed robots are lost, and a win pays out money and
+////    loot. Beating the boss moves on to the next level's map.
+//// 3. A repair shop (`Repairing`): `repair` robots for money, then `leave`.
+//// 4. When every robot is destroyed, the run is `Over`.
+////
+//// The garage (`install`, `uninstall`, `swap`, `assemble`) works at any time
+//// except during an `Over` run; every change must leave a legal build.
+
+import gleam/int
+import gleam/list
+import gleam/option.{type Option, None, Some}
+import gleam/result
+import robots/construction/builder.{type BuildError, type Chassis}
+import robots/construction/part.{type Component}
+import robots/construction/robot.{type Robot}
+import robots/construction/wear
+import robots/content/components
+import robots/content/enemies.{type Enemy}
+import robots/content/starters
+import robots/rules/amount
+import robots/rules/game.{type Game, P1, P2}
+import robots/rules/rng.{type Seed}
+import robots/run/loot
+import robots/run/map.{type Map, type Node, type Tier}
+import robots/run/price
+
+/// Money for winning a battle, by tier. Placeholders: about one cheap part
+/// for an ordinary enemy (part prices run 13-57).
+pub const money_normal = 20
+
+pub const money_strong = 40
+
+pub const money_boss = 100
+
+pub const starting_money = 0
+
+/// A robot the player owns, as the parts it's built from. It's assembled
+/// into a fighting `Robot` for each battle.
+pub type Bot {
+  Bot(name: String, chassis: Chassis, parts: List(Component))
+}
+
+pub type Phase {
+  /// Pick the next node from `choices`.
+  Choosing
+  /// At a battle node, before the battle is reported.
+  Fighting(node: Int)
+  /// At a repair shop.
+  Repairing(node: Int)
+  /// Every robot was destroyed.
+  Over
+}
+
+pub type Run {
+  Run(
+    level: Int,
+    map: Map,
+    /// The node the player is at; `None` before the first step of a level.
+    at: Option(Int),
+    phase: Phase,
+    robots: List(Bot),
+    /// Spare parts and chassis, from loot.
+    parts: List(Component),
+    chassis: List(Chassis),
+    money: Int,
+    seed: Seed,
+  )
+}
+
+/// What a won battle paid.
+pub type Reward {
+  Reward(money: Int, parts: List(Component), chassis: Option(Chassis))
+}
+
+/// How a battle went for the player: whether they won, and each robot's HP
+/// at the end, in battle order (0 for destroyed robots, untouched HP for
+/// robots that never entered).
+pub type Outcome {
+  Outcome(won: Bool, hp_left: List(Float))
+}
+
+pub type Error {
+  WrongPhase
+  NotReachable(node: Int)
+  /// A battle order must name every robot once.
+  BadOrder
+  NoSuchRobot
+  NoSuchPart
+  NoSuchChassis
+  CantBuild(robot: String, errors: List(BuildError))
+  NotEnoughMoney(price: Int, money: Int)
+}
+
+/// A new run at level 1 with the starter robot.
+pub fn new(seed: Int) -> Run {
+  let seed = rng.new(seed)
+  let #(map, seed) = map.generate(1, seed)
+  Run(
+    level: 1,
+    map:,
+    at: None,
+    phase: Choosing,
+    robots: [Bot("Tinker", components.frame(), starters.tinker_parts())],
+    parts: [],
+    chassis: [],
+    money: starting_money,
+    seed:,
+  )
+}
+
+// THE MAP ---------------------------------------------------------------------
+
+/// The nodes the player can move to next.
+pub fn choices(run: Run) -> List(Node) {
+  case run.phase, run.at {
+    Choosing, None -> map.start(run.map)
+    Choosing, Some(id) ->
+      case map.node(run.map, id) {
+        Ok(node) -> map.next(run.map, node)
+        Error(Nil) -> []
+      }
+    _, _ -> []
+  }
+}
+
+pub fn go(run: Run, id: Int) -> Result(Run, Error) {
+  use <- require(run.phase == Choosing, WrongPhase)
+  case list.find(choices(run), fn(n) { n.id == id }) {
+    Error(Nil) -> Error(NotReachable(id))
+    Ok(node) -> {
+      let phase = case node.event {
+        map.Battle(..) -> Fighting(id)
+        map.RepairShop -> Repairing(id)
+      }
+      Ok(Run(..run, at: Some(id), phase:))
+    }
+  }
+}
+
+/// The battle waiting at the current node.
+pub fn battle(run: Run) -> Result(#(Tier, Enemy), Error) {
+  case run.phase {
+    Fighting(id) ->
+      case map.node(run.map, id) {
+        Ok(map.Node(event: map.Battle(tier:, enemy:), ..)) -> Ok(#(tier, enemy))
+        _ -> Error(WrongPhase)
+      }
+    _ -> Error(WrongPhase)
+  }
+}
+
+// BATTLES ---------------------------------------------------------------------
+
+/// The player's robots built for battle, in `order` (indexes into
+/// `run.robots`; every robot exactly once).
+pub fn team(run: Run, order: List(Int)) -> Result(List(Robot), Error) {
+  use <- require(run.phase != Over, WrongPhase)
+  let all = int.range(0, list.length(run.robots), [], list.prepend)
+  use <- require(list.sort(order, int.compare) == list.reverse(all), BadOrder)
+  list.try_map(order, fn(i) {
+    let assert [bot, ..] = list.drop(run.robots, i)
+    build(bot)
+  })
+}
+
+/// The player's side of a finished battle (`game.teams` with `team_size`
+/// robots for P1).
+pub fn outcome(state: Game, team_size: Int) -> Outcome {
+  case state.status {
+    game.Won(P2) -> Outcome(won: False, hp_left: list.repeat(0.0, team_size))
+    status -> {
+      let side = state.p1
+      let destroyed = team_size - 1 - list.length(side.reserve)
+      Outcome(
+        won: status == game.Won(P1),
+        hp_left: list.flatten([
+          list.repeat(0.0, destroyed),
+          [side.robot.hp],
+          list.map(side.reserve, fn(r) { r.hp }),
+        ]),
+      )
+    }
+  }
+}
+
+/// Report the battle at the current node. Damage goes on the robots'
+/// parts; destroyed robots are lost with their parts. A win pays money and
+/// loot (and a chassis for a boss, which also moves the run to the next
+/// level); a loss ends the run.
+pub fn finish(
+  run: Run,
+  order: List(Int),
+  outcome: Outcome,
+) -> Result(#(Run, Reward), Error) {
+  use #(tier, _) <- result.try(battle(run))
+  use team <- result.try(team(run, order))
+  use <- require(list.length(outcome.hp_left) == list.length(order), BadOrder)
+  // Each robot's state after the battle, by its index in `run.robots`.
+  let after =
+    list.zip(order, list.zip(team, outcome.hp_left))
+    |> list.map(fn(entry) {
+      let #(i, #(fought, hp_left)) = entry
+      let assert [bot, ..] = list.drop(run.robots, i)
+      case amount.is_zero(hp_left) {
+        True -> #(i, None)
+        False -> {
+          let damage = wear.taken(fought.hp, hp_left)
+          let #(chassis, parts) = wear.assign(bot.chassis, bot.parts, damage)
+          #(i, Some(Bot(..bot, chassis:, parts:)))
+        }
+      }
+    })
+  let robots =
+    run.robots
+    |> list.index_map(fn(bot, i) {
+      case list.key_find(after, i) {
+        Ok(changed) -> changed
+        Error(Nil) -> Some(bot)
+      }
+    })
+    |> option.values
+  let run = Run(..run, robots:)
+  case outcome.won, robots {
+    False, _ | _, [] ->
+      Ok(#(Run(..run, phase: Over), Reward(money: 0, parts: [], chassis: None)))
+    True, _ -> Ok(reward(run, tier))
+  }
+}
+
+fn reward(run: Run, tier: Tier) -> #(Run, Reward) {
+  let money = case tier {
+    map.Normal -> money_normal
+    map.Strong -> money_strong
+    map.Boss -> money_boss
+  }
+  let #(parts, seed) = loot.battle_drops(run.level, run.seed)
+  let #(chassis, seed) = case tier {
+    map.Boss -> {
+      let #(c, seed) = loot.boss_chassis(run.level, seed)
+      #(Some(c), seed)
+    }
+    _ -> #(None, seed)
+  }
+  let run =
+    Run(
+      ..run,
+      phase: Choosing,
+      money: run.money + money,
+      parts: list.append(run.parts, parts),
+      chassis: list.append(run.chassis, option.values([chassis])),
+      seed:,
+    )
+  let run = case tier {
+    map.Boss -> next_level(run)
+    _ -> run
+  }
+  #(run, Reward(money:, parts:, chassis:))
+}
+
+fn next_level(run: Run) -> Run {
+  let level = run.level + 1
+  let #(map, seed) = map.generate(level, run.seed)
+  Run(..run, level:, map:, at: None, seed:)
+}
+
+// REPAIR SHOP -----------------------------------------------------------------
+
+/// What it costs to repair a robot fully (its chassis and every plate).
+pub fn repair_price(bot: Bot) -> Int {
+  price.repair(wear.total(bot.chassis, bot.parts))
+}
+
+pub fn repair(run: Run, robot: Int) -> Result(Run, Error) {
+  use <- require(
+    case run.phase {
+      Repairing(_) -> True
+      _ -> False
+    },
+    WrongPhase,
+  )
+  use bot <- result.try(robot_at(run, robot))
+  let cost = repair_price(bot)
+  use <- require(cost <= run.money, NotEnoughMoney(cost, run.money))
+  let #(chassis, parts) = wear.repair(bot.chassis, bot.parts)
+  Ok(
+    Run(
+      ..run,
+      money: run.money - cost,
+      robots: replace(run.robots, robot, Bot(..bot, chassis:, parts:)),
+    ),
+  )
+}
+
+/// Leave the repair shop.
+pub fn leave(run: Run) -> Result(Run, Error) {
+  case run.phase {
+    Repairing(_) -> Ok(Run(..run, phase: Choosing))
+    _ -> Error(WrongPhase)
+  }
+}
+
+// GARAGE ----------------------------------------------------------------------
+
+/// Install spare part `spare` on robot `robot`.
+pub fn install(run: Run, robot: Int, spare: Int) -> Result(Run, Error) {
+  swap_parts(run, robot, [], [spare])
+}
+
+/// Take installed part `installed` off robot `robot` into the spares.
+pub fn uninstall(run: Run, robot: Int, installed: Int) -> Result(Run, Error) {
+  swap_parts(run, robot, [installed], [])
+}
+
+/// Replace installed part `installed` with spare part `spare` in one step
+/// (e.g. trading a weapon, which can't be uninstalled first).
+pub fn swap(
+  run: Run,
+  robot: Int,
+  installed: Int,
+  spare: Int,
+) -> Result(Run, Error) {
+  swap_parts(run, robot, [installed], [spare])
+}
+
+/// Build a new robot from spare chassis `chassis` and spare parts `parts`.
+pub fn assemble(
+  run: Run,
+  name: String,
+  chassis: Int,
+  parts: List(Int),
+) -> Result(Run, Error) {
+  use <- require(run.phase != Over, WrongPhase)
+  use frame <- result.try(
+    list.drop(run.chassis, chassis)
+    |> list.first
+    |> result.replace_error(NoSuchChassis),
+  )
+  use #(taken, spares) <- result.try(take(run.parts, parts))
+  let bot = Bot(name:, chassis: frame, parts: taken)
+  use _ <- result.try(build(bot))
+  Ok(
+    Run(
+      ..run,
+      robots: list.append(run.robots, [bot]),
+      parts: spares,
+      chassis: remove_at(run.chassis, chassis),
+    ),
+  )
+}
+
+fn swap_parts(
+  run: Run,
+  robot: Int,
+  off: List(Int),
+  on: List(Int),
+) -> Result(Run, Error) {
+  use <- require(run.phase != Over, WrongPhase)
+  use bot <- result.try(robot_at(run, robot))
+  use #(removed, kept) <- result.try(take(bot.parts, off))
+  use #(added, spares) <- result.try(take(run.parts, on))
+  let bot = Bot(..bot, parts: list.append(kept, added))
+  use _ <- result.try(build(bot))
+  Ok(
+    Run(
+      ..run,
+      robots: replace(run.robots, robot, bot),
+      parts: list.append(spares, removed),
+    ),
+  )
+}
+
+// HELPERS ---------------------------------------------------------------------
+
+pub fn build(bot: Bot) -> Result(Robot, Error) {
+  builder.build(bot.name, bot.chassis, bot.parts)
+  |> result.map_error(CantBuild(bot.name, _))
+}
+
+fn robot_at(run: Run, i: Int) -> Result(Bot, Error) {
+  case i >= 0 {
+    True ->
+      list.drop(run.robots, i)
+      |> list.first
+      |> result.replace_error(NoSuchRobot)
+    False -> Error(NoSuchRobot)
+  }
+}
+
+/// Split `items` into the ones at `indexes` (in that order) and the rest.
+fn take(
+  items: List(a),
+  indexes: List(Int),
+) -> Result(#(List(a), List(a)), Error) {
+  let numbered = list.index_map(items, fn(x, i) { #(i, x) })
+  use taken <- result.try(
+    list.try_map(indexes, fn(i) {
+      list.key_find(numbered, i) |> result.replace_error(NoSuchPart)
+    }),
+  )
+  use <- require(
+    list.length(list.unique(indexes)) == list.length(indexes),
+    NoSuchPart,
+  )
+  let rest =
+    numbered
+    |> list.filter(fn(pair) { !list.contains(indexes, pair.0) })
+    |> list.map(fn(pair) { pair.1 })
+  Ok(#(taken, rest))
+}
+
+fn replace(items: List(a), at: Int, with: a) -> List(a) {
+  list.index_map(items, fn(x, i) {
+    case i == at {
+      True -> with
+      False -> x
+    }
+  })
+}
+
+fn remove_at(items: List(a), at: Int) -> List(a) {
+  items
+  |> list.index_map(fn(x, i) { #(i, x) })
+  |> list.filter(fn(pair) { pair.0 != at })
+  |> list.map(fn(pair) { pair.1 })
+}
+
+fn require(condition: Bool, error: Error, next: fn() -> Result(a, Error)) {
+  case condition {
+    True -> next()
+    False -> Error(error)
+  }
+}

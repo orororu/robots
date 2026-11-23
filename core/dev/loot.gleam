@@ -13,6 +13,7 @@ import robots/content/components
 import robots/content/enemies
 import robots/rules/rng
 import robots/run/loot
+import robots/run/map
 import robots/run/price
 
 pub fn main() -> Nil {
@@ -136,7 +137,8 @@ fn samples(level: Int) -> Nil {
   let roster = enemies.level(level)
   let #(_, names) =
     list.map_fold(roster.enemies, rng.new(level * 7), fn(seed, e) {
-      let #(spawned, seed) = enemies.spawn(e, level, seed)
+      let #(spawned, seed) =
+        enemies.spawn(e, level, map.condition(level, map.Normal), seed)
       #(seed, e.name <> " → " <> spawned.name)
     })
   io.println("  sample enemies: " <> string.join(names, ", "))

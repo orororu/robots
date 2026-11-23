@@ -208,14 +208,25 @@ pub fn roll_attributes(
   component: Component,
   seed: Seed,
 ) -> #(Component, Seed) {
+  roll_card_attributes(component, ch.attribute_percent, ch.attributes, seed)
+}
+
+/// Give each card of `component`, with `percent` chance, an attribute from
+/// the weighted `attributes` (only ones that affect that card).
+pub fn roll_card_attributes(
+  component: Component,
+  percent: Int,
+  attributes: List(#(Int, a.Attribute)),
+  seed: Seed,
+) -> #(Component, Seed) {
   component.cards
   |> list.index_map(fn(card, i) { #(i, card) })
   |> list.fold(#(component, seed), fn(acc, pair) {
     let #(component, seed) = acc
     let #(i, card) = pair
     let #(chance, seed) = rng.int_below(seed, 100)
-    let options = list.filter(ch.attributes, fn(e) { a.applies_to(e.1, card) })
-    case chance < ch.attribute_percent, options {
+    let options = list.filter(attributes, fn(e) { a.applies_to(e.1, card) })
+    case chance < percent, options {
       True, [_, ..] -> {
         let total = int.sum(list.map(options, fn(e) { e.0 }))
         let #(pick, seed) = rng.int_below(seed, total)

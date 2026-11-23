@@ -8,7 +8,11 @@ import robots/content/components as c
 /// The player's starter robot: a Laser, a Buckler against melee brawlers, and a
 /// Reactor to boost attacks.
 pub fn tinker() -> Robot {
-  starter("Tinker", c.frame(), [
+  starter("Tinker", c.frame(), tinker_parts())
+}
+
+pub fn tinker_parts() -> List(Component) {
+  [
     c.laser(),
     c.buckler(),
     c.reactor(),
@@ -16,7 +20,7 @@ pub fn tinker() -> Robot {
     // Overclocked (+15% HP) evens the starters: 38% vs Scrapper without it,
     // and a whole extra Plating overshoots to 93%.
     part.with(c.plating(), part.overclocked()),
-  ])
+  ]
 }
 
 /// The first AI opponent: melee brawler.

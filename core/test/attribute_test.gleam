@@ -80,11 +80,29 @@ pub fn spawned_enemies_are_named_after_their_parts_test() {
   let e = enemies.scrap_gunner()
   let bare = enemies.name(e)
   assert bare == "Machine gunner"
-  let #(spawned, _) = enemies.spawn(e, 1, rng.new(11))
+  let #(spawned, _) = enemies.spawn(e, 1, 3, rng.new(11))
   // Spawning is reproducible.
-  let #(again, _) = enemies.spawn(e, 1, rng.new(11))
+  let #(again, _) = enemies.spawn(e, 1, 3, rng.new(11))
   assert spawned == again
   let _ = enemies.robot(spawned)
+}
+
+pub fn early_enemies_are_worn_down_test() {
+  // Step 0: every card that a value attribute affects is Broken, Damaged
+  // or Weak.
+  let #(rusty, _) = enemies.spawn(enemies.rusty_brawler(), 1, 0, rng.new(5))
+  let bad = ["Broken", "Damaged", "Weak"]
+  list.each(rusty.parts, fn(p) {
+    list.each(list.index_map(p.cards, fn(c, i) { #(i, c) }), fn(pair) {
+      case attribute.applies_to(attribute.broken(), pair.1) {
+        False -> Nil
+        True -> {
+          let assert Ok(a) = list.key_find(p.attributes, pair.0)
+          assert list.contains(bad, a.name)
+        }
+      }
+    })
+  })
 }
 
 pub fn an_enemy_name_starts_with_its_top_attributes_test() {
