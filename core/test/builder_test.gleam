@@ -227,7 +227,7 @@ pub fn modifiers_stack_and_name_the_part_test() {
     catalog.laser()
     |> part.with(part.light())
     |> part.with(part.overclocked())
-  assert part.display_name(loot) == "Light Overclocked Laser"
+  assert part.display_name(loot) == "Light overclocked laser"
   assert part.weight(loot) == 2.25
 }
 

@@ -1,0 +1,96 @@
+import gleam/list
+import robots/construction/attribute
+import robots/construction/part
+import robots/content/catalog
+import robots/content/enemies
+import robots/rules/card.{type Card}
+import robots/rules/rng
+import robots/run/loot
+import robots/run/price
+
+fn nth(cards: List(Card), i: Int) -> Card {
+  let assert [c, ..] = list.drop(cards, i)
+  c
+}
+
+pub fn an_attribute_changes_the_card_and_its_name_test() {
+  // Laser cards: Pulse, Laser, Laser, Focused beam, Overcharge.
+  let gun = part.attach(catalog.laser(), 1, attribute.rapid())
+  let c = nth(part.cards(gun), 1)
+  assert c.name == "Rapid Laser"
+  assert c.cost == 0.8
+  assert c.value == 1.0
+  // The other cards are untouched.
+  assert nth(part.cards(gun), 2) == nth(catalog.laser().cards, 2)
+}
+
+pub fn a_card_has_at_most_one_attribute_test() {
+  let gun =
+    catalog.laser()
+    |> part.attach(1, attribute.rapid())
+    |> part.attach(1, attribute.broken())
+  assert list.length(gun.attributes) == 1
+  assert nth(part.cards(gun), 1).name == "Broken Laser"
+}
+
+pub fn value_attributes_skip_cards_whose_value_does_nothing_test() {
+  // Drone bay cards launch drones: their own value is unused.
+  let bay = part.attach(catalog.drone_bay(), 0, attribute.strong())
+  assert bay.attributes == []
+  let bay = part.attach(catalog.drone_bay(), 0, attribute.rapid())
+  assert list.length(bay.attributes) == 1
+}
+
+pub fn precise_makes_a_bigger_card_on_the_band_test() {
+  let base = nth(catalog.laser().cards, 1)
+  let c = attribute.apply(attribute.precise(), base)
+  assert c.cost >. base.cost
+  // Bigger cards are more efficient: value grows faster than cost.
+  assert c.value /. c.cost >. base.value /. base.cost
+}
+
+pub fn the_name_shows_the_two_most_impactful_attributes_test() {
+  let gun =
+    catalog.machine_gun()
+    // Burst ×3, Long burst, Sweep. Worn on a small Burst changes little;
+    // Rapid on Long burst and Broken on Sweep change more.
+    |> part.attach(0, attribute.worn())
+    |> part.attach(3, attribute.rapid())
+    |> part.attach(4, attribute.broken())
+  assert part.display_name(gun) == "Broken rapid machine gun"
+}
+
+pub fn attributes_change_the_price_test() {
+  let gun = catalog.laser()
+  assert price.of(part.attach(gun, 1, attribute.masterwork())) > price.of(gun)
+  assert price.of(part.attach(gun, 1, attribute.broken())) < price.of(gun)
+}
+
+pub fn later_levels_roll_better_attributes_test() {
+  // Average worth change of rolled attributes on many Laser drops.
+  let average = fn(level) {
+    let #(drops, _) = loot.rolls(level, 300, rng.new(5))
+    let lasers = list.map(drops, fn(d) { price.of(d) })
+    list.fold(lasers, 0, fn(t, p) { t + p }) / list.length(lasers)
+  }
+  assert average(3) > average(1)
+}
+
+pub fn spawned_enemies_are_named_after_their_parts_test() {
+  let e = enemies.scrap_gunner()
+  let bare = enemies.name(e)
+  assert bare == "Machine gunner"
+  let #(spawned, _) = enemies.spawn(e, 1, rng.new(11))
+  // Spawning is reproducible.
+  let #(again, _) = enemies.spawn(e, 1, rng.new(11))
+  assert spawned == again
+  let _ = enemies.robot(spawned)
+}
+
+pub fn an_enemy_name_starts_with_its_top_attributes_test() {
+  let e = enemies.scrap_gunner()
+  let assert [buckler, buckler2, gun, ..rest] = e.parts
+  let gun = part.attach(gun, 4, attribute.broken())
+  let e = enemies.Enemy(..e, parts: [buckler, buckler2, gun, ..rest])
+  assert enemies.name(e) == "Broken machine gunner"
+}

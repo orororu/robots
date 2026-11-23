@@ -3,11 +3,15 @@
 //// as often as one with weight 5. Plating stays common on every level: there
 //// is no repair between nodes, so looted armor is how a robot heals.
 ////
+//// Each card of a drop may get one attribute (`attribute.gleam`): mostly bad
+//// ones on level 1 (scrap), more good ones later.
+////
 //// Every battle drops 1 to 3 parts from the level's chart. Bosses also drop
 //// a chassis: good chassis are special loot (or bought, expensively).
 
 import gleam/int
 import gleam/list
+import robots/construction/attribute.{type Attribute} as a
 import robots/construction/builder.{type Chassis}
 import robots/construction/part.{type Component}
 import robots/content/catalog as c
@@ -23,6 +27,10 @@ pub type Chart {
     overclocked_percent: Int,
     /// Chassis the level's boss can drop, one picked at random.
     boss_chassis: List(Chassis),
+    /// Percent chance that each card of a drop gets an attribute.
+    attribute_percent: Int,
+    /// Which attribute, when it does (relative weights).
+    attributes: List(#(Int, Attribute)),
   )
 }
 
@@ -52,6 +60,23 @@ pub fn charts() -> List(Chart) {
       light_percent: 5,
       overclocked_percent: 5,
       boss_chassis: [c.brute(), c.scout()],
+      attribute_percent: 30,
+      attributes: [
+        #(6, a.broken()),
+        #(8, a.damaged()),
+        #(4, a.wasteful()),
+        #(8, a.crude()),
+        #(10, a.weak()),
+        #(8, a.sluggish()),
+        #(12, a.worn()),
+        #(4, a.quick()),
+        #(4, a.precise()),
+        #(6, a.tuned()),
+        #(4, a.efficient()),
+        #(3, a.strong()),
+        #(2, a.rapid()),
+        #(1, a.overcharged()),
+      ],
     ),
     // Specialists appear: fire, missiles, counters.
     Chart(
@@ -79,6 +104,24 @@ pub fn charts() -> List(Chart) {
       light_percent: 10,
       overclocked_percent: 10,
       boss_chassis: [c.scout(), c.tank()],
+      attribute_percent: 35,
+      attributes: [
+        #(3, a.broken()),
+        #(5, a.damaged()),
+        #(3, a.wasteful()),
+        #(5, a.crude()),
+        #(7, a.weak()),
+        #(6, a.sluggish()),
+        #(8, a.worn()),
+        #(6, a.quick()),
+        #(6, a.precise()),
+        #(8, a.tuned()),
+        #(6, a.efficient()),
+        #(6, a.strong()),
+        #(5, a.rapid()),
+        #(3, a.overcharged()),
+        #(1, a.masterwork()),
+      ],
     ),
     // Heavy weapons: cannons and drones.
     Chart(
@@ -104,6 +147,24 @@ pub fn charts() -> List(Chart) {
       light_percent: 20,
       overclocked_percent: 20,
       boss_chassis: [c.tank()],
+      attribute_percent: 40,
+      attributes: [
+        #(1, a.broken()),
+        #(3, a.damaged()),
+        #(2, a.wasteful()),
+        #(3, a.crude()),
+        #(4, a.weak()),
+        #(4, a.sluggish()),
+        #(5, a.worn()),
+        #(6, a.quick()),
+        #(7, a.precise()),
+        #(8, a.tuned()),
+        #(8, a.efficient()),
+        #(8, a.strong()),
+        #(7, a.rapid()),
+        #(5, a.overcharged()),
+        #(3, a.masterwork()),
+      ],
     ),
   ]
 }
@@ -138,7 +199,31 @@ pub fn roll(level: Int, seed: Seed) -> #(Component, Seed) {
     True -> part.with(component, part.overclocked())
     False -> component
   }
-  #(component, seed)
+  roll_attributes(ch, component, seed)
+}
+
+/// Each card may get one attribute, picked among those that affect it.
+pub fn roll_attributes(
+  ch: Chart,
+  component: Component,
+  seed: Seed,
+) -> #(Component, Seed) {
+  component.cards
+  |> list.index_map(fn(card, i) { #(i, card) })
+  |> list.fold(#(component, seed), fn(acc, pair) {
+    let #(component, seed) = acc
+    let #(i, card) = pair
+    let #(chance, seed) = rng.int_below(seed, 100)
+    let options = list.filter(ch.attributes, fn(e) { a.applies_to(e.1, card) })
+    case chance < ch.attribute_percent, options {
+      True, [_, ..] -> {
+        let total = int.sum(list.map(options, fn(e) { e.0 }))
+        let #(pick, seed) = rng.int_below(seed, total)
+        #(part.attach(component, i, pick_entry(options, pick)), seed)
+      }
+      _, _ -> #(component, seed)
+    }
+  })
 }
 
 /// `count` drops.
@@ -165,7 +250,7 @@ pub fn boss_chassis(level: Int, seed: Seed) -> #(Chassis, Seed) {
   #(pick, seed)
 }
 
-fn pick_entry(entries: List(#(Int, Component)), pick: Int) -> Component {
+fn pick_entry(entries: List(#(Int, x)), pick: Int) -> x {
   case entries {
     [#(weight, component), ..rest] ->
       case pick < weight || rest == [] {

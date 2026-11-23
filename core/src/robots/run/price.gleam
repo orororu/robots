@@ -13,7 +13,7 @@
 
 import gleam/float
 import gleam/list
-import robots/balance/efficiency
+import robots/construction/attribute
 import robots/construction/builder.{type Chassis}
 import robots/construction/part.{type Component}
 import robots/rules/card.{type Card}
@@ -32,7 +32,7 @@ pub const weight_step = 0.1
 
 pub fn of(component: Component) -> Int {
   let worth =
-    cards_worth(part.cards(component), part.strength(component))
+    parts_cards_worth(component)
     +. part.remaining_hp(component)
     *. hp_worth
     +. part.energy_cap(component)
@@ -40,12 +40,18 @@ pub fn of(component: Component) -> Int {
   float.round(worth *. weight_factor(part.weight(component)) *. credits)
 }
 
-fn cards_worth(cards: List(Card), strength: Float) -> Float {
+fn parts_cards_worth(component: Component) -> Float {
+  let strength = part.strength(component)
+  component.cards
+  |> list.index_map(fn(c, i) {
+    attribute.worth(c, list.key_find(component.attributes, i), strength)
+  })
+  |> float.sum
+}
+
+fn cards_worth(cards: List(Card)) -> Float {
   list.fold(cards, 0.0, fn(total, c) {
-    case efficiency.outside_band(c) {
-      True -> total +. c.cost *. strength
-      False -> total +. c.cost *. efficiency.rating(c) /. efficiency.goal(c)
-    }
+    total +. attribute.worth(c, Error(Nil), 1.0)
   })
 }
 
@@ -72,7 +78,7 @@ pub fn of_chassis(chassis: Chassis) -> Int {
     *. capacity_worth
     +. builder.chassis_hp(chassis)
     *. hp_worth
-    +. cards_worth(chassis.cards, 1.0)
+    +. cards_worth(chassis.cards)
     *. chassis_card_rarity
   float.round(worth *. credits)
 }

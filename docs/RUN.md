@@ -3,7 +3,8 @@
 Status: **design draft.** Implemented so far: wear
 (`core/src/robots/construction/wear.gleam`), battles between teams
 (`game.teams`), part and chassis prices, loot charts and battle drops
-(`core/src/robots/run/`), the enemy roster (`content/enemies.gleam`). Agreed points are under "Agreed";
+(`core/src/robots/run/`), card attributes
+(`construction/attribute.gleam`), the enemy roster (`content/enemies.gleam`). Agreed points are under "Agreed";
 undecided ones under "Open questions".
 
 ## Agreed
@@ -53,7 +54,51 @@ undecided ones under "Open questions".
 - **Plating drops often on every level,** since looted armor is the only
   healing between nodes.
 - **Modifiers get likelier by level:** Light and Overclocked, each 5% on
-  level 1, 10% on level 2, 20% on level 3. A drop can have both.
+  level 1, 10% on level 2, 20% on level 3. A drop can have both. They apply
+  to the whole part (its weight, all its values).
+- **Card attributes:** each card of a drop can carry **one attribute**
+  (`construction/attribute.gleam`). The chance per card rises by level (30%,
+  35%, 40%), and so does the share of good attributes.
+  - The card's name gets the attribute: "Rapid Burst".
+  - **The part's name shows its two most impactful attributes,** after any
+    Light/Overclocked modifier: "Broken rapid machine gun".
+  - **Impact** is how much the attribute changes the card's worth (the same
+    measure prices use), so a Broken big card outranks a Worn small one.
+  - Value attributes skip cards whose value does nothing (drone launches,
+    Ignite, Fire); cost attributes apply to any card with a cost.
+
+Card attributes. Shown on a Laser card (cost 10, value 10); "worth" is the
+change in what the card is worth, which also changes the part's price. The
+last column is the attribute's loot weight on levels 1/2/3.
+
+| Attribute | Effect | Laser card cost/value | Worth | Weights 1/2/3 |
+|---|---|---|---|---|
+| Broken | value −80% | 10 / 2 | −80% | 6/3/1 |
+| Damaged | value −40% | 10 / 6 | −40% | 8/5/3 |
+| Wasteful | cost +50% | 15 / 10 | −20% | 4/3/2 |
+| Crude | value −20%, cost +10% | 11 / 8 | −24% | 8/5/3 |
+| Weak | value −20% | 10 / 8 | −20% | 10/7/4 |
+| Sluggish | cost +20% | 12 / 10 | −9% | 8/6/4 |
+| Worn | value −10% | 10 / 9 | −10% | 12/8/5 |
+| Quick | cost −20%, value rescaled to stay on the band | 8 / 7 | −20% | 4/6/6 |
+| Precise | cost +20%, value rescaled to stay on the band | 12 / 13 | +20% | 4/6/7 |
+| Tuned | value +10% | 10 / 11 | +10% | 6/8/8 |
+| Efficient | cost −10% | 9 / 10 | +5% | 4/6/8 |
+| Strong | value +20% | 10 / 12 | +20% | 3/6/8 |
+| Rapid | cost −20% | 8 / 10 | +11% | 2/5/7 |
+| Overcharged | value +50%, cost +25% | 13 / 15 | +33% | 1/3/5 |
+| Masterwork | value +40% | 10 / 14 | +40% | –/1/3 |
+
+**Light and Overclocked stay part-wide modifiers,** separate from card
+attributes: a Light or Overclocked part is effectively a different weapon
+(lighter, or stronger across the board), while card attributes set its tier
+(Broken, Worn... up to Masterwork). More weapons will come later, built
+from new combinations of cards; attributes give each of them tiers.
+
+Quick and Precise are trade-offs rather than pure gains or losses: bigger
+cards are more efficient per energy but wait longer to be affordable.
+`gleam run -m loot` prints this table, the loot charts, and sample drops and
+enemies for each level.
 - **Every part has a price** in credits (`run/price.gleam`), from what it
   does, what its cards cost and its weight:
   - **Cards:** each counts its energy cost, scaled by how efficient it is
@@ -83,6 +128,15 @@ undecided ones under "Open questions".
   - Each level's **strong enemies** are a step above its normal ones (level
     1's strong enemies are level 2's normal ones), and the **boss** another
     step: Foreman (~50%), Warhead (~70%), Siege tank (the top Cannon tank).
+- **Enemy names come from their parts.** When an enemy is met (`spawn`), its
+  parts roll card attributes from the level's loot chart. Its name is its two
+  most impactful attributes plus the crew name of its main weapon (the most
+  valuable one): "Broken machine gunner", "Strong rapid rocketeer".
+  - Crew names: Laser → lancer, Saw arm → grinder, Fist → brawler, Cannon →
+    cannoneer, Machine gun → machine gunner, Missile rack → rocketeer, Drone
+    bay → drone master, Flamethrower → firebug.
+  - The roster's own names (Rusty brawler...) only appear in reports; the
+    description still tells the player the build style.
 - `gleam run -m enemies` plays the starters against every enemy. Matchups
   stay rock-paper-scissors: Scrapper crushes Twin beam but loses to Warhead,
   Tinker the other way round.
@@ -148,7 +202,7 @@ plate on a battered robot would also count as battered.
    card gets copied? How many upgrades per part, and at what price?
 3. **Selling:** can parts be sold, and for what share of their price?
 4. **Enemy loot and wear:** do enemies arrive damaged on later nodes? Does
-   their loot come from their own parts?
+   their loot come from their own parts (with the attributes in their name)?
 5. **Prices and strength:** prices come from a formula, not from how parts
    do in the tournament. The Cannon is the strongest weapon but priced like
    a Laser.

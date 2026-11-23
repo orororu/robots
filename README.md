@@ -25,6 +25,7 @@ core/     pure game logic (Gleam, runs on JavaScript and BEAM): no IO, no clock
       builder.gleam   chassis + parts -> robot, with errors and warnings
       build_search.gleam  generate legal builds (tournament, later AI and garage)
       wear.gleam      damage kept on armor plates and chassis between battles
+      attribute.gleam card attributes from loot (Broken, Rapid, Precise...)
     content/
       catalog.gleam   all chassis, parts and starter robots (balance here)
       enemies.gleam   the named enemy roster for each level of a run

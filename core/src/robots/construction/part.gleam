@@ -7,6 +7,7 @@
 import gleam/float
 import gleam/list
 import gleam/string
+import robots/construction/attribute.{type Attribute}
 import robots/rules/card.{type Card, Card}
 
 pub type Kind {
@@ -42,6 +43,9 @@ pub type Component {
     /// Damage this part has taken and kept (armor, during a run). Its
     /// remaining HP is `hp - wear`. See `robots/construction/wear`.
     wear: Float,
+    /// Card attributes from loot: `#(card index, attribute)`, at most one
+    /// per card. See `robots/construction/attribute`.
+    attributes: List(#(Int, Attribute)),
   )
 }
 
@@ -70,6 +74,7 @@ pub fn new(
     energy_cap: 0.0,
     modifiers: [],
     wear: 0.0,
+    attributes: [],
   )
 }
 
@@ -109,9 +114,47 @@ pub fn weight(component: Component) -> Float {
   })
 }
 
+/// Give the card at `index` an attribute, replacing any it had. Does
+/// nothing if the attribute wouldn't affect that card.
+pub fn attach(
+  component: Component,
+  index: Int,
+  attribute: Attribute,
+) -> Component {
+  case list.drop(component.cards, index) {
+    [c, ..] ->
+      case attribute.applies_to(attribute, c) {
+        True ->
+          Component(..component, attributes: [
+            #(index, attribute),
+            ..list.filter(component.attributes, fn(pair) { pair.0 != index })
+          ])
+        False -> component
+      }
+    [] -> component
+  }
+}
+
+/// The part's cards with attributes and modifiers applied.
 pub fn cards(component: Component) -> List(Card) {
   let boost = strength(component)
-  list.map(component.cards, fn(c) { Card(..c, value: c.value *. boost) })
+  list.index_map(component.cards, fn(c, i) {
+    let c = case list.key_find(component.attributes, i) {
+      Ok(a) -> attribute.apply(a, c)
+      Error(Nil) -> c
+    }
+    Card(..c, value: c.value *. boost)
+  })
+}
+
+/// Each attribute with the card it's on (before attributes).
+pub fn attached(component: Component) -> List(#(Attribute, Card)) {
+  list.filter_map(component.attributes, fn(pair) {
+    case list.drop(component.cards, pair.0) {
+      [c, ..] -> Ok(#(pair.1, c))
+      [] -> Error(Nil)
+    }
+  })
 }
 
 /// Full HP, when undamaged.
@@ -138,17 +181,27 @@ pub fn strength(component: Component) -> Float {
   })
 }
 
-/// "Light Overclocked Laser".
+/// "Light overclocked laser", "Broken rapid machine gun": part modifiers,
+/// then the two most impactful card attributes, then the part.
 pub fn display_name(component: Component) -> String {
-  component.modifiers
-  |> list.map(fn(m) {
-    case m {
-      Light(_) -> "Light"
-      Overclocked(_) -> "Overclocked"
-    }
-  })
-  |> list.append([component.name])
+  let modifiers =
+    list.map(component.modifiers, fn(m) {
+      case m {
+        Light(_) -> "Light"
+        Overclocked(_) -> "Overclocked"
+      }
+    })
+  let attributes = list.take(attribute.ranked(attached(component)), 2)
+  list.flatten([modifiers, attributes, [component.name]])
   |> string.join(" ")
+  |> sentence_case
+}
+
+fn sentence_case(text: String) -> String {
+  case string.pop_grapheme(text) {
+    Ok(#(first, rest)) -> first <> string.lowercase(rest)
+    Error(Nil) -> text
+  }
 }
 
 pub fn kind_name(kind: Kind) -> String {
