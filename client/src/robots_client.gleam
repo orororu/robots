@@ -13,6 +13,7 @@ import gleam/float
 import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}
+import gleam/order
 import gleam/string
 import lustre
 import lustre/attribute
@@ -964,7 +965,9 @@ fn view_garage(model: Model) -> Element(Msg) {
           picked(model.pick == OwnChassis(r)),
           ClickOwnChassis(r),
         ),
-        ..list.index_map(bot.parts, fn(p, i) {
+        ..by_kind(bot.parts)
+        |> list.map(fn(pair) {
+          let #(i, p) = pair
           button_class(
             "    " <> part_line(model.scale, p),
             picked(installed == Some(#(r, i))),
@@ -973,13 +976,23 @@ fn view_garage(model: Model) -> Element(Msg) {
         })
       ])
     })
+  // Spares grouped by kind, a heading per kind.
   let spares =
-    list.index_map(run.parts, fn(p, i) {
-      button_class(
-        "  " <> part_line(model.scale, p),
-        picked(spare == Some(i) || list.contains(drafted, i)),
-        ClickSpare(i),
-      )
+    by_kind(run.parts)
+    |> list.chunk(fn(pair) { { pair.1 }.kind })
+    |> list.flat_map(fn(group) {
+      let assert [#(_, first), ..] = group
+      [
+        text("dim", "  " <> string.uppercase(kind_plural(first.kind))),
+        ..list.map(group, fn(pair) {
+          let #(i, p) = pair
+          button_class(
+            "    " <> part_line(model.scale, p),
+            picked(spare == Some(i) || list.contains(drafted, i)),
+            ClickSpare(i),
+          )
+        })
+      ]
     })
   let chassis =
     list.index_map(run.chassis, fn(c, i) {
@@ -1184,6 +1197,41 @@ fn bot_line(s: Scale, bot: Bot) -> String {
       <> "/"
       <> int.to_string(scale.value(s, r.max_hp))
     Error(_) -> bot.name <> " (" <> bot.chassis.name <> ") can't fight as built"
+  }
+}
+
+/// Parts with their index, ordered by kind (weapons, defences, utilities,
+/// batteries, armor), keeping their order within a kind.
+fn by_kind(parts: List(Component)) -> List(#(Int, Component)) {
+  parts
+  |> list.index_map(fn(p, i) { #(i, p) })
+  |> list.sort(fn(a, b) {
+    case int.compare(kind_rank({ a.1 }.kind), kind_rank({ b.1 }.kind)) {
+      order.Eq -> int.compare(a.0, b.0)
+      other -> other
+    }
+  })
+}
+
+fn kind_rank(kind: part.Kind) -> Int {
+  case kind {
+    part.Body -> 0
+    part.Weapon -> 1
+    part.Defence -> 2
+    part.Utility -> 3
+    part.Battery -> 4
+    part.Armor -> 5
+  }
+}
+
+fn kind_plural(kind: part.Kind) -> String {
+  case kind {
+    part.Body -> "chassis"
+    part.Weapon -> "weapons"
+    part.Defence -> "defences"
+    part.Utility -> "utilities"
+    part.Battery -> "batteries"
+    part.Armor -> "armor"
   }
 }
 
