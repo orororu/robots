@@ -165,7 +165,7 @@ fn combatant(
       now:,
     )
   Combatant(robot: bot, deck:, table: [], discard: [], energy:, reserve:)
-  |> fill_table(config.table_size, seed)
+  |> fill_table(config.table_size, seed, now)
 }
 
 pub fn combatant_of(game: Game, side: Side) -> Combatant {
@@ -223,7 +223,7 @@ fn play(
   }
   let game =
     put(game, side, Combatant(..c, table: rest, energy: spent, discard:))
-  let #(game, targets, effect) = resolve(game, side, played)
+  let #(game, targets, effect) = resolve(game, side, played, now)
   let #(refilled, seed) = case played.card.target {
     // A launched drone takes the slot of the card that launched it.
     card.Launch(drone) -> {
@@ -232,7 +232,7 @@ fn play(
       let table = list.flatten([before, [table.placed(drone, now)], after])
       #(Combatant(..c, table:), game.seed)
     }
-    _ -> refill(combatant_of(game, side), index, game.seed)
+    _ -> refill(combatant_of(game, side), index, game.seed, now)
   }
   Game(..game, seed:)
   |> put(side, refilled)
@@ -243,29 +243,36 @@ fn play(
 
 /// Returns the new game, how many things were affected (1 for HP, else the
 /// number of table cards), and the total amount actually changed.
-fn resolve(game: Game, side: Side, played: Slot) -> #(Game, Int, Float) {
+fn resolve(
+  game: Game,
+  side: Side,
+  played: Slot,
+  now: Int,
+) -> #(Game, Int, Float) {
   let value = played.value
   // Opponent lowers, Self raises; the scope says what.
   case played.card.target {
-    card.OpponentHp -> attack(game, other(side), value)
+    card.OpponentHp -> attack(game, other(side), value, now)
     card.Opponent(scope) ->
-      affect_table(game, other(side), scope, lowered(
-        _,
-        value,
-        game.config.defence_floor,
-      ))
+      affect_table(
+        game,
+        other(side),
+        scope,
+        lowered(_, value, game.config.defence_floor),
+        now,
+      )
     card.Self(scope) ->
-      affect_table(game, side, scope, fn(s: Slot) { s.value +. value })
+      affect_table(game, side, scope, fn(s: Slot) { s.value +. value }, now)
     card.Both(scope) -> {
       let lower = lowered(_, value, game.config.defence_floor)
       let #(game, foe_targets, foe_effect) =
-        affect_table(game, other(side), scope, lower)
+        affect_table(game, other(side), scope, lower, now)
       let #(game, own_targets, own_effect) =
-        affect_table(game, side, scope, lower)
+        affect_table(game, side, scope, lower, now)
       #(game, foe_targets + own_targets, foe_effect +. own_effect)
     }
     card.Launch(_) -> #(game, 1, 0.0)
-    card.Burn(fire) -> burn(game, other(side), fire)
+    card.Burn(fire) -> burn(game, other(side), fire, now)
     card.NoEffect -> #(game, 0, 0.0)
     // Straight to the robot: its own drones don't shield it from itself.
     card.OwnHp -> map_robot(game, side, robot.take_damage(_, value))
@@ -276,7 +283,7 @@ fn resolve(game: Game, side: Side, played: Slot) -> #(Game, Int, Float) {
 /// match (not to the discard pile), and `fire` takes its slot. Fire costs at
 /// least as much to clear as the burnt card did, so burning never makes a
 /// dead slot cheaper to clear.
-fn burn(game: Game, target: Side, fire: Card) -> #(Game, Int, Float) {
+fn burn(game: Game, target: Side, fire: Card, now: Int) -> #(Game, Int, Float) {
   let c = combatant_of(game, target)
   let candidates =
     c.table
@@ -291,8 +298,9 @@ fn burn(game: Game, target: Side, fire: Card) -> #(Game, Int, Float) {
         list.index_map(c.table, fn(s, i) {
           case i == index {
             True ->
-              table.slot(
+              table.placed(
                 card.Card(..fire, cost: float.max(fire.cost, burnt.card.cost)),
+                now,
               )
             False -> s
           }
@@ -308,7 +316,12 @@ fn burn(game: Game, target: Side, fire: Card) -> #(Game, Int, Float) {
 
 /// An attack on `target`: it hits a random one of their drones if they have
 /// any (leftover damage is lost), otherwise the robot.
-fn attack(game: Game, target: Side, value: Float) -> #(Game, Int, Float) {
+fn attack(
+  game: Game,
+  target: Side,
+  value: Float,
+  now: Int,
+) -> #(Game, Int, Float) {
   let c = combatant_of(game, target)
   let drones =
     c.table
@@ -324,7 +337,7 @@ fn attack(game: Game, target: Side, value: Float) -> #(Game, Int, Float) {
       let destroyed = amount.is_zero(left)
       let game = Game(..game, seed:)
       let game = case destroyed {
-        True -> remove_slot(game, target, index)
+        True -> remove_slot(game, target, index, now)
         False ->
           put(
             game,
@@ -348,16 +361,16 @@ fn attack(game: Game, target: Side, value: Float) -> #(Game, Int, Float) {
 
 /// Take a card off `side`'s table (a destroyed drone: it leaves the game)
 /// and refill that slot from the deck.
-fn remove_slot(game: Game, side: Side, index: Int) -> Game {
+fn remove_slot(game: Game, side: Side, index: Int, now: Int) -> Game {
   let c = combatant_of(game, side)
   let #(before, after) = list.split(c.table, index)
   let c = Combatant(..c, table: list.append(before, list.drop(after, 1)))
-  let #(c, seed) = refill(c, index, game.seed)
+  let #(c, seed) = refill(c, index, game.seed, now)
   Game(..game, seed:) |> put(side, c)
 }
 
 /// Drones lowered to 0 by a table effect are destroyed.
-fn clear_destroyed_drones(game: Game, side: Side) -> Game {
+fn clear_destroyed_drones(game: Game, side: Side, now: Int) -> Game {
   let c = combatant_of(game, side)
   let dead =
     c.table
@@ -368,7 +381,7 @@ fn clear_destroyed_drones(game: Game, side: Side) -> Game {
     |> list.reverse
   // Highest index first, so earlier indexes stay valid.
   list.fold(dead, game, fn(game, pair) {
-    remove_slot(game, side, pair.0)
+    remove_slot(game, side, pair.0, now)
     |> log(DroneDestroyed(side, { pair.1 }.card))
   })
 }
@@ -396,6 +409,7 @@ fn affect_table(
   side: Side,
   scope: card.Scope,
   change: fn(Slot) -> Float,
+  now: Int,
 ) -> #(Game, Int, Float) {
   let c = combatant_of(game, side)
   let #(table, targets, seed) = table.affect(c.table, scope, change, game.seed)
@@ -407,31 +421,42 @@ fn affect_table(
   let game =
     Game(..game, seed:)
     |> put(side, Combatant(..c, table:))
-    |> clear_destroyed_drones(side)
+    |> clear_destroyed_drones(side, now)
   #(game, targets, effect)
 }
 
 // DRAWING ---------------------------------------------------------------------
 
-fn fill_table(c: Combatant, size: Int, seed: Seed) -> #(Combatant, Seed) {
+/// Cards are drawn at `now`: a growing card starts growing when it's drawn.
+fn fill_table(
+  c: Combatant,
+  size: Int,
+  seed: Seed,
+  now: Int,
+) -> #(Combatant, Seed) {
   case list.length(c.table) < size {
     False -> #(c, seed)
     True ->
       case draw(c, seed) {
         Ok(#(card, c, seed)) ->
-          Combatant(..c, table: list.append(c.table, [table.slot(card)]))
-          |> fill_table(size, seed)
+          Combatant(..c, table: list.append(c.table, [table.placed(card, now)]))
+          |> fill_table(size, seed, now)
         Error(Nil) -> #(c, seed)
       }
   }
 }
 
 /// Draw into the slot that was just played, so other cards keep their places.
-fn refill(c: Combatant, index: Int, seed: Seed) -> #(Combatant, Seed) {
+fn refill(
+  c: Combatant,
+  index: Int,
+  seed: Seed,
+  now: Int,
+) -> #(Combatant, Seed) {
   case draw(c, seed) {
     Ok(#(card, c, seed)) -> {
       let #(before, after) = list.split(c.table, index)
-      let table = list.flatten([before, [table.slot(card)], after])
+      let table = list.flatten([before, [table.placed(card, now)], after])
       #(Combatant(..c, table:), seed)
     }
     Error(Nil) -> #(c, seed)

@@ -28,8 +28,9 @@ import gleam/list
 import robots/content/enemies.{type Enemy}
 import robots/rules/rng.{type Seed}
 
-/// Rows before the boss.
-pub const rows = 6
+/// Rows before the boss. Twice the first maps' 6, which were short enough
+/// for a tutorial level but over too soon for a real one.
+pub const rows = 12
 
 pub const min_width = 2
 
@@ -39,14 +40,14 @@ pub const max_width = 4
 /// percent.
 pub const strong_percent = 25
 
-/// The rows with repair shops on each level: one along the way, one before
-/// the boss. Levels past the list use the last entry. Rows must be between
-/// 1 and `rows - 1` and not next to each other.
+/// The rows with repair shops on each level: every third row along the
+/// way, and one before the boss, so no path goes more than two battles
+/// without passing a shop row. Levels past the list use the last entry. Rows
+/// must be between 1 and `rows - 1` and not next to each other.
 pub fn shop_rows(level: Int) -> List(Int) {
   case level {
-    1 -> [2, 5]
-    2 -> [3, 5]
-    _ -> [3, 5]
+    1 -> [2, 5, 8, 11]
+    _ -> [3, 6, 9, 11]
   }
 }
 

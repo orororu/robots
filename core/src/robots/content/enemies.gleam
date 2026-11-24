@@ -99,7 +99,7 @@ pub fn freshness(enemy: Enemy) -> Int {
 
 /// Weak robots that fill the levels: they never win, but take some HP.
 pub fn level_monsters() -> List(String) {
-  ["Gnat", "Horsefly", "Wasp"]
+  ["Junk fly", "Bottle fly", "Wasp"]
 }
 
 /// "Broken rusty brawler": the most impactful card attribute across all
@@ -130,16 +130,17 @@ pub fn levels() -> List(Level) {
   [
     Level(
       level: 1,
+      // The Dump: broken scrap robots, melee and rattling guns.
       enemies: [
         rusty_brawler(),
         scrap_gunner(),
         rust_bucket(),
         grinder(),
-        gnat(),
-        horsefly(),
+        junk_fly(),
+        bottle_fly(),
       ],
-      strong: [rocket_turtle(), firebug(), shieldwall()],
-      boss: foreman(),
+      strong: [hubcap_knight(), incinerator(), foreman()],
+      boss: compactor(),
     ),
     Level(
       level: 2,
@@ -243,9 +244,9 @@ pub fn grinder() -> Enemy {
 
 /// Mosquitoes are level monsters, not duelists: they never win, but every
 /// one takes a bite out of your HP.
-pub fn gnat() -> Enemy {
+pub fn junk_fly() -> Enemy {
   Enemy(
-    "Gnat",
+    "Junk fly",
     "A buzzing little flyer with a machine gun. Hard to hit, easy to break.",
     c.mosquito(),
     [
@@ -258,20 +259,56 @@ pub fn gnat() -> Enemy {
   )
 }
 
-pub fn horsefly() -> Enemy {
+pub fn bottle_fly() -> Enemy {
   Enemy(
-    "Horsefly",
+    "Bottle fly",
     "Darts in to punch, then hovers out of reach.",
     c.mosquito(),
     [c.fist(), c.hydraulics(), c.servo_pack(), c.plating()],
   )
 }
 
-/// Level 1 boss.
+/// The Dump's boss: a garbage compactor. Its Compresses grow slowly on the
+/// table and hit very hard; shields against blows (Buckler, Kinetic shield)
+/// keep knocking them back down. Its own shields stop bullets and beams.
+pub fn compactor() -> Enemy {
+  Enemy(
+    "Compactor",
+    "A garbage compactor. Its crusher plate closes slowly: knock it back with shields, or be flattened.",
+    c.tank(),
+    [
+      c.crusher_plate(),
+      c.kinetic_shield(),
+      c.deflector(),
+      c.cell(),
+      c.heavy_plating(),
+      c.plating(),
+    ],
+  )
+}
+
+/// Burns trash, and anything parried to nothing.
+pub fn incinerator() -> Enemy {
+  Enemy(
+    "Incinerator",
+    "Burns your parried cards, and punches the rest.",
+    c.brute(),
+    [
+      c.flamethrower(),
+      c.fist(),
+      c.buckler(),
+      c.deflector(),
+      c.cell(),
+      c.heavy_plating(),
+    ],
+  )
+}
+
+/// A level 1 strong enemy (it was the boss before the Compactor).
 pub fn foreman() -> Enemy {
   Enemy(
     "Foreman",
-    "The scrapyard boss: a saw arm, kinetic and energy shields, heavy plating.",
+    "The dump's foreman: a saw arm, kinetic and energy shields, heavy plating.",
     c.frame(),
     [
       c.saw_arm(),
@@ -380,10 +417,10 @@ pub fn hailstorm() -> Enemy {
 }
 
 /// Boosted parries: blocks melee builds cold, then saws.
-pub fn shieldwall() -> Enemy {
+pub fn hubcap_knight() -> Enemy {
   Enemy(
-    "Shieldwall",
-    "Two bucklers, boosted to stop any blow, behind a saw and a fist.",
+    "Hubcap knight",
+    "Two hubcap bucklers, boosted to stop any blow, behind a saw and a fist.",
     c.brute(),
     [
       c.fist(),

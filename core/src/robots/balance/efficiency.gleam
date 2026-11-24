@@ -126,11 +126,12 @@ pub fn rating(card: Card) -> Float {
     Launch(drone) -> full_value(drone) /. total_cost(card)
     Opponent(All(_)) | Self(All(_)) ->
       card.value *. expected_all_targets /. card.cost
-    _ -> card.value /. card.cost
+    // A growing card (Compress) is worth what it grows into.
+    _ -> full_value(card) /. card.cost
   }
 }
 
-/// A drone's value once fully grown.
+/// A growing card's value once fully grown (a drone, a Compress).
 fn full_value(drone: Card) -> Float {
   case card.growth(drone) {
     Ok(#(_, cap)) -> cap

@@ -144,7 +144,9 @@ enemies for each level.
   - Level 3: about 60%.
   - Each level's **strong enemies** are a step above its normal ones (level
     1's strong enemies are level 2's normal ones), and the **boss** another
-    step: Foreman (~50%), Warhead (~70%), Siege tank (the top Cannon tank).
+    step: Warhead (~70%), Siege tank (the top Cannon tank). Level 1's
+    boss, the Compactor, is a themed robot with a boss-only weapon rather
+    than a tournament build (see docs/LEVELS.md).
 - **Early enemies are worn down** (`enemies.conditions`), so a fight costs
   little HP; HP doesn't come back between nodes. When an enemy is met
   (`spawn`), every card gets an attribute for its **condition step**: the
@@ -176,17 +178,20 @@ enemies for each level.
 
 | Level | Enemies | Strong | Boss |
 |---|---|---|---|
-| 1 | Rusty brawler, Scrap gunner, Rust bucket, Grinder, Gnat, Horsefly | Rocket turtle, Firebug, Shieldwall | Foreman |
+| 1 (Dump) | Rusty brawler, Scrap gunner, Rust bucket, Grinder, Junk fly, Bottle fly | Hubcap knight, Incinerator, Foreman | Compactor |
 | 2 | Rocket turtle, Firebug, Beam knight, Smoke ripper, Wasp, Hailstorm | Iron grinder, Twin beam | Warhead |
 | 3 | Iron grinder, Twin beam, Gunship, Flare | Bulwark, Hornet, Bastion | Siege tank |
 
-- **Level monsters:** Gnat, Horsefly and Wasp fly Mosquitoes. They are not
+- **Level themes:** each level has a theme, its robots fit it, and its boss
+  has a weapon of its own. Level 1 is the **Dump**; themes for the other
+  levels are ideas so far. See docs/LEVELS.md.
+- **Level monsters:** Junk fly, Bottle fly and Wasp fly Mosquitoes. They are not
   duelists and never win against a starter, but each takes a bite out of
   your HP. They arrive `monster_freshness` (2) condition steps less worn
   than other enemies, so they bite as hard as ordinary ones: the Tinker
-  loses 17-18% of its HP to a Gnat or Horsefly on level 1, 13% to a Wasp
+  loses 17-19% of its HP to a Junk fly or Bottle fly on level 1, 13% to a Wasp
   on level 2 (8-9% when they were as worn as the rest). Other robots have one strategy
-  each: Hailstorm raises all its guns with Salvos, Shieldwall stops melee
+  each: Hailstorm raises all its guns with Salvos, Hubcap knight stops melee
   with boosted parries, Bastion aims its cannon behind a boosted shield.
 - The report's "met" and "HP lost" columns play the Tinker against each
   enemy as it's met in a run (worn down by its condition).
@@ -247,19 +252,22 @@ plate on a battered robot would also count as battered.
 
 - **Terms:** a **level** is one whole map; a run goes level 1, 2, 3... A
   node's **row** is how deep it is in its level's map: row 0 is the start,
-  row 6 the boss.
-- Each level's map is **6 rows of 2-4 nodes, then the boss** alone in a
+  row 12 the boss.
+- Each level's map is **12 rows of 2-4 nodes, then the boss** alone in a
   last row. The player starts at any node of row 0 and moves one row at a
   time along links. **Links never cross;** every node has a way in and a
   way on, so every path ends at the boss.
 - **Row 0** is ordinary enemies. Other rows are enemies and **strong
   enemies** (25%, not before row 2).
 - **Repair shops** stand only on the level's **shop rows** (`shop_rows`):
-  level 1 rows 2 and 5, levels 2 and 3 rows 3 and 5. On a shop row, one or
+  level 1 rows 2, 5, 8 and 11, other levels rows 3, 6, 9 and 11. On a shop row, one or
   more nodes are shops but never all of them, so some branches pass by
   with a battle. Shop rows are never next to each other, so two shops
-  never follow one another. Row 5 often offers the choice: repair before
+  never follow one another. Row 11 often offers the choice: repair before
   the boss, or one more fight.
+- **Length:** levels were 6 rows at first: over too soon for a real level,
+  but about right for a tutorial level later. At 12 rows, shops every
+  third row keep stretches without a repair as short as before.
 - Enemies are spawned when the map is made, so the map can show who waits
   where (name and description).
 - The client draws the map: E enemy, S strong enemy, R repair shop, B boss;
@@ -293,11 +301,17 @@ plate on a battered robot would also count as battered.
 
 ### Autopilot (`gleam run -m run`)
 
-Plays whole runs with the starter alone: random paths, AI battles, repairs
-when affordable, broken plates swapped for looted ones; no buying, no new
-robots. With worn-down early enemies, all HP halved and the level
-monsters added (40 runs): **50% reach level 2**, 3% level 3; 6.6 battles per
-run. (Before the level monsters: 33% reached level 2; with them as worn as
+Plays whole runs with the starter alone: random paths, but heading for a
+repair shop when it has 20 credits or more; AI battles; repairs what it can
+afford (the whole robot, else part by part); broken plates swapped for
+looted ones; no buying, no new robots. With 12-row levels and the Dump
+roster (40 runs): **40% reach level 2**, none level 3; 9.5 battles per run;
+the Compactor ends the most runs, and the bosses win 30% of their fights.
+The same autopilot on 6-row levels: 50% reach level 2, 5% level 3, 7.0
+battles per run. (Earlier, with 6-row levels and an autopilot that walked
+past shops and repaired only whole robots: with worn-down early enemies,
+all HP halved and the level monsters added: 50% reach level 2, 3% level 3;
+6.6 battles per run.) (Before the level monsters: 33% reached level 2; with them as worn as
 the rest: 73%.) Level 2 enemies (Firebug, Beam
 knight, Rocket turtle) end most runs: the starter alone isn't meant to get
 far, and players will have second robots and bought parts. (Before enemies

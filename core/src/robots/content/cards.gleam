@@ -193,6 +193,24 @@ pub fn launch_drone() -> Card {
   )
 }
 
+// CRUSHER PLATE (the Compactor's weapon, boss only) ----------------------------
+
+/// The Compactor's slow, devastating blow. It grows while it waits on the
+/// table (5 to 50 over about 40 s, at display scale), like a drone, but it's
+/// an ordinary melee attack: Bucklers, Kinetic shields and Jumps lower it.
+/// Lowered, it keeps growing from there, so the fight is a timer the
+/// opponent must keep resetting. Rated by its full value, above the damage
+/// band: it's exposed to defence the whole time it grows.
+pub fn compress() -> Card {
+  Card(..attack("Compress", [Melee, Kinetic], 2.0, 0.5), traits: [
+    card.Grows(per_second: 0.11, cap: 5.0),
+  ])
+}
+
+pub fn shove() -> Card {
+  attack("Shove", [Melee, Kinetic], 0.7, 0.6)
+}
+
 // FIRE (Flamethrower) ---------------------------------------------------------
 
 pub fn scorch() -> Card {

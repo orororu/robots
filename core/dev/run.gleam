@@ -1,8 +1,9 @@
 //// Runs on autopilot: prints a sample map per level, then plays whole runs
 //// and reports how far they get.
 ////
-//// The autopilot picks paths at random, fights every battle with the AI
-//// (`brain.human` on both sides), repairs at shops when it can afford it,
+//// The autopilot picks paths at random (but heads for a repair shop when
+//// it has money to spend), fights every battle with the AI
+//// (`brain.human` on both sides), repairs at shops what it can afford,
 //// and swaps broken plates for looted armor. It never buys, builds new
 //// robots or changes weapons, so it's a floor for what a player can do.
 ////
@@ -26,6 +27,9 @@ import robots/run/map.{type Map}
 import robots/run/state.{type Run}
 
 const runs = 40
+
+/// Enough money to make a detour to a repair shop worth it.
+const shop_money = 20
 
 /// Stop after beating this level's boss.
 const last_level = 3
@@ -104,7 +108,14 @@ fn play(
     _ if run.level > last_level -> #(ending(run, True, battles, ""), fights)
     state.Over -> #(ending(run, False, battles, last_enemy(run)), fights)
     state.Choosing -> {
+      // Like a player: with money to spend, head for a repair shop when
+      // one is on offer; otherwise any way on.
       let options = state.choices(run)
+      let shops = list.filter(options, fn(n) { n.event == map.RepairShop })
+      let options = case shops, run.money >= shop_money {
+        [_, ..], True -> shops
+        _, _ -> options
+      }
       let #(i, seed) = rng.int_below(seed, list.length(options))
       let assert [pick, ..] = list.drop(options, i)
       let assert Ok(run) = state.go(run, pick.id)
@@ -112,10 +123,20 @@ fn play(
     }
     state.Repairing(_) -> {
       let run =
-        list.index_fold(run.robots, run, fn(run, _, i) {
+        list.index_fold(run.robots, run, fn(run, bot, i) {
           case state.repair(run, i) {
             Ok(repaired) -> repaired
-            Error(_) -> run
+            // Can't afford it all: repair what it can, part by part (plates
+            // first, they take the damage), then the chassis.
+            Error(_) ->
+              list.index_map(bot.parts, fn(_, j) { state.RepairPart(i, j) })
+              |> list.append([state.RepairChassis(i)])
+              |> list.fold(run, fn(run, target) {
+                case state.repair_one(run, target) {
+                  Ok(repaired) -> repaired
+                  Error(_) -> run
+                }
+              })
           }
         })
       let assert Ok(run) = state.leave(run)
@@ -243,6 +264,12 @@ fn report(results: List(#(Ending, List(Fight)))) -> Nil {
   io.println(
     "  battles per run: "
     <> float.to_string(float.to_precision(float.sum(battles) /. total, 1)),
+  )
+  let money = list.map(finished, fn(r) { int.to_float(r.money) })
+  io.println(
+    "  money left at the end: "
+    <> int.to_string(float.round(float.sum(money) /. total))
+    <> " (average)",
   )
   list.each([map.Normal, map.Strong, map.Boss], fn(tier) {
     let of_tier = list.filter(fights, fn(f) { f.tier == tier })

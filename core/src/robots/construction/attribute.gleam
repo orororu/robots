@@ -141,7 +141,29 @@ pub fn apply(attribute: Attribute, c: Card) -> Card {
       Card(..c, value: c.value *. ratio, cost:)
     }
   }
-  Card(..changed, name: attribute.name <> " " <> c.name)
+  Card(
+    ..changed,
+    name: attribute.name <> " " <> c.name,
+    traits: scale_growth(c, changed.value),
+  )
+}
+
+/// A growing card's growth scales with its value: a Broken Compress grows
+/// to a fifth of a sound one.
+fn scale_growth(c: Card, value: Float) -> List(card.Trait) {
+  case c.value >. 0.0 {
+    False -> c.traits
+    True -> {
+      let ratio = value /. c.value
+      list.map(c.traits, fn(t) {
+        case t {
+          card.Grows(per_second:, cap:) ->
+            card.Grows(per_second: per_second *. ratio, cap: cap *. ratio)
+          other -> other
+        }
+      })
+    }
+  }
 }
 
 // WORTH AND IMPACT ------------------------------------------------------------

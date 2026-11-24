@@ -152,7 +152,11 @@ after playtesting:
   them), or a **defence floor** (`Config.defence_floor`, 0 = off): defence
   can't lower a card below a share of its printed value. A 25% floor cut
   stalls to ~2% and kept the starters at 49%.
-- **Defence lowers attack cards only.**
+- **Defence lowers whatever its scope's tags select.** Targeting is by tags
+  only; the engine has no attack-only rule. Most defences select `attack`
+  cards, Shoot down selects `drone` cards, and a defence selecting
+  `defence` cards (an acid that corrodes shields, see docs/LEVELS.md) would
+  work too.
 - **Buffs raise one random matching card** on your own table. No maximum value.
 - **All tags are visible** for now.
 - The old robot **Shield, Repair and Charge effects are removed**. Robot HP stays.

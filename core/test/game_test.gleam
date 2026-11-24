@@ -395,6 +395,46 @@ pub fn ai_waits_for_a_full_drone_even_under_threat_test() {
   assert brain.choose(low, P1, 0) == Ok(0)
 }
 
+// GROWING ATTACKS (Compress) --------------------------------------------------
+
+fn shown(value: Float) -> Int {
+  scale.value(scale.default(), value)
+}
+
+pub fn a_drawn_growing_card_starts_growing_when_drawn_test() {
+  // Playing the Laser at 60 s draws a Compress: it starts small, not grown
+  // for the whole match so far.
+  let g = arena([laser()], [laser()])
+  let g = Game(..g, p1: Combatant(..g.p1, deck: [cards.compress()]))
+  let assert Ok(g) = game.update(g, PlayCard(P1, 0, 60_000))
+  let assert [drawn] = g.p1.table
+  assert shown(table.value_at(drawn, 60_000)) == 5
+  assert shown(table.value_at(drawn, 70_000)) == 16
+}
+
+pub fn a_lowered_compress_keeps_growing_test() {
+  // At 20 s the Compress has grown from 5 to 27; a Parry (8) takes it to 19,
+  // and it keeps growing from there.
+  let g =
+    arena([], [parry()])
+    |> with_tables([table.placed(cards.compress(), 0)], [slot(parry())])
+  let assert Ok(g) = game.update(g, PlayCard(P2, 0, 20_000))
+  assert values(g.p1) == [19]
+  let assert [compress] = g.p1.table
+  assert shown(table.value_at(compress, 30_000)) == 30
+}
+
+pub fn ai_lets_a_compress_grow_instead_of_clearing_it_test() {
+  // Energy is full and nothing else is playable: still, the AI doesn't
+  // throw a growing Compress away, it waits for it to grow.
+  let g =
+    arena([], [laser()])
+    |> with_tables([table.placed(cards.compress(), 0)], [slot(laser())])
+  assert brain.choose(g, P1, 0) == Error(Nil)
+  // Fully grown (50 after about 41 s): crush.
+  assert brain.choose(g, P1, 45_000) == Ok(0)
+}
+
 // ENERGY AND ERRORS -----------------------------------------------------------
 
 pub fn not_enough_energy_is_rejected_test() {

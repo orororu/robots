@@ -4,7 +4,8 @@ A real-time card game: build robots, install components (each adds cards to your
 deck), and play cards from a 4-card table visible to both sides, using energy
 that accumulates over time. Rules: [docs/RULES.md](docs/RULES.md).
 Robot builder: [docs/BUILDER.md](docs/BUILDER.md). Roguelike runs (draft):
-[docs/RUN.md](docs/RUN.md).
+[docs/RUN.md](docs/RUN.md). Level themes, robots and bosses:
+[docs/LEVELS.md](docs/LEVELS.md).
 
 ## Layout
 

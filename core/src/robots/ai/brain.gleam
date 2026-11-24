@@ -110,7 +110,9 @@ type Choice {
     cost: Float,
     score: Float,
     affordable: Bool,
-    drone: Bool,
+    /// A drone or another growing card (a Compress): never dead weight,
+    /// even while it waits to grow.
+    grows: Bool,
     /// Can never do anything in this match (e.g. a Parry against a robot
     /// with no melee attacks at all).
     hopeless: Bool,
@@ -135,7 +137,7 @@ pub fn choose(state: Game, side: Side, now: Int) -> Result(Int, Nil) {
         cost: s.card.cost,
         score: score(state, side, s),
         affordable: amount.at_least(available, s.card.cost),
-        drone: table.is_drone(s),
+        grows: table.is_drone(s) || card.growth(s.card) != Error(Nil),
         hopeless: hopeless(state, side, s.card),
         self_damage: case s.card.target {
           card.OwnHp -> s.value
@@ -156,7 +158,7 @@ pub fn choose(state: Game, side: Side, now: Int) -> Result(Int, Nil) {
   // Cards that do nothing now take table slots that fresh draws could use.
   // Clear one that can never matter, or one of several that can't now (one
   // is kept, in case the opponent plays something it answers).
-  let dead = list.filter(options, fn(o) { o.score <=. 0.0 && !o.drone })
+  let dead = list.filter(options, fn(o) { o.score <=. 0.0 && !o.grows })
   let clutter = case list.length(dead) >= 2 {
     True -> dead
     False -> list.filter(dead, fn(o) { o.hopeless })
@@ -185,16 +187,16 @@ pub fn choose(state: Game, side: Side, now: Int) -> Result(Int, Nil) {
     _, True ->
       case most_efficient(list.filter(useful, fn(o) { o.affordable })) {
         Ok(o) -> Ok(o.slot)
-        // A drone is never dead weight: let it keep growing. Malfunctions
-        // go first.
+        // A growing card is never dead weight: let it keep growing.
+        // Malfunctions go first.
         Error(Nil) ->
           cheapest(
             list.filter(options, fn(o) {
-              o.affordable && !o.drone && malfunction(o)
+              o.affordable && !o.grows && malfunction(o)
             }),
           )
           |> result.lazy_or(fn() {
-            cheapest(list.filter(options, fn(o) { o.affordable && !o.drone }))
+            cheapest(list.filter(options, fn(o) { o.affordable && !o.grows }))
           })
       }
     // Save up for the best card.
@@ -233,7 +235,8 @@ fn score(state: Game, side: Side, slot: Slot) -> Float {
   case slot.card.target {
     card.OpponentHp ->
       case still_growing(slot), foe_drones {
-        // A drone waits until fully grown, unless it would win the match.
+        // A growing card waits until fully grown, unless it would win the
+        // match.
         True, [] if slot.value >=. foe.robot.hp -> finishing_blow
         True, _ -> 0.0
         // Their drones soak up attacks: expect to hit one of them.

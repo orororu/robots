@@ -14,17 +14,18 @@ import robots/rules/rng.{type Seed}
 
 pub type Slot {
   /// `value` is the card's value at time `since` (ms); `card.value` is its
-  /// printed value. Only growing cards (drones) change with time; see
-  /// `value_at`.
+  /// printed value. Only growing cards (drones, a Compress) change with
+  /// time; see `value_at`.
   Slot(card: Card, value: Float, since: Int)
 }
 
-/// A card drawn onto the table.
+/// A card on the table since time 0 (tests).
 pub fn slot(card: Card) -> Slot {
   Slot(card:, value: card.value, since: 0)
 }
 
-/// A card put on the table at a known time (a launched drone).
+/// A card put on the table at time `at` (drawn, or a launched drone). A
+/// growing card starts growing then.
 pub fn placed(card: Card, at: Int) -> Slot {
   Slot(card:, value: card.value, since: at)
 }

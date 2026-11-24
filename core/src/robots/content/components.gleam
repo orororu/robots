@@ -130,6 +130,18 @@ pub fn flamethrower() -> Component {
   ])
 }
 
+/// The Compactor's weapon (boss only: not in `all`, so it never drops and
+/// the tournament doesn't build with it). Two slowly growing Compresses and
+/// two Shoves to keep the table moving. Heavy: needs a Tank's mount.
+pub fn crusher_plate() -> Component {
+  part.new("Crusher plate", part.Weapon, 5.0, [
+    cards.compress(),
+    cards.compress(),
+    cards.shove(),
+    cards.shove(),
+  ])
+}
+
 /// A specialist part for melee builds fighting range builds: Smoke blinds
 /// both sides' range attacks.
 pub fn smoke_launcher() -> Component {

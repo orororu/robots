@@ -1,6 +1,8 @@
+import gleam/float
 import gleam/list
 import robots/construction/attribute
 import robots/construction/part
+import robots/content/cards
 import robots/content/components
 import robots/content/enemies
 import robots/rules/card.{type Card}
@@ -106,10 +108,10 @@ pub fn early_enemies_are_worn_down_test() {
 }
 
 pub fn level_monsters_arrive_less_worn_test() {
-  // A Gnat at step 0 is built like any other robot at a later step.
-  let gnat = enemies.gnat()
-  let plain = enemies.Enemy(..gnat, name: "Not a monster")
-  let #(met, _) = enemies.spawn(gnat, 1, 0, rng.new(5))
+  // A Junk fly at step 0 is built like any other robot at a later step.
+  let fly = enemies.junk_fly()
+  let plain = enemies.Enemy(..fly, name: "Not a monster")
+  let #(met, _) = enemies.spawn(fly, 1, 0, rng.new(5))
   let #(fresher, _) =
     enemies.spawn(plain, 1, enemies.monster_freshness, rng.new(5))
   assert met.parts == fresher.parts
@@ -122,8 +124,8 @@ pub fn an_enemy_name_is_its_top_attribute_and_roster_name_test() {
   let gun = part.attach(gun, 4, attribute.broken())
   let e = enemies.Enemy(..e, parts: [buckler, buckler2, gun, ..rest])
   assert enemies.name(e) == "Broken scrap gunner"
-  let #(gnat, _) = enemies.spawn(enemies.gnat(), 1, 0, rng.new(3))
-  assert gnat.name == "Damaged gnat"
+  let #(fly, _) = enemies.spawn(enemies.junk_fly(), 1, 0, rng.new(3))
+  assert fly.name == "Damaged junk fly"
 }
 
 pub fn armor_and_batteries_have_their_own_words_test() {
@@ -138,4 +140,12 @@ pub fn armor_and_batteries_have_their_own_words_test() {
     == components.plating()
   let battery = part.with(components.battery(), part.overclocked())
   assert part.display_name(battery) == "High-capacity battery"
+}
+
+pub fn attributes_scale_a_growing_cards_growth_test() {
+  // A Broken Compress grows to a fifth of a sound one, at a fifth the speed.
+  let broken = attribute.apply(attribute.broken(), cards.compress())
+  let assert Ok(#(per_second, cap)) = card.growth(broken)
+  assert float.loosely_equals(per_second, 0.022, 0.0001)
+  assert float.loosely_equals(cap, 1.0, 0.0001)
 }
