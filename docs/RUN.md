@@ -166,24 +166,30 @@ enemies for each level.
   (Tinker vs Scrapper: 48 s instead of about 2 minutes), but each fight
   takes a bigger share of a robot's HP: card values stayed. Easier fights
   will come from weaker enemy robots, not from enemy-only numbers.
-- **Enemy names come from their parts.** When an enemy is met (`spawn`), its
-  parts get card attributes by its condition (above). Its name is its two
-  most impactful attributes plus the crew name of its main weapon (the most
-  valuable one): "Broken machine gunner", "Strong rapid rocketeer".
-  - Crew names: Laser → lancer, Saw arm → grinder, Fist → brawler, Cannon →
-    cannoneer, Machine gun → machine gunner, Missile rack → rocketeer, Drone
-    bay → drone master, Flamethrower → firebug.
-  - The roster's own names (Rusty brawler...) only appear in reports; the
-    description still tells the player the build style.
+- **Enemy names:** when an enemy is met (`spawn`), its parts get card
+  attributes by its condition (above), and its name is its roster name with
+  its most impactful attribute in front: "Broken rusty brawler", "Damaged
+  twin beam". Each name is unique, and the description tells the build style.
 - `gleam run -m enemies` plays the starters against every enemy. Matchups
   stay rock-paper-scissors: Scrapper crushes Twin beam but loses to Warhead,
   Tinker the other way round.
 
 | Level | Enemies | Strong | Boss |
 |---|---|---|---|
-| 1 | Rusty brawler, Scrap gunner, Rust bucket, Grinder | Rocket turtle, Firebug | Foreman |
-| 2 | Rocket turtle, Firebug, Beam knight, Smoke ripper | Iron grinder, Twin beam | Warhead |
-| 3 | Iron grinder, Twin beam, Gunship, Flare | Bulwark, Hornet | Siege tank |
+| 1 | Rusty brawler, Scrap gunner, Rust bucket, Grinder, Gnat, Horsefly | Rocket turtle, Firebug, Shieldwall | Foreman |
+| 2 | Rocket turtle, Firebug, Beam knight, Smoke ripper, Wasp, Hailstorm | Iron grinder, Twin beam | Warhead |
+| 3 | Iron grinder, Twin beam, Gunship, Flare | Bulwark, Hornet, Bastion | Siege tank |
+
+- **Level monsters:** Gnat, Horsefly and Wasp fly Mosquitoes. They are not
+  duelists and never win against a starter, but each takes a bite out of
+  your HP. They arrive `monster_freshness` (2) condition steps less worn
+  than other enemies, so they bite as hard as ordinary ones: the Tinker
+  loses 17-18% of its HP to a Gnat or Horsefly on level 1, 13% to a Wasp
+  on level 2 (8-9% when they were as worn as the rest). Other robots have one strategy
+  each: Hailstorm raises all its guns with Salvos, Shieldwall stops melee
+  with boosted parries, Bastion aims its cannon behind a boosted shield.
+- The report's "met" and "HP lost" columns play the Tinker against each
+  enemy as it's met in a run (worn down by its condition).
 
 ### Shop and upgrades
 
@@ -289,9 +295,10 @@ plate on a battered robot would also count as battered.
 
 Plays whole runs with the starter alone: random paths, AI battles, repairs
 when affordable, broken plates swapped for looted ones; no buying, no new
-robots. With worn-down early enemies and all HP halved (40 runs): **33%
-reach level 2**, none get further; 5.7 battles per run. Weaker enemy
-robots are to come. Level 2 enemies (Firebug, Beam
+robots. With worn-down early enemies, all HP halved and the level
+monsters added (40 runs): **50% reach level 2**, 3% level 3; 6.6 battles per
+run. (Before the level monsters: 33% reached level 2; with them as worn as
+the rest: 73%.) Level 2 enemies (Firebug, Beam
 knight, Rocket turtle) end most runs: the starter alone isn't meant to get
 far, and players will have second robots and bought parts. (Before enemies
 were worn down: 5% reached level 2.)
@@ -301,7 +308,8 @@ were worn down: 5% reached level 2.)
 1. **Money per battle:** placeholders are 20/40/100 (see Run state).
 2. **Upgrades:** how much better is an upgrade card (e.g. +20% value)? Which
    card gets copied? How many upgrades per part, and at what price?
-3. **Selling:** can parts be sold, and for what share of their price?
+3. **Selling:** spare parts sell for half their price at repair shops. Is
+   that the right share?
 4. **Enemy loot and wear:** do enemies arrive damaged on later nodes? Does
    their loot come from their own parts (with the attributes in their name)?
 5. **More enemy robots:** the roster comes from duel builds (the

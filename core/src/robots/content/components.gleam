@@ -17,6 +17,7 @@ pub fn all() -> List(Component) {
     buckler(),
     targeting_computer(),
     hydraulics(),
+    ballistic_computer(),
     shield_booster(),
     gyroscope(),
     cannon(),
@@ -39,7 +40,7 @@ pub fn all() -> List(Component) {
 }
 
 pub fn chassis() -> List(Chassis) {
-  [frame(), brute(), tank(), scout()]
+  [frame(), brute(), tank(), scout(), mosquito()]
 }
 
 // DAMAGE ----------------------------------------------------------------------
@@ -200,6 +201,17 @@ pub fn targeting_computer() -> Component {
   ])
 }
 
+/// For gun builds: raises machine gun and cannon attacks. Narrower than
+/// the Targeting computer (no missiles), but its Salvo raises every gun.
+pub fn ballistic_computer() -> Component {
+  part.new("Ballistic computer", part.Utility, 1.0, [
+    cards.quick_sight(),
+    cards.sight(),
+    cards.sight(),
+    cards.salvo(),
+  ])
+}
+
 pub fn hydraulics() -> Component {
   part.new("Hydraulics", part.Utility, 1.0, [
     cards.twitch(),
@@ -334,6 +346,27 @@ pub fn scout() -> Chassis {
     capacity: 12.0,
     weapon_mounts: [2.0, 2.0, 2.0, 2.0],
     cards: [cards.jump(), cards.jump(), cards.dodge(), cards.dodge()],
+    wear: 0.0,
+  )
+}
+
+/// A tiny flyer: one small weapon, very little HP and capacity, and a
+/// different dodge for every kind of attack. Lasers are its weakness: only
+/// Dodge works against them.
+pub fn mosquito() -> Chassis {
+  Chassis(
+    "Mosquito",
+    hp: 2.5,
+    capacity: 7.0,
+    weapon_mounts: [2.0],
+    cards: [
+      cards.hover(),
+      cards.barrel_roll(),
+      cards.barrel_roll(),
+      cards.zigzag(),
+      cards.dodge(),
+      cards.dodge(),
+    ],
     wear: 0.0,
   )
 }

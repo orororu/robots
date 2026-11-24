@@ -4,15 +4,13 @@
 //// cards get attributes by its **condition** (see `conditions`): early on,
 //// enemies are rusty, every card Broken, Damaged or Weak, so fights cost
 //// the player little HP; later they roll from the level's loot chart like
-//// loot does. Its name comes from its parts: the main weapon's crew name plus the two most impactful
-//// attributes, e.g. "Broken machine gunner". So a name says what the enemy
-//// carries. The roster's own names ("Rusty brawler") are for reports. Builds come from the build
+//// loot does. Its name is its roster name with its most impactful
+//// attribute in front, e.g. "Broken rusty brawler". Builds come from the build
 //// tournament, climbing its ranking level by level: level 1 enemies score
 //// about 20-30% there, level 2 about 40-50%, level 3 about 60%. Each level's
 //// strong enemies are a step above its normal ones; bosses another step.
 //// `gleam run -m enemies` checks each against the starter robots.
 
-import gleam/int
 import gleam/list
 import gleam/string
 import robots/construction/attribute
@@ -22,7 +20,6 @@ import robots/construction/robot.{type Robot}
 import robots/content/components as c
 import robots/rules/rng.{type Seed}
 import robots/run/loot
-import robots/run/price
 
 pub type Enemy {
   Enemy(
@@ -75,6 +72,7 @@ pub fn spawn(
   seed: Seed,
 ) -> #(Enemy, Seed) {
   let chart = loot.chart(level)
+  let step = step + freshness(enemy)
   let condition = list.drop(conditions(), step) |> list.first
   let #(seed, parts) =
     list.map_fold(enemy.parts, seed, fn(seed, p) {
@@ -88,45 +86,36 @@ pub fn spawn(
   #(Enemy(..spawned, name: name(spawned)), seed)
 }
 
-/// "Broken rapid machine gunner": the two most impactful card attributes
-/// across all parts, then the crew name of the main weapon.
+/// How many condition steps fresher than usual an enemy arrives. Level
+/// monsters can't win anyway, so they come less worn, to bite harder.
+pub const monster_freshness = 2
+
+pub fn freshness(enemy: Enemy) -> Int {
+  case list.contains(level_monsters(), enemy.name) {
+    True -> monster_freshness
+    False -> 0
+  }
+}
+
+/// Weak robots that fill the levels: they never win, but take some HP.
+pub fn level_monsters() -> List(String) {
+  ["Gnat", "Horsefly", "Wasp"]
+}
+
+/// "Broken rusty brawler": the most impactful card attribute across all
+/// parts, then the roster name. (Call it on a roster entry, not on an
+/// already spawned enemy.)
 pub fn name(enemy: Enemy) -> String {
   let attributes =
     enemy.parts
     |> list.flat_map(part.attached)
     |> attribute.ranked
-    |> list.take(2)
-  list.append(attributes, [crew(main_weapon(enemy))])
-  |> string.join(" ")
-  |> string.lowercase
-  |> capitalise
-}
-
-/// The weapon worth the most (before attributes), or the chassis if none.
-fn main_weapon(enemy: Enemy) -> String {
-  let weapons =
-    enemy.parts
-    |> list.filter(fn(p) { p.kind == part.Weapon })
-    |> list.map(fn(p) { part.Component(..p, attributes: []) })
-    |> list.sort(fn(a, b) { int.compare(price.of(b), price.of(a)) })
-  case weapons {
-    [w, ..] -> w.name
-    [] -> enemy.chassis.name
-  }
-}
-
-/// Who operates each weapon.
-pub fn crew(weapon: String) -> String {
-  case weapon {
-    "Laser" -> "Lancer"
-    "Saw arm" -> "Grinder"
-    "Fist" -> "Brawler"
-    "Cannon" -> "Cannoneer"
-    "Machine gun" -> "Machine gunner"
-    "Missile rack" -> "Rocketeer"
-    "Drone bay" -> "Drone master"
-    "Flamethrower" -> "Firebug"
-    other -> other
+    |> list.take(1)
+  case attributes {
+    [] -> enemy.name
+    [top] ->
+      capitalise(string.lowercase(top) <> " " <> string.lowercase(enemy.name))
+    _ -> enemy.name
   }
 }
 
@@ -141,20 +130,34 @@ pub fn levels() -> List(Level) {
   [
     Level(
       level: 1,
-      enemies: [rusty_brawler(), scrap_gunner(), rust_bucket(), grinder()],
-      strong: [rocket_turtle(), firebug()],
+      enemies: [
+        rusty_brawler(),
+        scrap_gunner(),
+        rust_bucket(),
+        grinder(),
+        gnat(),
+        horsefly(),
+      ],
+      strong: [rocket_turtle(), firebug(), shieldwall()],
       boss: foreman(),
     ),
     Level(
       level: 2,
-      enemies: [rocket_turtle(), firebug(), beam_knight(), smoke_ripper()],
+      enemies: [
+        rocket_turtle(),
+        firebug(),
+        beam_knight(),
+        smoke_ripper(),
+        wasp(),
+        hailstorm(),
+      ],
       strong: [iron_grinder(), twin_beam()],
       boss: warhead(),
     ),
     Level(
       level: 3,
       enemies: [iron_grinder(), twin_beam(), gunship(), flare()],
-      strong: [bulwark(), hornet()],
+      strong: [bulwark(), hornet(), bastion()],
       boss: siege_tank(),
     ),
   ]
@@ -238,6 +241,32 @@ pub fn grinder() -> Enemy {
   )
 }
 
+/// Mosquitoes are level monsters, not duelists: they never win, but every
+/// one takes a bite out of your HP.
+pub fn gnat() -> Enemy {
+  Enemy(
+    "Gnat",
+    "A buzzing little flyer with a machine gun. Hard to hit, easy to break.",
+    c.mosquito(),
+    [
+      c.machine_gun(),
+      c.ballistic_computer(),
+      c.gyroscope(),
+      c.cell(),
+      c.plating(),
+    ],
+  )
+}
+
+pub fn horsefly() -> Enemy {
+  Enemy(
+    "Horsefly",
+    "Darts in to punch, then hovers out of reach.",
+    c.mosquito(),
+    [c.fist(), c.hydraulics(), c.servo_pack(), c.plating()],
+  )
+}
+
 /// Level 1 boss.
 pub fn foreman() -> Enemy {
   Enemy(
@@ -313,6 +342,56 @@ pub fn smoke_ripper() -> Enemy {
       c.saw_arm(),
       c.big_servo_pack(),
       c.smoke_launcher(),
+      c.plating(),
+    ],
+  )
+}
+
+pub fn wasp() -> Enemy {
+  Enemy(
+    "Wasp",
+    "A mosquito with a sting: an aimed machine gun and boosted dodges.",
+    c.mosquito(),
+    [
+      c.machine_gun(),
+      c.ballistic_computer(),
+      c.gyroscope(),
+      c.shield_booster(),
+      c.cell(),
+    ],
+  )
+}
+
+/// Many guns, then a Salvo that raises them all.
+pub fn hailstorm() -> Enemy {
+  Enemy(
+    "Hailstorm",
+    "Two machine guns and two ballistic computers: a Salvo, then a hail of bullets.",
+    c.scout(),
+    [
+      c.machine_gun(),
+      c.machine_gun(),
+      c.ballistic_computer(),
+      c.ballistic_computer(),
+      c.cell(),
+      c.heavy_plating(),
+    ],
+  )
+}
+
+/// Boosted parries: blocks melee builds cold, then saws.
+pub fn shieldwall() -> Enemy {
+  Enemy(
+    "Shieldwall",
+    "Two bucklers, boosted to stop any blow, behind a saw and a fist.",
+    c.brute(),
+    [
+      c.fist(),
+      c.saw_arm(),
+      c.shield_booster(),
+      c.buckler(),
+      c.buckler(),
+      c.servo_pack(),
       c.plating(),
     ],
   )
@@ -421,6 +500,24 @@ pub fn hornet() -> Enemy {
     c.heavy_plating(),
     c.plating(),
   ])
+}
+
+/// Boosted shields and an aimed cannon.
+pub fn bastion() -> Enemy {
+  Enemy(
+    "Bastion",
+    "A cannon aimed by a ballistic computer, behind a boosted kinetic shield.",
+    c.tank(),
+    [
+      c.cannon(),
+      c.ballistic_computer(),
+      c.shield_booster(),
+      c.kinetic_shield(),
+      c.battery(),
+      c.plating(),
+      c.plating(),
+    ],
+  )
 }
 
 /// Level 3 boss.

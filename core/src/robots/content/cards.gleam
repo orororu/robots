@@ -319,6 +319,21 @@ pub fn full_lock() -> Card {
 }
 
 /// Hydraulics: strengthen melee attacks.
+/// Ballistic computer: guns only (machine gun, cannon; not missiles or
+/// lasers), with a Salvo that raises every gun on the table at once.
+pub fn quick_sight() -> Card {
+  buff("Quick sight", [Range], 0.5, 0.38, One([Attack, Range, Kinetic]))
+}
+
+pub fn sight() -> Card {
+  buff("Sight", [Range], 0.6, 0.5, One([Attack, Range, Kinetic]))
+}
+
+/// Raises every gun attack: best with several machine guns.
+pub fn salvo() -> Card {
+  buff("Salvo", [Range], 0.9, 0.5, All([Attack, Range, Kinetic]))
+}
+
 pub fn twitch() -> Card {
   buff("Twitch", [Kinetic], 0.5, 0.38, One([Attack, Melee]))
 }
@@ -413,6 +428,23 @@ pub fn brace() -> Card {
 
 pub fn jump() -> Card {
   defence("Jump", [Mobility], 0.8, 0.47, All([Attack, Melee]))
+}
+
+/// Mosquito moves: a flyer is hard to hit, each move against a different
+/// kind of attack.
+/// Rises out of reach of a melee blow.
+pub fn hover() -> Card {
+  defence("Hover", [Mobility], 0.5, 0.38, One([Attack, Melee]))
+}
+
+/// Rolls out of a shot's way.
+pub fn barrel_roll() -> Card {
+  defence("Barrel roll", [Mobility], 0.6, 0.52, One([Attack, Range]))
+}
+
+/// Weaves through every shot on the table, a little each.
+pub fn zigzag() -> Card {
+  defence("Zigzag", [Mobility], 0.8, 0.43, All([Attack, Range]))
 }
 
 pub fn dodge() -> Card {

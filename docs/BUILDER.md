@@ -176,7 +176,10 @@ so over a match your energy is spent roughly in proportion to your deck.
 - Weights for now: weapons 1–6 (Fist 1, Laser and Saw arm 3, Cannon 6),
   defences and utilities 1–2, Cell 1 (cap 30), Battery 2 (50), Big battery 4
   (90), Plating 2 (+12.5 HP, 1 Block), Heavy plating 4 (+25 HP, 2 Blocks).
-  Chassis HP / capacity: Frame 45/12, Brute 35/12, Tank 45/16, Scout 40/12.
+  Chassis HP / capacity: Frame 45/12, Brute 35/12, Tank 45/16, Scout 40/12,
+  Mosquito 25/7 (one weapon mount of 2; six dodges: Hover against melee,
+  Barrel roll ×2 and Zigzag against range, Dodge ×2 against anything. A
+  level monster: weak on purpose, lasers get through).
   (All HP was halved to make battles about 2.5 times shorter.)
   Shown at display scale ×10.
 - **Batteries with cards:** some batteries also bring buffs, a little
@@ -185,6 +188,9 @@ so over a match your energy is spent roughly in proportion to your deck.
   pack 3 (90) raise melee attacks. The build tournament tries them as card
   parts; a build gets a plain battery only if its own can't pay for its
   priciest card.
+- **Ballistic computer:** raises guns only (machine gun, cannon); its
+  Salvo raises every gun on the table. The Targeting computer is broader
+  (any range attack, missiles too).
 - **Defensive buffs:** the Shield booster raises your own defence cards,
   the Gyroscope your movement defences (Sidestep, Dodge, Jump, Smoke).
   The Reactor (raised all attacks) was removed: batteries do that job now.

@@ -79,7 +79,7 @@ pub fn later_levels_roll_better_attributes_test() {
 pub fn spawned_enemies_are_named_after_their_parts_test() {
   let e = enemies.scrap_gunner()
   let bare = enemies.name(e)
-  assert bare == "Machine gunner"
+  assert bare == "Scrap gunner"
   let #(spawned, _) = enemies.spawn(e, 1, 3, rng.new(11))
   // Spawning is reproducible.
   let #(again, _) = enemies.spawn(e, 1, 3, rng.new(11))
@@ -105,12 +105,25 @@ pub fn early_enemies_are_worn_down_test() {
   })
 }
 
-pub fn an_enemy_name_starts_with_its_top_attributes_test() {
+pub fn level_monsters_arrive_less_worn_test() {
+  // A Gnat at step 0 is built like any other robot at a later step.
+  let gnat = enemies.gnat()
+  let plain = enemies.Enemy(..gnat, name: "Not a monster")
+  let #(met, _) = enemies.spawn(gnat, 1, 0, rng.new(5))
+  let #(fresher, _) =
+    enemies.spawn(plain, 1, enemies.monster_freshness, rng.new(5))
+  assert met.parts == fresher.parts
+  assert enemies.freshness(enemies.grinder()) == 0
+}
+
+pub fn an_enemy_name_is_its_top_attribute_and_roster_name_test() {
   let e = enemies.scrap_gunner()
   let assert [buckler, buckler2, gun, ..rest] = e.parts
   let gun = part.attach(gun, 4, attribute.broken())
   let e = enemies.Enemy(..e, parts: [buckler, buckler2, gun, ..rest])
-  assert enemies.name(e) == "Broken machine gunner"
+  assert enemies.name(e) == "Broken scrap gunner"
+  let #(gnat, _) = enemies.spawn(enemies.gnat(), 1, 0, rng.new(3))
+  assert gnat.name == "Damaged gnat"
 }
 
 pub fn armor_and_batteries_have_their_own_words_test() {
