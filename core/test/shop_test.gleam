@@ -30,16 +30,6 @@ pub fn shop_parts_are_the_levels_parts_but_better_test() {
   assert list.all(stock.parts, fn(p) { list.contains(names, p.name) })
 }
 
-pub fn the_chassis_on_sale_fits_the_level_test() {
-  let roster = enemies.level(1)
-  let themed =
-    list.map(list.append(roster.enemies, roster.strong), fn(e) { e.chassis })
-  let #(stock, _) = shop.stock(1, 0, rng.new(3))
-  let assert [chassis] = stock.chassis
-  assert list.contains(themed, chassis)
-  assert shop.chassis_price(chassis) < price.of_chassis(chassis)
-}
-
 pub fn robots_are_stripped_to_what_the_player_could_pay_test() {
   let fly = enemies.junk_fly()
   let offer = Offer(fly.name, fly.chassis, fly.parts)
@@ -91,10 +81,6 @@ pub fn buying_takes_money_and_stock_test() {
   assert after.money == 1000 - shop.part_price(first)
   assert after.parts == [first]
   assert list.length(after.shop.parts) == shop.part_count - 1
-  let assert [chassis] = stock.chassis
-  let assert Ok(after) = state.buy_chassis(after, 0)
-  assert after.chassis == [chassis]
-  assert after.shop.chassis == []
   case stock.robots {
     [offer] -> {
       let assert Ok(after) = state.buy_robot(after, 0)

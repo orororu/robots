@@ -1,6 +1,7 @@
 //// What a repair shop sells (see docs/RUN.md): a few new parts, a little
-//// better than the level's loot; a used chassis; and used robots of the
-//// level's theme, stripped down until the player could pay for them.
+//// better than the level's loot, and used robots of the level's theme,
+//// stripped down until the player could pay for them. No chassis alone:
+//// those come from strong enemies (wrecks) and bosses.
 
 import gleam/float
 import gleam/int
@@ -14,7 +15,7 @@ import robots/run/loot
 import robots/run/price
 
 pub type Shop {
-  Shop(parts: List(Component), chassis: List(Chassis), robots: List(Offer))
+  Shop(parts: List(Component), robots: List(Offer))
 }
 
 /// A used robot for sale: a roster build, maybe without some of its parts.
@@ -22,7 +23,7 @@ pub type Offer {
   Offer(name: String, chassis: Chassis, parts: List(Component))
 }
 
-pub const empty = Shop(parts: [], chassis: [], robots: [])
+pub const empty = Shop(parts: [], robots: [])
 
 /// New parts on sale at each shop.
 pub const part_count = 3
@@ -30,7 +31,7 @@ pub const part_count = 3
 /// Used robots on sale at each shop, at most.
 pub const robot_count = 1
 
-/// Used chassis and robots sell for this share of their price.
+/// Used robots sell for this share of their price.
 pub const used_share = 0.6
 
 /// The stock of a shop on `level`. `budget` is what the player could pay
@@ -44,36 +45,16 @@ pub fn stock(level: Int, budget: Int, seed: Seed) -> #(Shop, Seed) {
     })
     |> fn(pair) { #(pair.1, pair.0) }
   let roster = enemies.level(level)
-  // Chassis of the level's theme: those its robots are built on.
-  let themed =
-    list.flatten([roster.enemies, roster.strong])
-    |> list.map(fn(e) { e.chassis })
-    |> list.unique
-  let #(chassis, seed) = pick(themed, seed)
   let #(order, seed) = rng.shuffle(roster.enemies, seed)
   let robots =
     order
     |> list.filter_map(fn(e) { fit(Offer(e.name, e.chassis, e.parts), budget) })
     |> list.take(robot_count)
-  #(Shop(parts:, chassis:, robots:), seed)
-}
-
-fn pick(options: List(a), seed: Seed) -> #(List(a), Seed) {
-  case options {
-    [] -> #([], seed)
-    _ -> {
-      let #(i, seed) = rng.int_below(seed, list.length(options))
-      #(list.drop(options, i) |> list.take(1), seed)
-    }
-  }
+  #(Shop(parts:, robots:), seed)
 }
 
 pub fn part_price(p: Component) -> Int {
   price.of(p)
-}
-
-pub fn chassis_price(c: Chassis) -> Int {
-  used(price.of_chassis(c))
 }
 
 pub fn robot_price(offer: Offer) -> Int {

@@ -4,3 +4,16 @@ dist/
 *.beam
 erl_crash.dump
 .claude/
+
+# Empty read-only placeholders left by the Claude Code sandbox
+/.bash_profile
+/.bashrc
+/.gitconfig
+/.gitmodules
+/.idea
+/.mcp.json
+/.profile
+/.ripgreprc
+/.vscode
+/.zprofile
+/.zshrc

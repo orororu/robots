@@ -204,16 +204,16 @@ enemies for each level.
   - **3 new parts** (`part_count`), from the level's loot chart but with the
     next level's modifiers and attributes, each 10% likelier
     (`loot.roll_shop`): a little better than what drops here. Full price.
-  - **A used chassis** of the level's theme (one its robots are built on), at
-    60% of its price (`used_share`).
   - **A used robot** (`robot_count`, at most 1) from the level's normal
-    roster, also at 60%. It's stripped until the player could pay for it:
+    roster, at 60% of its price (`used_share`). It's stripped until the player could pay for it:
     armor first, then utilities, defences, spare weapons and batteries; it
     always keeps a weapon and a battery (a small deck gets Malfunctions).
     "Could pay" is the shop's budget: money plus what the spares would sell
     for (`state.budget`). If even the bare robot costs more, none is offered.
     A level 1 robot needs about 235 credits (a stripped Scrap gunner).
-  - `state.buy_part`, `buy_chassis`, `buy_robot`. A bought robot joins the
+  - No chassis on their own: those are farmed from strong enemies (wrecks)
+    and bosses.
+  - `state.buy_part`, `buy_robot`. A bought robot joins the
     team under its roster name.
 - **Workshops upgrade a component** (`run/upgrade.gleam`,
   `state.upgrade`): free, once per visit, an installed part or a spare. The
@@ -232,7 +232,8 @@ enemies for each level.
     it does against the plain card, e.g. "Rapid: ⚡10 → 8", green when good,
     red when bad.
 - **Good chassis are special:** a boss drops one (level 1: Brute or Scout,
-  level 2: Scout or Tank, level 3: Tank), and shops sell used ones.
+  level 2: Scout or Tank, level 3: Tank); strong enemies drop cheap ones as
+  wrecks. Shops sell none on their own.
 
 ### Levels and prizes
 

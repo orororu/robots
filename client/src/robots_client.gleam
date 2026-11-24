@@ -121,7 +121,6 @@ type Pick {
 /// The kinds of things a shop sells.
 type Stock {
   StockPart
-  StockChassis
   StockRobot
 }
 
@@ -266,8 +265,6 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
       case model.pick {
         ForSale(StockPart, i) ->
           attempt(model, state.buy_part(model.run, i), "")
-        ForSale(StockChassis, i) ->
-          attempt(model, state.buy_chassis(model.run, i), "")
         ForSale(StockRobot, i) ->
           attempt(model, state.buy_robot(model.run, i), "")
         _ -> model
@@ -1042,27 +1039,6 @@ fn view_stock(model: Model) -> Element(Msg) {
       let #(i, p) = pair
       item(part_line(s, p), StockPart, i)
     })
-  let chassis =
-    list.index_map(run.shop.chassis, fn(c, i) {
-      item(
-        "Used "
-          <> string.lowercase(c.name)
-          <> " chassis · "
-          <> int.to_string(scale.value(s, c.hp))
-          <> " HP · max weight "
-          <> num(c.capacity)
-          <> " · weapon mounts "
-          <> string.join(
-          list.map(builder.mounts(c, []), fn(m) { num(m.0) }),
-          ", ",
-        )
-          <> " · "
-          <> int.to_string(shop.chassis_price(c))
-          <> " cr",
-        StockChassis,
-        i,
-      )
-    })
   let robots =
     list.index_map(run.shop.robots, fn(o, i) {
       item(
@@ -1082,10 +1058,6 @@ fn view_stock(model: Model) -> Element(Msg) {
   let price_of = case model.pick {
     ForSale(StockPart, i) ->
       list.drop(run.shop.parts, i) |> list.first |> result.map(shop.part_price)
-    ForSale(StockChassis, i) ->
-      list.drop(run.shop.chassis, i)
-      |> list.first
-      |> result.map(shop.chassis_price)
     ForSale(StockRobot, i) ->
       list.drop(run.shop.robots, i)
       |> list.first
@@ -1104,7 +1076,6 @@ fn view_stock(model: Model) -> Element(Msg) {
   let rows =
     list.flatten([
       group("PARTS (new)", parts),
-      group("CHASSIS (used)", chassis),
       group("ROBOTS (used)", robots),
     ])
   html.div([], [
@@ -1353,11 +1324,6 @@ fn view_selected(model: Model) -> Element(Msg) {
     ForSale(StockPart, i) ->
       case list.drop(run.shop.parts, i) {
         [p, ..] -> [preview_section(model, "FOR SALE", p)]
-        [] -> []
-      }
-    ForSale(StockChassis, i) ->
-      case list.drop(run.shop.chassis, i) {
-        [c, ..] -> [preview_section(model, "FOR SALE", builder.body(c))]
         [] -> []
       }
     ForSale(StockRobot, i) ->

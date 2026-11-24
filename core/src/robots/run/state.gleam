@@ -519,24 +519,6 @@ pub fn buy_part(run: Run, i: Int) -> Result(Run, Error) {
   )
 }
 
-/// Buy used chassis `i`: it goes to the spare chassis.
-pub fn buy_chassis(run: Run, i: Int) -> Result(Run, Error) {
-  use <- require(at_shop(run), WrongPhase)
-  use c <- result.try(
-    list.drop(run.shop.chassis, i)
-    |> list.first
-    |> result.replace_error(NoSuchChassis),
-  )
-  use run <- result.try(pay(run, shop.chassis_price(c)))
-  Ok(
-    Run(
-      ..run,
-      chassis: list.append(run.chassis, [c]),
-      shop: Shop(..run.shop, chassis: remove_at(run.shop.chassis, i)),
-    ),
-  )
-}
-
 /// Buy used robot `i`: it joins the team.
 pub fn buy_robot(run: Run, i: Int) -> Result(Run, Error) {
   use <- require(at_shop(run), WrongPhase)
