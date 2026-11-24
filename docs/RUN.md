@@ -199,12 +199,28 @@ enemies for each level.
 ### Shop and upgrades
 
 - **Money buys parts and upgrades.**
+- **Repair shops sell** (`run/shop.gleam`; stocked when the player arrives,
+  cleared on leaving):
+  - **3 new parts** (`part_count`), from the level's loot chart but with the
+    next level's modifiers and attributes, each 10% likelier
+    (`loot.roll_shop`): a little better than what drops here. Full price.
+  - **A used chassis** of the level's theme (one its robots are built on), at
+    60% of its price (`used_share`).
+  - **A used robot** (`robot_count`, at most 1) from the level's normal
+    roster, also at 60%. It's stripped until the player could pay for it:
+    armor first, then utilities, defences, spare weapons and batteries; it
+    always keeps a weapon and a battery (a small deck gets Malfunctions).
+    "Could pay" is the shop's budget: money plus what the spares would sell
+    for (`state.budget`). If even the bare robot costs more, none is offered.
+    A level 1 robot needs about 235 credits (a stripped Scrap gunner).
+  - `state.buy_part`, `buy_chassis`, `buy_robot`. A bought robot joins the
+    team under its roster name.
 - **An upgrade adds a higher-efficiency card to a part** (proposal, not yet
   built): e.g. a "Tuned laser" card, a copy of one of the part's cards with
   more value for the same cost, above the efficiency band. The part keeps its
   weight, so upgrades are the way to grow stronger within a chassis' capacity.
 - **Good chassis are special:** a boss drops one (level 1: Brute or Scout,
-  level 2: Scout or Tank, level 3: Tank), and shops sell them, expensively.
+  level 2: Scout or Tank, level 3: Tank), and shops sell used ones.
 
 ### Levels and prizes
 
@@ -288,6 +304,13 @@ plate on a battered robot would also count as battered.
 - **Money per win (placeholders):** 20 for an enemy, 40 for a strong enemy,
   100 for a boss. Runs start with no money.
 - **Drops per win:** 1 part for an enemy, 2 for a strong enemy or a boss.
+  A strong enemy also drops a cheap chassis 25% of the time
+  (`loot.strong_chassis`; level 1: Mosquito, level 2: Mosquito or Frame,
+  level 3: Frame or Brute), so a second robot can come before the boss. It
+  drops as a **wreck** (`loot.wreck`): with a weapon from the level's chart
+  that fits its mount and a Cell, both worn (`wreck_condition`: Damaged,
+  Weak, Worn), so it can fight right away, and the player's own parts are
+  worth putting in.
 - **Repair shops** restore a whole robot, or one part at a time: its
   chassis, one plate, or a worn spare plate (`state.repair_one`). Each costs
   20 credits per HP of its wear (2 per HP as the client shows it), what HP is worth on a new plate. A

@@ -2,12 +2,15 @@ import gleam/list
 import gleam/option.{None, Some}
 import robots/ai/brain
 import robots/balance/simulation
+import robots/construction/builder
 import robots/construction/part
 import robots/construction/wear
 import robots/content/components
 import robots/content/enemies
 import robots/content/starters
 import robots/rules/game
+import robots/rules/rng
+import robots/run/loot
 import robots/run/map
 import robots/run/price
 import robots/run/state.{type Run, Outcome, Run}
@@ -265,4 +268,20 @@ fn with_scrapper(run: Run) -> Run {
     ])
   let assert Ok(run) = state.assemble(run, "Scrapper", 0, [0, 1, 2, 3, 4, 5, 6])
   run
+}
+
+pub fn a_dropped_chassis_comes_as_a_wreck_that_can_fight_test() {
+  list.each(enemies.levels(), fn(l) {
+    list.each(loot.chart(l.level).strong_chassis, fn(c) {
+      list.each([1, 2, 3], fn(seed) {
+        let #(parts, _) = loot.wreck(l.level, c, rng.new(seed))
+        let assert [weapon, battery] = parts
+        assert weapon.kind == part.Weapon
+        assert battery.name == "Cell"
+        // Worn: every card has a wear attribute.
+        assert list.length(weapon.attributes) == list.length(weapon.cards)
+        let assert Ok(_) = builder.build("Wreck", c, parts)
+      })
+    })
+  })
 }

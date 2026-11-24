@@ -1,5 +1,6 @@
 import gleam/int
 import gleam/list
+import gleam/option
 import robots/construction/builder
 import robots/construction/part.{Component}
 import robots/content/components
@@ -91,4 +92,18 @@ pub fn bigger_chassis_cost_more_test() {
 pub fn bosses_drop_a_chassis_from_their_chart_test() {
   let #(ch, _) = loot.boss_chassis(1, rng.new(3))
   assert list.contains(loot.chart(1).boss_chassis, ch)
+}
+
+pub fn strong_enemies_sometimes_drop_a_cheap_chassis_test() {
+  let #(_, drops) =
+    list.map_fold(list.repeat(Nil, 400), rng.new(9), fn(seed, _) {
+      let #(drop, seed) = loot.strong_chassis(1, seed)
+      #(seed, drop)
+    })
+  let chassis = option.values(drops)
+  // About strong_chassis_percent of the time, always a level 1 cheap one.
+  let share = list.length(chassis) * 100 / 400
+  assert share > loot.strong_chassis_percent - 8
+  assert share < loot.strong_chassis_percent + 8
+  assert list.all(chassis, fn(c) { c == components.mosquito() })
 }

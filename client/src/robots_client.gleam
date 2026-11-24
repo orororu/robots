@@ -14,6 +14,7 @@ import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/order
+import gleam/result
 import gleam/string
 import lustre
 import lustre/attribute
@@ -32,6 +33,7 @@ import robots/rules/game.{type Game, P1, P2}
 import robots/rules/scale.{type Scale}
 import robots/run/map
 import robots/run/price
+import robots/run/shop
 import robots/run/state.{type Bot, type Run}
 import robots_client/battle_view
 import robots_client/browser
@@ -107,6 +109,15 @@ type Pick {
   Draft(chassis: Int, parts: List(Int), last: Option(Int))
   /// The chassis of robot `robot` (to see its cards, or repair it).
   OwnChassis(robot: Int)
+  /// Something a shop sells.
+  ForSale(item: Stock, index: Int)
+}
+
+/// The kinds of things a shop sells.
+type Stock {
+  StockPart
+  StockChassis
+  StockRobot
 }
 
 const no_pick = Picked(None, None)
@@ -164,6 +175,8 @@ type Msg {
   ClickSpare(part: Int)
   ClickChassis(chassis: Int)
   ClickOwnChassis(robot: Int)
+  ClickForSale(item: Stock, index: Int)
+  Buy
   Install(robot: Int)
   Swap
   Remove
@@ -201,7 +214,7 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
     ClickInstalled(robot, p) -> {
       let spare = case model.pick {
         Picked(_, spare) -> spare
-        Draft(..) | OwnChassis(_) -> None
+        Draft(..) | OwnChassis(_) | ForSale(..) -> None
       }
       let installed = case model.pick {
         Picked(Some(picked), _) if picked == #(robot, p) -> None
@@ -211,6 +224,21 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
     }
     ClickSpare(spare) -> click_spare(model, spare)
     ClickChassis(chassis) -> Model(..model, pick: Draft(chassis, [], None))
+    ClickForSale(item, i) ->
+      Model(..model, pick: case model.pick {
+        ForSale(it, j) if it == item && j == i -> no_pick
+        _ -> ForSale(item, i)
+      })
+    Buy ->
+      case model.pick {
+        ForSale(StockPart, i) ->
+          attempt(model, state.buy_part(model.run, i), "")
+        ForSale(StockChassis, i) ->
+          attempt(model, state.buy_chassis(model.run, i), "")
+        ForSale(StockRobot, i) ->
+          attempt(model, state.buy_robot(model.run, i), "")
+        _ -> model
+      }
     ClickOwnChassis(robot) ->
       Model(..model, pick: case model.pick {
         OwnChassis(r) if r == robot -> no_pick
@@ -305,7 +333,8 @@ fn click_spare(model: Model, spare: Int) -> Model {
     Picked(installed, Some(picked)) if picked == spare ->
       Model(..model, pick: Picked(installed, None))
     Picked(installed, _) -> Model(..model, pick: Picked(installed, Some(spare)))
-    OwnChassis(_) -> Model(..model, pick: Picked(None, Some(spare)))
+    OwnChassis(_) | ForSale(..) ->
+      Model(..model, pick: Picked(None, Some(spare)))
   }
 }
 
@@ -919,9 +948,125 @@ fn view_shop(model: Model) -> Element(Msg) {
         <> " credits per HP · select a part or chassis below to repair or sell it",
     ),
     html.div([attribute.class("table")], robots),
+    view_stock(model),
     button_class(">>> Leave", "banner", Leave),
     view_garage(model),
   ])
+}
+
+/// What the shop sells, by kind; select one to see its cards, then buy it.
+fn view_stock(model: Model) -> Element(Msg) {
+  let run = model.run
+  let s = model.scale
+  let item = fn(label, stock, i) {
+    button_class(
+      "    " <> label,
+      case model.pick == ForSale(stock, i) {
+        True -> "picked"
+        False -> ""
+      },
+      ClickForSale(stock, i),
+    )
+  }
+  let group = fn(title, items) {
+    case items {
+      [] -> []
+      _ -> [text("dim", "  " <> title), ..items]
+    }
+  }
+  let parts =
+    by_kind(run.shop.parts)
+    |> list.map(fn(pair) {
+      let #(i, p) = pair
+      item(part_line(s, p), StockPart, i)
+    })
+  let chassis =
+    list.index_map(run.shop.chassis, fn(c, i) {
+      item(
+        "Used "
+          <> string.lowercase(c.name)
+          <> " chassis · "
+          <> int.to_string(scale.value(s, c.hp))
+          <> " HP · max weight "
+          <> num(c.capacity)
+          <> " · weapon mounts "
+          <> string.join(
+          list.map(builder.mounts(c, []), fn(m) { num(m.0) }),
+          ", ",
+        )
+          <> " · "
+          <> int.to_string(shop.chassis_price(c))
+          <> " cr",
+        StockChassis,
+        i,
+      )
+    })
+  let robots =
+    list.index_map(run.shop.robots, fn(o, i) {
+      item(
+        "Used "
+          <> o.name
+          <> " ("
+          <> o.chassis.name
+          <> ") · "
+          <> string.join(list.map(o.parts, part.display_name), ", ")
+          <> " · "
+          <> int.to_string(shop.robot_price(o))
+          <> " cr",
+        StockRobot,
+        i,
+      )
+    })
+  let price_of = case model.pick {
+    ForSale(StockPart, i) ->
+      list.drop(run.shop.parts, i) |> list.first |> result.map(shop.part_price)
+    ForSale(StockChassis, i) ->
+      list.drop(run.shop.chassis, i)
+      |> list.first
+      |> result.map(shop.chassis_price)
+    ForSale(StockRobot, i) ->
+      list.drop(run.shop.robots, i)
+      |> list.first
+      |> result.map(shop.robot_price)
+    _ -> Error(Nil)
+  }
+  let actions = case price_of {
+    Ok(cost) -> [
+      html.div([attribute.class("actions")], [
+        button("[Buy · " <> int.to_string(cost) <> " credits]", Buy),
+        button("[Cancel]", Cancel),
+      ]),
+    ]
+    Error(Nil) -> []
+  }
+  let rows =
+    list.flatten([
+      group("PARTS (new)", parts),
+      group("CHASSIS (used)", chassis),
+      group("ROBOTS (used)", robots),
+    ])
+  html.div([], [
+    text("", "FOR SALE · select something to see its cards"),
+    html.div([attribute.class("table")], case rows {
+      [] -> [text("dim", "  sold out")]
+      _ -> rows
+    }),
+    ..actions
+  ])
+}
+
+/// "13 cards + 3 Malfunctions" or "18 cards".
+fn offer_deck(o: shop.Offer) -> String {
+  let cards =
+    [builder.body(o.chassis), ..o.parts]
+    |> list.flat_map(part.cards)
+    |> list.length
+  int.to_string(cards)
+  <> " cards"
+  <> case builder.malfunction_count(o.chassis, o.parts) {
+    0 -> ""
+    n -> " + " <> int.to_string(n) <> " Malfunctions"
+  }
 }
 
 // End of the run
@@ -946,7 +1091,7 @@ fn view_garage(model: Model) -> Element(Msg) {
   let #(installed, spare, drafted, chassis_pick) = case model.pick {
     Picked(installed, spare) -> #(installed, spare, [], None)
     Draft(chassis, parts, _) -> #(None, None, parts, Some(chassis))
-    OwnChassis(_) -> #(None, None, [], None)
+    OwnChassis(_) | ForSale(..) -> #(None, None, [], None)
   }
   let picked = fn(yes) {
     case yes {
@@ -1052,6 +1197,8 @@ fn view_garage(model: Model) -> Element(Msg) {
     Picked(None, None) -> []
     Draft(..) -> [button("[Assemble robot]", Assemble)]
     OwnChassis(_) -> repair
+    // Bought from the shop's own list (see view_shop).
+    ForSale(..) -> []
   }
   let actions = case model.pick {
     Picked(None, None) -> []
@@ -1128,6 +1275,25 @@ fn view_selected(model: Model) -> Element(Msg) {
         },
       ])
     }
+    ForSale(StockPart, i) ->
+      case list.drop(run.shop.parts, i) {
+        [p, ..] -> [preview_section(model, "FOR SALE", p)]
+        [] -> []
+      }
+    ForSale(StockChassis, i) ->
+      case list.drop(run.shop.chassis, i) {
+        [c, ..] -> [preview_section(model, "FOR SALE", builder.body(c))]
+        [] -> []
+      }
+    ForSale(StockRobot, i) ->
+      case list.drop(run.shop.robots, i) {
+        [o, ..] -> [
+          text("", "FOR SALE: " <> o.name <> " · " <> offer_deck(o)),
+          preview_section(model, "CHASSIS", builder.body(o.chassis)),
+          ..list.map(o.parts, preview_section(model, "PART", _))
+        ]
+        [] -> []
+      }
     OwnChassis(r) ->
       case list.drop(run.robots, r) {
         [bot, ..] -> [preview_section(model, "", builder.body(bot.chassis))]
@@ -1180,6 +1346,7 @@ fn hint(pick: Pick) -> String {
     Picked(Some(_), Some(_)) -> "swap them, or change either selection"
     Draft(..) -> "select spare parts for the new robot, then assemble"
     OwnChassis(_) -> "the chassis' own cards; it can be repaired at a shop"
+    ForSale(..) -> "on sale: buy it above, or select something else"
   }
 }
 

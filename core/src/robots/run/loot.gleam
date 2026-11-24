@@ -12,8 +12,10 @@
 //// also drop a chassis: good chassis are special loot (or bought,
 //// expensively).
 
+import gleam/float
 import gleam/int
 import gleam/list
+import gleam/option.{type Option, None, Some}
 import robots/construction/attribute.{type Attribute} as a
 import robots/construction/builder.{type Chassis}
 import robots/construction/part.{type Component}
@@ -30,6 +32,9 @@ pub type Chart {
     overclocked_percent: Int,
     /// Chassis the level's boss can drop, one picked at random.
     boss_chassis: List(Chassis),
+    /// Cheap chassis a strong enemy sometimes drops
+    /// (`strong_chassis_percent`), one picked at random.
+    strong_chassis: List(Chassis),
     /// Percent chance that each card of a drop gets an attribute.
     attribute_percent: Int,
     /// Which attribute, when it does (relative weights).
@@ -64,6 +69,7 @@ pub fn charts() -> List(Chart) {
       light_percent: 10,
       overclocked_percent: 10,
       boss_chassis: [c.brute(), c.scout(), c.mosquito()],
+      strong_chassis: [c.mosquito()],
       attribute_percent: 30,
       attributes: [
         #(4, a.worn()),
@@ -109,6 +115,7 @@ pub fn charts() -> List(Chart) {
       light_percent: 20,
       overclocked_percent: 20,
       boss_chassis: [c.scout(), c.tank()],
+      strong_chassis: [c.mosquito(), c.frame()],
       attribute_percent: 40,
       attributes: [
         #(2, a.worn()),
@@ -150,6 +157,7 @@ pub fn charts() -> List(Chart) {
       light_percent: 30,
       overclocked_percent: 30,
       boss_chassis: [c.tank()],
+      strong_chassis: [c.frame(), c.brute()],
       attribute_percent: 50,
       attributes: [
         #(4, a.quick()),
@@ -181,21 +189,49 @@ pub fn chart(level: Int) -> Chart {
 
 /// One random drop from the level's chart, with its modifiers.
 pub fn roll(level: Int, seed: Seed) -> #(Component, Seed) {
-  let ch = chart(level)
+  roll_from(chart(level), chart(level), seed)
+}
+
+/// A part a shop sells: one of the level's parts, a little better than
+/// its drops. Modifiers and attributes come from the next level's chart,
+/// and each is `shop_bonus_percent` likelier.
+pub fn roll_shop(level: Int, seed: Seed) -> #(Component, Seed) {
+  let better = chart(level + 1)
+  let better =
+    Chart(
+      ..better,
+      light_percent: int.min(100, better.light_percent + shop_bonus_percent),
+      overclocked_percent: int.min(
+        100,
+        better.overclocked_percent + shop_bonus_percent,
+      ),
+      attribute_percent: int.min(
+        100,
+        better.attribute_percent + shop_bonus_percent,
+      ),
+    )
+  roll_from(chart(level), better, seed)
+}
+
+pub const shop_bonus_percent = 10
+
+/// A part from `parts`' entries, with modifiers and attributes by `quality`.
+fn roll_from(parts: Chart, quality: Chart, seed: Seed) -> #(Component, Seed) {
+  let ch = parts
   let total = int.sum(list.map(ch.entries, fn(e) { e.0 }))
   let #(pick, seed) = rng.int_below(seed, total)
   let component = pick_entry(ch.entries, pick)
   let #(light, seed) = rng.int_below(seed, 100)
   let #(overclocked, seed) = rng.int_below(seed, 100)
-  let component = case light < ch.light_percent {
+  let component = case light < quality.light_percent {
     True -> part.with(component, part.light())
     False -> component
   }
-  let component = case overclocked < ch.overclocked_percent {
+  let component = case overclocked < quality.overclocked_percent {
     True -> part.with(component, part.overclocked())
     False -> component
   }
-  roll_attributes(ch, component, seed)
+  roll_attributes(quality, component, seed)
 }
 
 /// Each card may get one attribute, picked among those that affect it.
@@ -242,6 +278,58 @@ pub fn rolls(level: Int, count: Int, seed: Seed) -> #(List(Component), Seed) {
       #(seed, drop)
     })
   #(drops, seed)
+}
+
+/// Percent chance that a strong enemy drops a chassis.
+pub const strong_chassis_percent = 25
+
+/// A strong enemy's chassis drop, sometimes: a cheap chassis of the level.
+pub fn strong_chassis(level: Int, seed: Seed) -> #(Option(Chassis), Seed) {
+  let options = chart(level).strong_chassis
+  let #(chance, seed) = rng.int_below(seed, 100)
+  case chance < strong_chassis_percent, options {
+    True, [_, ..] -> {
+      let #(i, seed) = rng.int_below(seed, list.length(options))
+      let assert [pick, ..] = list.drop(options, i)
+      #(Some(pick), seed)
+    }
+    _, _ -> #(None, seed)
+  }
+}
+
+/// The parts a dropped chassis comes with, so it can be built at once: a
+/// weapon from the level's chart that fits its biggest mount, and a Cell,
+/// both in poor condition (`wreck_condition`), to be replaced by better
+/// parts.
+pub fn wreck(
+  level: Int,
+  chassis: Chassis,
+  seed: Seed,
+) -> #(List(Component), Seed) {
+  let biggest_mount = list.fold(chassis.weapon_mounts, 0.0, float.max)
+  let weapons =
+    chart(level).entries
+    |> list.filter(fn(e) {
+      { e.1 }.kind == part.Weapon && part.weight(e.1) <=. biggest_mount
+    })
+  let #(weapon, seed) = case weapons {
+    [] -> #(c.fist(), seed)
+    _ -> {
+      let total = int.sum(list.map(weapons, fn(e) { e.0 }))
+      let #(pick, seed) = rng.int_below(seed, total)
+      #(pick_entry(weapons, pick), seed)
+    }
+  }
+  let #(weapon, seed) =
+    roll_card_attributes(weapon, 100, wreck_condition(), seed)
+  let #(battery, seed) =
+    roll_card_attributes(c.cell(), 100, wreck_condition(), seed)
+  #([weapon, battery], seed)
+}
+
+/// How worn a wreck's parts are: every card gets one of these.
+pub fn wreck_condition() -> List(#(Int, Attribute)) {
+  [#(2, a.damaged()), #(4, a.weak()), #(4, a.worn())]
 }
 
 /// The boss's chassis drop.

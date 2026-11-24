@@ -33,6 +33,7 @@ import robots/rules/rng.{type Seed}
 import robots/run/loot
 import robots/run/map.{type Map, type Node, type Tier}
 import robots/run/price
+import robots/run/shop.{type Shop, Shop}
 
 /// Money for winning a battle, by tier. Placeholders: about one cheap part
 /// for an ordinary enemy (part prices run 13-57).
@@ -82,6 +83,8 @@ pub type Run {
     parts: List(Component),
     chassis: List(Chassis),
     money: Int,
+    /// What the repair shop the player is at sells (empty elsewhere).
+    shop: Shop,
     seed: Seed,
   )
 }
@@ -124,6 +127,7 @@ pub fn new(seed: Int) -> Run {
     parts: [],
     chassis: [],
     money: starting_money,
+    shop: shop.empty,
     seed:,
   )
 }
@@ -148,11 +152,14 @@ pub fn go(run: Run, id: Int) -> Result(Run, Error) {
   case list.find(choices(run), fn(n) { n.id == id }) {
     Error(Nil) -> Error(NotReachable(id))
     Ok(node) -> {
-      let phase = case node.event {
-        map.Battle(..) -> Fighting(id)
-        map.RepairShop -> Repairing(id)
+      let run = Run(..run, at: Some(id), path: list.append(run.path, [id]))
+      case node.event {
+        map.Battle(..) -> Ok(Run(..run, phase: Fighting(id)))
+        map.RepairShop -> {
+          let #(stock, seed) = shop.stock(run.level, budget(run), run.seed)
+          Ok(Run(..run, phase: Repairing(id), shop: stock, seed:))
+        }
       }
-      Ok(Run(..run, at: Some(id), path: list.append(run.path, [id]), phase:))
     }
   }
 }
@@ -205,8 +212,8 @@ pub fn outcome(state: Game, team_size: Int) -> Outcome {
 
 /// Report the battle at the current node. Damage goes on the robots'
 /// parts; destroyed robots are lost with their parts. A win pays money and
-/// loot (`drops_normal`...; and a chassis for a boss, which also moves the run to the next
-/// level); a loss ends the run.
+/// loot (`drops_normal`...; a chassis for a boss, which also moves the run
+/// to the next level, and sometimes a cheap one for a strong enemy); a loss ends the run.
 pub fn finish(
   run: Run,
   order: List(Int),
@@ -264,7 +271,17 @@ fn reward(run: Run, tier: Tier) -> #(Run, Reward) {
       let #(c, seed) = loot.boss_chassis(run.level, seed)
       #(Some(c), seed)
     }
-    _ -> #(None, seed)
+    map.Strong -> loot.strong_chassis(run.level, seed)
+    map.Normal -> #(None, seed)
+  }
+  // A strong enemy's chassis drop is a wreck: it comes with a worn weapon
+  // and battery, so it can be built at once.
+  let #(parts, seed) = case tier, chassis {
+    map.Strong, Some(c) -> {
+      let #(wreck, seed) = loot.wreck(run.level, c, seed)
+      #(list.append(parts, wreck), seed)
+    }
+    _, _ -> #(parts, seed)
   }
   let run =
     Run(
@@ -424,9 +441,71 @@ pub fn repair(run: Run, robot: Int) -> Result(Run, Error) {
 /// Leave the repair shop.
 pub fn leave(run: Run) -> Result(Run, Error) {
   case run.phase {
-    Repairing(_) -> Ok(Run(..run, phase: Choosing))
+    Repairing(_) -> Ok(Run(..run, phase: Choosing, shop: shop.empty))
     _ -> Error(WrongPhase)
   }
+}
+
+/// What the player could pay at a shop: their money plus what their spare
+/// parts would sell for.
+pub fn budget(run: Run) -> Int {
+  run.money + int.sum(list.map(run.parts, price.sell))
+}
+
+/// Buy part `i` of the shop's stock: it goes to the spares.
+pub fn buy_part(run: Run, i: Int) -> Result(Run, Error) {
+  use <- require(at_shop(run), WrongPhase)
+  use p <- result.try(part_at(run.shop.parts, i))
+  use run <- result.try(pay(run, shop.part_price(p)))
+  Ok(
+    Run(
+      ..run,
+      parts: list.append(run.parts, [p]),
+      shop: Shop(..run.shop, parts: remove_at(run.shop.parts, i)),
+    ),
+  )
+}
+
+/// Buy used chassis `i`: it goes to the spare chassis.
+pub fn buy_chassis(run: Run, i: Int) -> Result(Run, Error) {
+  use <- require(at_shop(run), WrongPhase)
+  use c <- result.try(
+    list.drop(run.shop.chassis, i)
+    |> list.first
+    |> result.replace_error(NoSuchChassis),
+  )
+  use run <- result.try(pay(run, shop.chassis_price(c)))
+  Ok(
+    Run(
+      ..run,
+      chassis: list.append(run.chassis, [c]),
+      shop: Shop(..run.shop, chassis: remove_at(run.shop.chassis, i)),
+    ),
+  )
+}
+
+/// Buy used robot `i`: it joins the team.
+pub fn buy_robot(run: Run, i: Int) -> Result(Run, Error) {
+  use <- require(at_shop(run), WrongPhase)
+  use offer <- result.try(
+    list.drop(run.shop.robots, i)
+    |> list.first
+    |> result.replace_error(NoSuchRobot),
+  )
+  use run <- result.try(pay(run, shop.robot_price(offer)))
+  let bot = Bot(name: offer.name, chassis: offer.chassis, parts: offer.parts)
+  Ok(
+    Run(
+      ..run,
+      robots: list.append(run.robots, [bot]),
+      shop: Shop(..run.shop, robots: remove_at(run.shop.robots, i)),
+    ),
+  )
+}
+
+fn pay(run: Run, cost: Int) -> Result(Run, Error) {
+  use <- require(cost <= run.money, NotEnoughMoney(cost, run.money))
+  Ok(Run(..run, money: run.money - cost))
 }
 
 // GARAGE ----------------------------------------------------------------------
