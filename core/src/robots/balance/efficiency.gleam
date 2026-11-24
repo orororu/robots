@@ -15,7 +15,8 @@
 import gleam/float
 import gleam/list
 import robots/rules/card.{
-  type Card, All, Both, Burn, Launch, NoEffect, One, Opponent, OpponentHp, Self,
+  type Card, All, Both, Burn, Launch, NoEffect, One, Opponent, OpponentHp, OwnHp,
+  Self,
 }
 
 pub type Role {
@@ -33,7 +34,7 @@ pub const tolerance = 0.1
 pub fn role(card: Card) -> Role {
   case card.target {
     OpponentHp | Launch(_) -> Damage
-    Opponent(_) | Both(_) | Burn(_) | NoEffect -> Weaken
+    Opponent(_) | Both(_) | Burn(_) | NoEffect | OwnHp -> Weaken
     Self(_) -> Strengthen
   }
 }
@@ -97,7 +98,8 @@ pub fn outside_band(card: Card) -> Bool {
   case card.target {
     // Smoke also lowers your own cards: its worth depends on the matchup.
     // Burn only works in a combo (after a defence zeroes a card).
-    Launch(_) | Both(_) | Burn(_) -> True
+    // A Malfunction is a penalty, not a card anyone picks.
+    Launch(_) | Both(_) | Burn(_) | OwnHp -> True
     _ -> narrow_counter(card)
   }
 }

@@ -267,6 +267,8 @@ fn resolve(game: Game, side: Side, played: Slot) -> #(Game, Int, Float) {
     card.Launch(_) -> #(game, 1, 0.0)
     card.Burn(fire) -> burn(game, other(side), fire)
     card.NoEffect -> #(game, 0, 0.0)
+    // Straight to the robot: its own drones don't shield it from itself.
+    card.OwnHp -> map_robot(game, side, robot.take_damage(_, value))
   }
 }
 

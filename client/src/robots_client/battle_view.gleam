@@ -140,6 +140,7 @@ fn describe_event(state: Game, s: Scale, event: game.Event) -> String {
         card.OpponentHp, _ -> " for " <> shown <> " damage"
         card.Launch(drone), _ -> ": launches a " <> drone.name
         card.NoEffect, _ -> ": does nothing"
+        card.OwnHp, _ -> ": " <> shown <> " damage to itself"
         card.Burn(_), 0 -> ": nothing to burn"
         card.Burn(_), _ -> ": sets a card on fire"
         _, 0 -> ": no target"

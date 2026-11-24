@@ -33,7 +33,7 @@ pub fn role(c: Card) -> Role {
     card.OpponentHp | card.Launch(_) -> Attack
     card.Opponent(_) | card.Both(_) -> Defence
     card.Self(_) -> Buff
-    card.Burn(_) | card.NoEffect -> Special
+    card.Burn(_) | card.NoEffect | card.OwnHp -> Special
   }
 }
 
@@ -188,6 +188,7 @@ pub fn target_text(c: Card) -> String {
     card.Burn(_) -> "foe card at 0 burns"
     card.NoEffect -> "clears when played"
     card.Launch(_) -> "it strikes later"
+    card.OwnHp -> "hits your own robot"
   }
 }
 

@@ -11,12 +11,16 @@
 //// energy spent. It plays the most efficient card, and when that card isn't
 //// affordable yet it saves energy for it instead of spending on cheap filler.
 //// It spends on the best affordable card only when energy is about to cap.
+////
+//// Cards that do nothing take table slots, so it clears them while saving:
+//// but only when it can't hit the opponent instead, and Malfunctions first.
 
 import gleam/float
 import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/order
+import gleam/result
 import robots/construction/robot
 import robots/rules/amount
 import robots/rules/card.{type Scope, All, One}
@@ -110,6 +114,10 @@ type Choice {
     /// Can never do anything in this match (e.g. a Parry against a robot
     /// with no melee attacks at all).
     hopeless: Bool,
+    /// What playing it does to this robot (a Malfunction).
+    self_damage: Float,
+    /// It damages the opponent (an attack, or a drone launch).
+    damage: Bool,
   )
 }
 
@@ -129,10 +137,20 @@ pub fn choose(state: Game, side: Side, now: Int) -> Result(Int, Nil) {
         affordable: amount.at_least(available, s.card.cost),
         drone: table.is_drone(s),
         hopeless: hopeless(state, side, s.card),
+        self_damage: case s.card.target {
+          card.OwnHp -> s.value
+          _ -> 0.0
+        },
+        damage: case s.card.target {
+          card.OpponentHp | card.Launch(_) -> True
+          _ -> False
+        },
       )
     })
     // A card costing more than the cap can never be paid for.
     |> list.filter(fn(o) { amount.at_least(me.energy.cap, o.cost) })
+    // Never malfunction to death.
+    |> list.filter(fn(o) { !{ o.self_damage >=. me.robot.hp } })
   let useful = list.filter(options, fn(o) { o.score >. 0.0 })
   let full = available >=. me.energy.cap *. nearly_full
   // Cards that do nothing now take table slots that fresh draws could use.
@@ -143,20 +161,41 @@ pub fn choose(state: Game, side: Side, now: Int) -> Result(Int, Nil) {
     True -> dead
     False -> list.filter(dead, fn(o) { o.hopeless })
   }
-  let clear = cheapest(list.filter(clutter, fn(o) { o.affordable }))
+  // Malfunctions are cleared first: they never help and they hurt.
+  let malfunction = fn(o: Choice) { o.self_damage >. 0.0 }
+  let clear =
+    cheapest(list.filter(clutter, fn(o) { o.affordable && malfunction(o) }))
+    |> result.lazy_or(fn() {
+      cheapest(list.filter(clutter, fn(o) { o.affordable }))
+    })
+  // Damage comes before cleaning: an affordable attack is played instead.
+  let attack =
+    useful
+    |> list.filter(fn(o) { o.affordable && o.damage })
+    |> most_efficient
+    |> result.map(fn(o) { o.slot })
   case most_efficient(useful), full {
     // The best card is affordable: play it.
     Ok(best), _ if best.affordable -> Ok(best.slot)
-    // While saving up (or with nothing useful), clear clutter.
-    _, _ if clear != Error(Nil) -> clear
+    // While saving up (or with nothing useful) there's clutter to clear:
+    // hit the opponent if possible, else clean.
+    _, _ if clear != Error(Nil) -> result.or(attack, clear)
     // Energy is about to be wasted: spend it on the best thing we can afford,
     // or clear a dead slot.
     _, True ->
       case most_efficient(list.filter(useful, fn(o) { o.affordable })) {
         Ok(o) -> Ok(o.slot)
-        // A drone is never dead weight: let it keep growing.
+        // A drone is never dead weight: let it keep growing. Malfunctions
+        // go first.
         Error(Nil) ->
-          cheapest(list.filter(options, fn(o) { o.affordable && !o.drone }))
+          cheapest(
+            list.filter(options, fn(o) {
+              o.affordable && !o.drone && malfunction(o)
+            }),
+          )
+          |> result.lazy_or(fn() {
+            cheapest(list.filter(options, fn(o) { o.affordable && !o.drone }))
+          })
       }
     // Save up for the best card.
     _, False -> Error(Nil)
@@ -239,6 +278,8 @@ fn score(state: Game, side: Side, slot: Slot) -> Float {
       }
     }
     card.NoEffect -> 0.0
+    // Only ever played to clear the slot.
+    card.OwnHp -> 0.0
     // Worth what it takes off their cards, minus what it takes off ours.
     card.Both(scope) -> {
       let cut = fn(target: Slot) {
@@ -276,6 +317,8 @@ fn hopeless(state: Game, side: Side, c: card.Card) -> Bool {
     card.Self(scope) -> none_match(side, scope)
     card.Both(scope) ->
       none_match(game.other(side), scope) && none_match(side, scope)
+    // A Malfunction never helps: clear it as soon as it's cheap to.
+    card.OwnHp -> True
     _ -> False
   }
 }

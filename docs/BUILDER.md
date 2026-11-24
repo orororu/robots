@@ -77,7 +77,6 @@ pub type BuildError {
   Overweight(total: Float, capacity: Float)
   TooManyWeapons(count: Int, mounts: Int)
   WeaponTooHeavy(weapon: String, weight: Float, mount_limit: Float)
-  DeckTooSmall(cards: Int, minimum: Int)   // at least 16 cards
   NoWeapon
   NoBattery
 }
@@ -150,6 +149,12 @@ Chosen to get started; each can change:
   mix weapons with defences and buffs, and stalemates fell from ~10% to ~6%.
   Stronger armor was tried instead and made it worse (thin armored builds
   stayed on top, stalls rose).
+- **A smaller deck is legal, but it malfunctions.** The builder fills a deck
+  below 16 cards with **Malfunction** cards (`builder.malfunction`): cost 10
+  (about an average shot), 2 damage to your own robot, nothing else. They
+  take table slots and are only played to clear them. The AI clears them
+  as soon as it can while saving up, and never plays one that would destroy
+  its own robot. The garage shows "13 cards + 3 Malfunctions".
 - No maximum deck size: weight is the limit.
 
 ### Every robot's deck is diluted (why carry a second weapon?)

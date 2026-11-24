@@ -1196,16 +1196,37 @@ fn own_chassis_line(s: Scale, bot: Bot) -> String {
   <> int.to_string(scale.value(s, bot.chassis.hp))
 }
 
-/// "Weight 11 of max 12 · 1 free"
+/// "Weight 11 of max 12 · 1 free · 18 cards" (or "· 14 cards + 2
+/// Malfunctions" for a deck below the minimum).
 fn weight_line(bot: Bot) -> String {
   let used = part.total_weight(bot.parts)
+  let cards =
+    [builder.body(bot.chassis), ..bot.parts]
+    |> list.flat_map(part.cards)
+    |> list.length
   "Weight "
   <> num(used)
   <> " of max "
   <> num(bot.chassis.capacity)
   <> " · "
   <> num(float.max(0.0, bot.chassis.capacity -. used))
-  <> " free"
+  <> " free · "
+  <> int.to_string(cards)
+  <> " cards"
+  <> case builder.malfunction_count(bot.chassis, bot.parts) {
+    0 -> ""
+    n ->
+      " + "
+      <> int.to_string(n)
+      <> " Malfunction"
+      <> case n {
+        1 -> ""
+        _ -> "s"
+      }
+      <> " (a deck needs "
+      <> int.to_string(builder.minimum_deck)
+      <> ")"
+  }
 }
 
 /// "Weapon mounts: [4] Laser (3) · [4] empty": a weapon fits a mount at

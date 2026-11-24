@@ -45,6 +45,8 @@ pub type Target {
   Burn(fire: Card)
   /// Does nothing (a Fire card: it only takes up a slot).
   NoEffect
+  /// Damage your own robot (a Malfunction: a deck too small to run well).
+  OwnHp
 }
 
 /// Which table cards are affected.

@@ -2,6 +2,7 @@ import gleam/float
 import gleam/int
 import gleam/list
 import robots/ai/brain
+import robots/construction/builder
 import robots/construction/part
 import robots/construction/robot
 import robots/content/cards
@@ -525,6 +526,44 @@ pub fn ai_clears_one_of_several_dead_cards_test() {
   let assert Ok(slot) = brain.choose(g, P2, 0)
   assert slot == 0 || slot == 1
   // (With one Parry left it keeps it: see the test above.)
+}
+
+pub fn a_malfunction_hurts_its_own_robot_test() {
+  let g = arena([builder.malfunction()], [laser()])
+  let assert Ok(g) = game.update(g, PlayCard(P1, 0, 0))
+  assert g.p1.robot.hp == 5.0 -. builder.malfunction_damage
+  assert g.p2.robot.hp == 5.0
+}
+
+pub fn ai_clears_a_malfunction_but_never_dies_of_one_test() {
+  // Saving up for a Big shot (2.0) with 1.0 energy: it clears the
+  // Malfunction meanwhile.
+  let big = Card("Big shot", [Attack], 2.0, 3.0, OpponentHp, traits: [])
+  let g = arena([laser()], [big, builder.malfunction()])
+  let g = Game(..g, p2: Combatant(..g.p2, energy: energy.new(1.0, 0.5, 5.0, 0)))
+  assert brain.choose(g, P2, 0) == Ok(1)
+  // ...unless it would destroy its own robot.
+  let dying =
+    Game(..g, p2: Combatant(..g.p2, robot: robot.Robot(..g.p2.robot, hp: 0.2)))
+  assert brain.choose(dying, P2, 0) == Error(Nil)
+}
+
+pub fn ai_hits_the_opponent_before_cleaning_test() {
+  // Saving for a Big shot, with a Malfunction to clear and a Punch it can
+  // afford: damage first.
+  let big = Card("Big shot", [Attack], 2.0, 3.0, OpponentHp, traits: [])
+  let g = arena([laser()], [big, builder.malfunction(), punch()])
+  let g = Game(..g, p2: Combatant(..g.p2, energy: energy.new(1.0, 0.5, 5.0, 0)))
+  assert brain.choose(g, P2, 0) == Ok(2)
+}
+
+pub fn ai_cleans_malfunctions_before_other_clutter_test() {
+  // Nothing to hit with: two dead Parries and a Malfunction. The
+  // Malfunction goes first, though a Parry is cheaper.
+  let big = Card("Big shot", [Attack], 2.0, 3.0, OpponentHp, traits: [])
+  let g = arena([laser()], [big, parry(), builder.malfunction(), parry()])
+  let g = Game(..g, p2: Combatant(..g.p2, energy: energy.new(1.5, 0.5, 5.0, 0)))
+  assert brain.choose(g, P2, 0) == Ok(2)
 }
 
 fn rng_seed(n: Int) {

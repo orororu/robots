@@ -1,8 +1,8 @@
 import gleam/list
 import gleam/option.{Some}
 import robots/construction/builder.{
-  DeadCard, DeckTooSmall, NoBattery, NoWeapon, Overweight, TooManyWeapons,
-  Unaffordable, WeaponTooHeavy,
+  DeadCard, NoBattery, NoWeapon, Overweight, TooManyWeapons, Unaffordable,
+  WeaponTooHeavy,
 }
 import robots/construction/part
 import robots/construction/robot
@@ -186,13 +186,18 @@ fn one_shot(weight: Float) -> part.Component {
   part.new("One-shot", part.Weapon, weight, [shot])
 }
 
-pub fn a_robot_needs_sixteen_cards_test() {
-  assert builder.build("B", bare(), [
-      components.battery(),
-      components.plating(),
-      one_shot(1.0),
-    ])
-    == Error([DeckTooSmall(cards: 2, minimum: 16)])
+pub fn a_small_deck_is_filled_with_malfunctions_test() {
+  let parts = [components.battery(), components.plating(), one_shot(1.0)]
+  let assert Ok(bot) = builder.build("B", bare(), parts)
+  // 2 cards (Block, Shot): 14 Malfunctions make it 16.
+  assert builder.malfunction_count(bare(), parts) == 14
+  let deck = robot.deck(bot)
+  assert list.length(deck) == 16
+  assert list.count(deck, fn(c) { c == builder.malfunction() }) == 14
+  // A full deck gets none.
+  assert builder.malfunction_count(components.frame(), starters.tinker_parts())
+    == 0
+  assert !list.contains(robot.deck(starters.tinker()), builder.malfunction())
 }
 
 pub fn all_problems_are_reported_together_test() {
@@ -200,9 +205,8 @@ pub fn all_problems_are_reported_together_test() {
     builder.build("B", builder.Chassis(..components.scout(), cards: []), [
       one_shot(6.0),
     ])
-  assert list.length(errors) == 3
+  assert list.length(errors) == 2
   assert list.contains(errors, NoBattery)
-  assert list.contains(errors, DeckTooSmall(cards: 1, minimum: 16))
   assert list.contains(
     errors,
     WeaponTooHeavy(weapon: "One-shot", weight: 6.0, mount_limit: 2.0),

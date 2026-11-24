@@ -14,11 +14,13 @@ import robots/construction/part.{type Component, Battery, Body, Weapon}
 import robots/construction/robot.{type Robot}
 import robots/rules/amount
 import robots/rules/card.{
-  type Card, All, Both, Burn, Launch, NoEffect, One, Opponent, OpponentHp, Self,
+  type Card, All, Both, Burn, Card, Launch, NoEffect, One, Opponent, OpponentHp,
+  OwnHp, Self,
 }
 
-/// Every robot needs at least this many cards (chassis, parts and armor
-/// together), so decks vary and no one can just repeat their best combo.
+/// Decks smaller than this (chassis, parts and armor together) are
+/// filled up with Malfunctions, so every deck varies and no one can just
+/// repeat their best combo for free.
 pub const minimum_deck = 16
 
 pub type Chassis {
@@ -51,7 +53,6 @@ pub type BuildError {
   /// Chassis cards alone (Kick, Ram) can't win a match in reasonable time.
   NoWeapon
   NoBattery
-  DeckTooSmall(cards: Int, minimum: Int)
 }
 
 pub type Warning {
@@ -72,7 +73,6 @@ pub fn build(
       check_weight(chassis, parts),
       check_weapons(chassis, parts),
       check_battery(parts),
-      check_deck([body(chassis), ..parts]),
     ])
   case errors {
     [] -> Ok(assemble(name, chassis, parts))
@@ -92,9 +92,46 @@ fn assemble(name: String, chassis: Chassis, parts: List(Component)) -> Robot {
       chassis: chassis.name,
       max_hp: chassis.hp +. armor,
       energy_cap:,
-      components: [body(chassis), ..parts],
+      components: list.append(
+        [body(chassis), ..parts],
+        malfunctions(chassis, parts),
+      ),
     )
   robot.Robot(..bot, hp: chassis_hp(chassis) +. left)
+}
+
+/// A robot with fewer than `minimum_deck` cards runs badly: Malfunctions
+/// fill its deck up to the minimum. Each costs about an average shot and
+/// damages its own robot a little. It does nothing else, so it's only
+/// played to clear its slot.
+pub fn malfunction() -> Card {
+  Card(
+    name: "Malfunction",
+    tags: [],
+    cost: malfunction_cost,
+    value: malfunction_damage,
+    target: OwnHp,
+    traits: [],
+  )
+}
+
+pub const malfunction_cost = 1.0
+
+pub const malfunction_damage = 0.2
+
+/// How many Malfunctions a build gets: what its deck lacks of the minimum.
+pub fn malfunction_count(chassis: Chassis, parts: List(Component)) -> Int {
+  let cards =
+    [body(chassis), ..parts] |> list.flat_map(part.cards) |> list.length
+  int.max(0, minimum_deck - cards)
+}
+
+/// The Malfunctions as a weightless part, or nothing for a full deck.
+fn malfunctions(chassis: Chassis, parts: List(Component)) -> List(Component) {
+  case malfunction_count(chassis, parts) {
+    0 -> []
+    n -> [part.new("Malfunctions", Body, 0.0, list.repeat(malfunction(), n))]
+  }
 }
 
 /// The chassis' own cards, as a weightless part.
@@ -172,14 +209,6 @@ fn check_battery(parts: List(Component)) -> List(BuildError) {
   }
 }
 
-fn check_deck(parts: List(Component)) -> List(BuildError) {
-  let cards = parts |> list.flat_map(part.cards) |> list.length
-  case cards >= minimum_deck {
-    True -> []
-    False -> [DeckTooSmall(cards:, minimum: minimum_deck)]
-  }
-}
-
 // WARNINGS --------------------------------------------------------------------
 
 /// Each distinct problem once, in deck order.
@@ -213,7 +242,13 @@ fn can_ever_affect(c: Card, deck: List(Card)) -> Bool {
   case c.target {
     Self(One(tags)) | Self(All(tags)) ->
       list.any(deck, fn(other) { other != c && card.matches(other, tags) })
-    OpponentHp | Opponent(_) | Both(_) | Launch(_) | Burn(_) | NoEffect -> True
+    OpponentHp
+    | Opponent(_)
+    | Both(_)
+    | Launch(_)
+    | Burn(_)
+    | NoEffect
+    | OwnHp -> True
   }
 }
 
@@ -236,11 +271,6 @@ pub fn describe_error(error: BuildError) -> String {
       <> num(mount_limit)
     NoWeapon -> "At least one weapon is required"
     NoBattery -> "A battery is required"
-    DeckTooSmall(cards:, minimum:) ->
-      "Only "
-      <> int.to_string(cards)
-      <> " cards; a robot needs at least "
-      <> int.to_string(minimum)
   }
 }
 
