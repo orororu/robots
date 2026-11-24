@@ -215,10 +215,22 @@ enemies for each level.
     A level 1 robot needs about 235 credits (a stripped Scrap gunner).
   - `state.buy_part`, `buy_chassis`, `buy_robot`. A bought robot joins the
     team under its roster name.
-- **An upgrade adds a higher-efficiency card to a part** (proposal, not yet
-  built): e.g. a "Tuned laser" card, a copy of one of the part's cards with
-  more value for the same cost, above the efficiency band. The part keeps its
-  weight, so upgrades are the way to grow stronger within a chassis' capacity.
+- **Workshops upgrade a component** (`run/upgrade.gleam`,
+  `state.upgrade`): free, once per visit, an installed part or a spare. The
+  part keeps its weight, so upgrades are the way to grow stronger within a
+  chassis' capacity.
+  - A card without a good attribute gets a random one: Tuned or Efficient
+    (5 each), Strong or Rapid (3 each), Overcharged (1). A bad attribute it
+    had (Damaged, Weak, Worn...) is replaced; Broken plate cards aren't, a
+    repair fixes those.
+  - When every card has a good attribute, one goes up a tier: Tuned →
+    Strong → Masterwork, Efficient → Rapid, Overcharged → Masterwork.
+  - When every card is Masterwork or Rapid, it can't be upgraded.
+  - The client shows the upgrade on the map: which attribute went on which
+    card (and what it replaced), and the card before and after. Card
+    previews everywhere (garage, shop) note each card's attribute and what
+    it does against the plain card, e.g. "Rapid: ⚡10 → 8", green when good,
+    red when bad.
 - **Good chassis are special:** a boss drops one (level 1: Brute or Scout,
   level 2: Scout or Tank, level 3: Tank), and shops sell used ones.
 
@@ -284,9 +296,13 @@ plate on a battered robot would also count as battered.
 - **Length:** levels were 6 rows at first: over too soon for a real level,
   but about right for a tutorial level later. At 12 rows, shops every
   third row keep stretches without a repair as short as before.
+- **Workshops** (upgrade one component): one node on each of the level's
+  **workshop rows** (`workshop_rows`): level 1 rows 4 and 7, other levels
+  rows 4 and 8.
 - Enemies are spawned when the map is made, so the map can show who waits
   where (name and description).
-- The client draws the map: E enemy, S strong enemy, R repair shop, B boss;
+- The client draws the map: E enemy, S strong enemy, R repair shop, U
+  workshop, B boss;
   your path in green, where you can go in yellow, nodes out of reach
   faded.
 
@@ -324,21 +340,35 @@ plate on a battered robot would also count as battered.
 
 ### Autopilot (`gleam run -m run`)
 
-Plays whole runs with the starter alone: random paths, but heading for a
-repair shop when it has 20 credits or more; AI battles; repairs what it can
-afford (the whole robot, else part by part); broken plates swapped for
-looted ones; no buying, no new robots. With 12-row levels and the Dump
-roster (40 runs): **40% reach level 2**, none level 3; 9.5 battles per run;
-the Compactor ends the most runs, and the bosses win 30% of their fights.
-The same autopilot on 6-row levels: 50% reach level 2, 5% level 3, 7.0
-battles per run. (Earlier, with 6-row levels and an autopilot that walked
-past shops and repaired only whole robots: with worn-down early enemies,
-all HP halved and the level monsters added: 50% reach level 2, 3% level 3;
-6.6 battles per run.) (Before the level monsters: 33% reached level 2; with them as worn as
-the rest: 73%.) Level 2 enemies (Firebug, Beam
-knight, Rocket turtle) end most runs: the starter alone isn't meant to get
-far, and players will have second robots and bought parts. (Before enemies
-were worn down: 5% reached level 2.)
+Plays whole runs (100) like a cautious player:
+- random paths, but heading for a repair shop when it has 20 credits or more;
+- AI battles, healthiest robot first;
+- at shops: repairs what it can afford (the whole robot, else part by part),
+  then buys the used robot on sale if it can (selling spares to make up the
+  difference), then shop parts worth installing right away;
+- after every battle and shop: installs spares worth it (armor always; other
+  parts only on a robot short of cards, replacing Malfunctions; never a dead
+  card), builds a robot from a spare chassis (a wreck) when the spares
+  include a weapon and a battery for it, and swaps broken plates for looted
+  ones. It never trades weapons;
+- at a workshop (only when a random path passes one): upgrades its priciest
+  installed component.
+
+With the Dump level, 12-row levels, shops and wrecks: **37% reach level 2,
+6% level 3**; 10.6 battles per run; 0.7 robots bought or built per run, and
+49% of runs had two robots at some point (most of them wrecks: the used
+robots cost about 235 credits on level 1, and runs end with about 120). The
+Compactor ends the most runs (23 of 100), then level 2's Twin beam.
+
+With workshops: 38% reach level 2, 7% level 3, within noise of the run
+without them: the autopilot passes one only by chance, and one better card
+is a small step.
+
+Installing every spare that fits made runs worse (23% reached level 2):
+extra cards dilute a full deck. Before buying and building (the starter
+alone, 40 runs): 40% reached level 2, none level 3, 9.5 battles per run.
+Earlier, on 6-row levels: 50% reached level 2 (33% before the level
+monsters; 5% before enemies were worn down).
 
 ## Open questions
 

@@ -30,6 +30,7 @@ fn at(run: Run, event: fn(map.Event) -> Bool) -> Run {
   let phase = case node.event {
     map.RepairShop -> state.Repairing(node.id)
     map.Battle(..) -> state.Fighting(node.id)
+    map.Workshop -> state.Upgrading(node.id)
   }
   Run(..run, at: Some(node.id), phase:)
 }
@@ -284,4 +285,24 @@ pub fn a_dropped_chassis_comes_as_a_wreck_that_can_fight_test() {
       })
     })
   })
+}
+
+pub fn a_workshop_upgrades_one_component_once_test() {
+  let run = at(state.new(1), fn(e) { e == map.Workshop })
+  let assert state.Upgrading(_) = run.phase
+  let assert [bot, ..] = run.robots
+  let assert [before, ..] = bot.parts
+  let assert Ok(#(after_run, change)) =
+    state.upgrade(run, state.Installed(0, 0))
+  assert change.before != change.after
+  let assert [bot, ..] = after_run.robots
+  let assert [after, ..] = bot.parts
+  assert after.attributes != before.attributes
+  // One upgrade per visit: the player moves on.
+  assert after_run.phase == state.Choosing
+  let assert Error(state.WrongPhase) =
+    state.upgrade(after_run, state.Installed(0, 0))
+  // Or leave without upgrading.
+  let assert Ok(left) = state.leave(run)
+  assert left.phase == state.Choosing
 }

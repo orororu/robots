@@ -16,6 +16,8 @@
 ////   nodes are shops, but never all of them, so some branches pass by
 ////   with a battle. Shop rows aren't next to each other, so two shops
 ////   never follow one another.
+//// - One workshop (upgrade a component) on each of the level's
+////   `workshop_rows`, never the whole row.
 //// - Then the boss, alone in its row.
 ////
 //// Enemies are spawned when the map is made, so the map can show who waits
@@ -51,6 +53,14 @@ pub fn shop_rows(level: Int) -> List(Int) {
   }
 }
 
+/// The rows with a workshop on each level: one node each. Not shop rows.
+pub fn workshop_rows(level: Int) -> List(Int) {
+  case level {
+    1 -> [4, 7]
+    _ -> [4, 8]
+  }
+}
+
 pub type Tier {
   Normal
   Strong
@@ -60,6 +70,8 @@ pub type Tier {
 pub type Event {
   Battle(tier: Tier, enemy: Enemy)
   RepairShop
+  /// Upgrade one component, once (see `run/upgrade`).
+  Workshop
 }
 
 pub type Node {
@@ -101,14 +113,27 @@ pub fn generate(level: Int, seed: Seed) -> #(Map, Seed) {
       #(seed, list.take(shuffled, 1 + extra))
     })
   let shops = list.flatten(shops)
+  // One workshop on each workshop row.
+  let #(seed, workshops) =
+    list.index_map(ids, fn(row_ids, row) { #(row, row_ids) })
+    |> list.filter(fn(pair) { list.contains(workshop_rows(level), pair.0) })
+    |> list.map_fold(seed, fn(seed, pair) {
+      let #(i, seed) = rng.int_below(seed, list.length(pair.1))
+      #(seed, list.drop(pair.1, i) |> list.take(1))
+    })
+  let workshops = list.flatten(workshops)
   let #(seed, nodes) =
     list.index_map(ids, fn(row_ids, row) { #(row, row_ids) })
     |> list.flat_map(fn(pair) { list.map(pair.1, fn(id) { #(pair.0, id) }) })
     |> list.map_fold(seed, fn(seed, pair) {
       let #(row, id) = pair
-      let #(event, seed) = case list.contains(shops, id) {
-        True -> #(RepairShop, seed)
-        False -> battle_at(row, roster, level, seed)
+      let #(event, seed) = case
+        list.contains(shops, id),
+        list.contains(workshops, id)
+      {
+        True, _ -> #(RepairShop, seed)
+        _, True -> #(Workshop, seed)
+        _, _ -> battle_at(row, roster, level, seed)
       }
       let next =
         links

@@ -6,6 +6,7 @@
 
 import gleam/float
 import gleam/list
+import gleam/result
 import gleam/string
 import robots/construction/attribute.{type Attribute}
 import robots/rules/card.{type Card, Card}
@@ -178,6 +179,23 @@ pub fn cards(component: Component) -> List(Card) {
     }
     Card(..c, value: c.value *. boost)
   })
+}
+
+/// The cards without their attributes (but with the part's modifiers):
+/// what each card would be plain, to show what its attribute does.
+pub fn plain_cards(component: Component) -> List(Card) {
+  cards(Component(..component, attributes: []))
+}
+
+/// The attribute on card `index`, as this part names it ("Hardened" on
+/// armor), and whether it makes the card better.
+pub fn attribute_at(
+  component: Component,
+  index: Int,
+) -> Result(#(String, Bool), Nil) {
+  use a <- result.try(list.key_find(component.attributes, index))
+  use c <- result.try(list.drop(component.cards, index) |> list.first)
+  Ok(#(word(component, a), attribute.is_good(a, c)))
 }
 
 /// Each attribute with the card it's on (before attributes).

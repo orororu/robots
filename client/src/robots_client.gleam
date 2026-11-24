@@ -29,12 +29,14 @@ import robots/construction/part.{type Component}
 import robots/construction/robot.{type Robot}
 import robots/construction/wear
 import robots/content/enemies
+import robots/rules/card
 import robots/rules/game.{type Game, P1, P2}
 import robots/rules/scale.{type Scale}
 import robots/run/map
 import robots/run/price
 import robots/run/shop
 import robots/run/state.{type Bot, type Run}
+import robots/run/upgrade
 import robots_client/battle_view
 import robots_client/browser
 import robots_client/card_view
@@ -64,6 +66,9 @@ type Model {
     pick: Pick,
     /// What the last battle paid, shown on the map.
     news: String,
+    /// The last workshop upgrade (part name, change), shown on the map
+    /// until the next step.
+    upgraded: Option(#(String, upgrade.Change)),
     scale: Scale,
     now: Int,
     flash: String,
@@ -131,6 +136,7 @@ fn new_run(now: Int) -> Model {
     order: default_order(run),
     pick: no_pick,
     news: "A new run. Pick where to go.",
+    upgraded: None,
     scale: scale.default(),
     now:,
     flash: "",
@@ -170,6 +176,8 @@ type Msg {
   RepairPicked
   SellPicked
   Leave
+  // Workshop
+  UpgradePicked
   // Garage
   ClickInstalled(robot: Int, part: Int)
   ClickSpare(part: Int)
@@ -189,7 +197,8 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
     Frame(now) -> advance(model, now)
     KeyDown(key) -> key_down(model, key)
     NewRun -> new_run(browser.now())
-    Go(node) -> attempt(model, state.go(model.run, node), "")
+    Go(node) ->
+      attempt(Model(..model, upgraded: None), state.go(model.run, node), "")
     First(robot) ->
       Model(..model, order: [
         robot,
@@ -211,6 +220,30 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
         _ -> model
       }
     Leave -> attempt(model, state.leave(model.run), "")
+    UpgradePicked ->
+      case upgrade_target(model.pick) {
+        Some(target) ->
+          case
+            state.target_part(model.run, target),
+            state.upgrade(model.run, target)
+          {
+            Ok(p), Ok(#(run, change)) ->
+              attempt(
+                Model(..model, upgraded: Some(#(part.display_name(p), change))),
+                Ok(run),
+                "Upgraded "
+                  <> part.display_name(p)
+                  <> ": "
+                  <> change.before.name
+                  <> " → "
+                  <> change.after.name
+                  <> ".",
+              )
+            _, Error(error) -> attempt(model, Error(error), "")
+            Error(error), _ -> attempt(model, Error(error), "")
+          }
+        None -> model
+      }
     ClickInstalled(robot, p) -> {
       let spare = case model.pick {
         Picked(_, spare) -> spare
@@ -339,6 +372,15 @@ fn click_spare(model: Model, spare: Int) -> Model {
 }
 
 /// What a repair would fix for this selection: one chassis or one part.
+/// The one component selected, to upgrade at a workshop.
+fn upgrade_target(pick: Pick) -> Option(state.Target) {
+  case pick {
+    Picked(Some(#(robot, p)), None) -> Some(state.Installed(robot, p))
+    Picked(None, Some(spare)) -> Some(state.Spare(spare))
+    _ -> None
+  }
+}
+
 fn repair_target(pick: Pick) -> Option(state.Repair) {
   case pick {
     OwnChassis(robot) -> Some(state.RepairChassis(robot))
@@ -486,6 +528,7 @@ fn describe_error(error: state.Error) -> String {
       <> int.to_string(price)
       <> " credits; you have "
       <> int.to_string(money)
+    state.CantUpgrade -> "Every card of it is at its best already."
   }
 }
 
@@ -527,6 +570,7 @@ fn view(model: Model) -> Element(Msg) {
       None, state.Over -> view_over(model)
       None, state.Fighting(_) -> view_prebattle(model)
       None, state.Repairing(_) -> view_shop(model)
+      None, state.Upgrading(_) -> view_workshop(model)
       None, state.Choosing -> view_map(model)
     },
     html.pre([attribute.class("banner")], [
@@ -658,6 +702,7 @@ fn view_map(model: Model) -> Element(Msg) {
   let choices = state.choices(run)
   html.div([], [
     text("news", model.news),
+    view_upgrade(model),
     text(
       "",
       "MAP · level "
@@ -667,7 +712,7 @@ fn view_map(model: Model) -> Element(Msg) {
     map_svg(run, choices),
     text(
       "dim",
-      "E enemy · S strong enemy · R repair shop · B boss · green: your path · yellow: where you can go · faded: out of reach",
+      "E enemy · S strong enemy · R repair shop · U workshop · B boss · green: your path · yellow: where you can go · faded: out of reach",
     ),
     text("", "WHERE NEXT"),
     html.div(
@@ -789,6 +834,7 @@ fn map_node(
   let #(x, y) = node_xy(m, node)
   let #(letter, fill, stroke) = case node.event {
     map.RepairShop -> #("R", "#1f3340", "#7ab0d0")
+    map.Workshop -> #("U", "#2a3a1f", "#a8d07a")
     map.Battle(tier: map.Normal, ..) -> #("E", "#33241f", "#e08a7a")
     map.Battle(tier: map.Strong, ..) -> #("S", "#4a1c1c", "#ff6a5a")
     map.Battle(tier: map.Boss, ..) -> #("B", "#3a2048", "#c890f0")
@@ -870,12 +916,14 @@ fn node_detail(node: map.Node) -> String {
   case node.event {
     map.Battle(enemy:, ..) -> " · " <> enemy.description
     map.RepairShop -> " · repair your robots for credits"
+    map.Workshop -> " · upgrade one component, free"
   }
 }
 
 fn node_label(node: map.Node) -> String {
   case node.event {
     map.RepairShop -> "Repair shop"
+    map.Workshop -> "Workshop"
     map.Battle(tier: map.Normal, enemy:) -> enemy.name
     map.Battle(tier: map.Strong, enemy:) -> "STRONG " <> enemy.name
     map.Battle(tier: map.Boss, enemy:) -> "BOSS " <> enemy.name
@@ -918,6 +966,20 @@ fn view_prebattle(model: Model) -> Element(Msg) {
       ])
     }
   }
+}
+
+// Workshop
+
+fn view_workshop(model: Model) -> Element(Msg) {
+  html.div([], [
+    text(
+      "",
+      "WORKSHOP · select a component below, then upgrade it: one card gets a "
+        <> "good attribute, or a good one goes up a tier. Free, once.",
+    ),
+    button_class(">>> Leave without upgrading", "banner", Leave),
+    view_garage(model),
+  ])
 }
 
 // Repair shop
@@ -1175,6 +1237,19 @@ fn view_garage(model: Model) -> Element(Msg) {
       }
     _, _ -> []
   }
+  // At a workshop: upgrade what's selected.
+  let actions_upgrade = case run.phase, upgrade_target(model.pick) {
+    state.Upgrading(_), Some(target) ->
+      case state.target_part(run, target) {
+        Ok(p) ->
+          case upgrade.can_upgrade(p) {
+            True -> [button("[Upgrade]", UpgradePicked)]
+            False -> [text("dim", "  every card is at its best")]
+          }
+        Error(_) -> []
+      }
+    _, _ -> []
+  }
   let actions = case model.pick {
     Picked(Some(_), Some(_)) -> [button("[Swap them]", Swap)]
     Picked(Some(_), None) -> [button("[Remove part]", Remove), ..repair]
@@ -1202,7 +1277,7 @@ fn view_garage(model: Model) -> Element(Msg) {
   }
   let actions = case model.pick {
     Picked(None, None) -> []
-    _ -> list.append(actions, [button("[Cancel]", Cancel)])
+    _ -> list.flatten([actions_upgrade, actions, [button("[Cancel]", Cancel)]])
   }
   html.div([attribute.class("garage")], [
     html.div([], [
@@ -1322,19 +1397,66 @@ fn preview_section(model: Model, label: String, p: Component) -> Element(Msg) {
       },
     ),
     card_view.row(
-      list.map(cards, fn(c) {
-        card_view.view(
-          model.scale,
-          c,
-          current: c.value,
-          key: None,
-          dim: False,
-          on_click: None,
-          charge: None,
-        )
+      list.index_map(list.zip(cards, part.plain_cards(p)), fn(pair, i) {
+        let #(c, plain) = pair
+        let shown = plain_card(model, c)
+        // An attribute: what it is and what it does to the plain card.
+        case part.attribute_at(p, i) {
+          Ok(#(word, good)) ->
+            card_view.noted(
+              shown,
+              word <> ": " <> card_view.change_text(model.scale, plain, c),
+              good,
+            )
+          Error(Nil) -> shown
+        }
       }),
     ),
   ])
+}
+
+fn plain_card(model: Model, c: card.Card) -> Element(Msg) {
+  card_view.view(
+    model.scale,
+    c,
+    current: c.value,
+    key: None,
+    dim: False,
+    on_click: None,
+    charge: None,
+  )
+}
+
+/// The last upgrade: the card before and after, with what changed.
+fn view_upgrade(model: Model) -> Element(Msg) {
+  case model.upgraded {
+    None -> text("", "")
+    Some(#(name, change)) ->
+      html.div([], [
+        text(
+          "",
+          "UPGRADED "
+            <> name
+            <> ": "
+            <> change.attribute
+            <> " added to "
+            <> change.plain.name
+            <> case change.replaced {
+            Some(old) -> " (replacing " <> old <> ")"
+            None -> ""
+          },
+        ),
+        card_view.row([
+          card_view.noted(plain_card(model, change.before), "before", False),
+          card_view.noted(
+            plain_card(model, change.after),
+            "after: "
+              <> card_view.change_text(model.scale, change.before, change.after),
+            True,
+          ),
+        ]),
+      ])
+  }
 }
 
 fn hint(pick: Pick) -> String {
@@ -1549,6 +1671,10 @@ pre { margin: 0 0 0.75rem; white-space: pre-wrap; font: inherit; }
 .cardbox { width: 9.5rem; min-height: 7.5rem; border: 2px solid; border-radius: 7px;
   padding: 5px 7px; font-size: 12px; display: flex; flex-direction: column; gap: 3px;
   box-sizing: border-box; }
+.noted { display: flex; flex-direction: column; gap: 2px; width: 9.5rem; }
+.cardnote { font-size: 11px; padding: 0 2px; }
+.cardnote.good { color: #8fd18f; }
+.cardnote.bad { color: #e08a7a; }
 .cardbox.clickable:hover { filter: brightness(1.35); }
 .cardhead { display: flex; justify-content: space-between; font-size: 10px; letter-spacing: 0.05em; opacity: 0.85; }
 .cardcost { font-weight: bold; color: #f0d060; }

@@ -11,7 +11,9 @@
 ////    robots' parts, destroyed robots are lost, and a win pays out money and
 ////    loot. Beating the boss moves on to the next level's map.
 //// 3. A repair shop (`Repairing`): `repair` robots for money, then `leave`.
-//// 4. When every robot is destroyed, the run is `Over`.
+//// 4. A workshop (`Upgrading`): `upgrade` one component for free, once,
+////    or `leave`.
+//// 5. When every robot is destroyed, the run is `Over`.
 ////
 //// The garage (`install`, `uninstall`, `swap`, `assemble`) works at any time
 //// except during an `Over` run; every change must leave a legal build.
@@ -34,6 +36,7 @@ import robots/run/loot
 import robots/run/map.{type Map, type Node, type Tier}
 import robots/run/price
 import robots/run/shop.{type Shop, Shop}
+import robots/run/upgrade.{type Change}
 
 /// Money for winning a battle, by tier. Placeholders: about one cheap part
 /// for an ordinary enemy (part prices run 13-57).
@@ -65,6 +68,8 @@ pub type Phase {
   Fighting(node: Int)
   /// At a repair shop.
   Repairing(node: Int)
+  /// At a workshop, before the upgrade.
+  Upgrading(node: Int)
   /// Every robot was destroyed.
   Over
 }
@@ -111,6 +116,14 @@ pub type Error {
   NoSuchChassis
   CantBuild(robot: String, errors: List(BuildError))
   NotEnoughMoney(price: Int, money: Int)
+  /// Every card of the component is at its best attribute already.
+  CantUpgrade
+}
+
+/// A component to upgrade: installed on a robot, or a spare.
+pub type Target {
+  Installed(robot: Int, part: Int)
+  Spare(part: Int)
 }
 
 /// A new run at level 1 with the starter robot.
@@ -159,6 +172,7 @@ pub fn go(run: Run, id: Int) -> Result(Run, Error) {
           let #(stock, seed) = shop.stock(run.level, budget(run), run.seed)
           Ok(Run(..run, phase: Repairing(id), shop: stock, seed:))
         }
+        map.Workshop -> Ok(Run(..run, phase: Upgrading(id)))
       }
     }
   }
@@ -442,8 +456,47 @@ pub fn repair(run: Run, robot: Int) -> Result(Run, Error) {
 pub fn leave(run: Run) -> Result(Run, Error) {
   case run.phase {
     Repairing(_) -> Ok(Run(..run, phase: Choosing, shop: shop.empty))
+    Upgrading(_) -> Ok(Run(..run, phase: Choosing))
     _ -> Error(WrongPhase)
   }
+}
+
+// THE WORKSHOP ----------------------------------------------------------------
+
+/// The component at `target`.
+pub fn target_part(run: Run, target: Target) -> Result(Component, Error) {
+  case target {
+    Installed(robot:, part:) -> {
+      use bot <- result.try(robot_at(run, robot))
+      part_at(bot.parts, part)
+    }
+    Spare(part:) -> part_at(run.parts, part)
+  }
+}
+
+/// Upgrade the component at `target` (see `run/upgrade`): the workshop's
+/// one upgrade, after which the player moves on. Returns the card changed.
+pub fn upgrade(run: Run, target: Target) -> Result(#(Run, Change), Error) {
+  use <- require(
+    case run.phase {
+      Upgrading(_) -> True
+      _ -> False
+    },
+    WrongPhase,
+  )
+  use p <- result.try(target_part(run, target))
+  use #(upgraded, change, seed) <- result.try(
+    upgrade.apply(p, run.seed) |> result.replace_error(CantUpgrade),
+  )
+  let run = case target {
+    Installed(robot:, part:) -> {
+      let assert Ok(bot) = robot_at(run, robot)
+      let bot = Bot(..bot, parts: replace(bot.parts, part, upgraded))
+      Run(..run, robots: replace(run.robots, robot, bot))
+    }
+    Spare(part:) -> Run(..run, parts: replace(run.parts, part, upgraded))
+  }
+  Ok(#(Run(..run, phase: Choosing, seed:), change))
 }
 
 /// What the player could pay at a shop: their money plus what their spare

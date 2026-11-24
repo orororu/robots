@@ -107,6 +107,23 @@ pub fn repair_shops_are_on_some_branches_of_the_shop_rows_test() {
   })
 }
 
+pub fn one_workshop_on_each_workshop_row_test() {
+  list.each(maps(), fn(m) {
+    list.each(int.range(0, map.rows + 1, [], list.prepend), fn(r) {
+      let workshops =
+        list.count(map.row(m, r), fn(n) { n.event == map.Workshop })
+      case list.contains(map.workshop_rows(m.level), r) {
+        True -> {
+          assert workshops == 1
+        }
+        False -> {
+          assert workshops == 0
+        }
+      }
+    })
+  })
+}
+
 pub fn all_three_event_kinds_appear_in_the_middle_test() {
   let middle =
     list.flat_map(maps(), fn(m) {
@@ -116,6 +133,7 @@ pub fn all_three_event_kinds_appear_in_the_middle_test() {
     case n.event {
       Battle(tier:, ..) -> map.tier_name(tier)
       RepairShop -> "shop"
+      map.Workshop -> "workshop"
     }
   }
   let kinds = list.unique(list.map(middle, kind))

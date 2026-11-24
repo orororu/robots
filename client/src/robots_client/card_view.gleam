@@ -173,6 +173,51 @@ fn charge_bar(cost: Float, ch: Charge) -> Element(msg) {
   ])
 }
 
+/// A card with a note under it, e.g. what its attribute does; `good`
+/// colours it green, else red.
+pub fn noted(card: Element(msg), note: String, good: Bool) -> Element(msg) {
+  html.div([attribute.class("noted")], [
+    card,
+    html.div(
+      [
+        attribute.class(case good {
+          True -> "cardnote good"
+          False -> "cardnote bad"
+        }),
+      ],
+      [element.text(note)],
+    ),
+  ])
+}
+
+/// What changed from card `from` to card `to`: "value 8 → 9 · ⚡8 → 6"
+/// (only what changed; "no change" if nothing did).
+pub fn change_text(s: Scale, from: Card, to: Card) -> String {
+  let value = #(scale.value(s, from.value), scale.value(s, to.value))
+  let cost = #(scale.cost(s, from.cost), scale.cost(s, to.cost))
+  let shows_value = case from.target {
+    card.Launch(_) | card.Burn(_) | card.NoEffect -> False
+    _ -> True
+  }
+  let parts =
+    list.flatten([
+      case shows_value && value.0 != value.1 {
+        True -> [
+          "value " <> int.to_string(value.0) <> " → " <> int.to_string(value.1),
+        ]
+        False -> []
+      },
+      case cost.0 != cost.1 {
+        True -> ["⚡" <> int.to_string(cost.0) <> " → " <> int.to_string(cost.1)]
+        False -> []
+      },
+    ])
+  case parts {
+    [] -> "no change"
+    _ -> string.join(parts, " · ")
+  }
+}
+
 /// A row of cards that wraps.
 pub fn row(cards: List(Element(msg))) -> Element(msg) {
   html.div([attribute.class("cards")], cards)
