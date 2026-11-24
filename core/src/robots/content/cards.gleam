@@ -93,6 +93,46 @@ pub fn overcharge() -> Card {
   attack("Overcharge", [Beam, Energy], 1.6, 2.1)
 }
 
+// RAILGUN --------------------------------------------------------------------
+
+/// An energy cannon shot that charges on the table: 12 when drawn, growing
+/// to 30 over 15 s (display scale). Rated by its full value, like a drone:
+/// at 30 it's a Cannon shot, from a lighter part that fits a Frame's mount.
+/// Lowered by a Deflector, it keeps growing from there.
+pub fn rail_shot() -> Card {
+  Card(..attack("Rail shot", [Beam, Energy], 2.0, 1.2), traits: [
+    card.Grows(per_second: 0.12, cap: 3.0),
+  ])
+}
+
+// ARC WELDER (melee and energy) ----------------------------------------------
+// Both melee and energy: raised by Servo packs and Hydraulics as well as
+// Capacitors, and lowered by Bucklers as well as Deflectors.
+
+pub fn spark() -> Card {
+  attack("Spark", [Melee, Energy], 0.5, 0.38)
+}
+
+pub fn arc() -> Card {
+  attack("Arc", [Melee, Energy], 0.7, 0.6)
+}
+
+pub fn weld() -> Card {
+  attack("Weld", [Melee, Energy], 1.0, 1.0)
+}
+
+// NEEDLE GUN (light, many cheap shots) ----------------------------------------
+// Cheap gun cards: Targeting and Ballistic computers have a target on the
+// table more often, and a Salvo raises several at once.
+
+pub fn needle() -> Card {
+  attack("Needle", [Range, Kinetic], 0.4, 0.28)
+}
+
+pub fn volley() -> Card {
+  attack("Volley", [Range, Kinetic], 0.7, 0.6)
+}
+
 // MELEE (Saw arm, Fist) -------------------------------------------------------
 
 pub fn nick() -> Card {

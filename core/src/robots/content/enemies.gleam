@@ -138,6 +138,7 @@ pub fn levels() -> List(Level) {
         grinder(),
         junk_fly(),
         bottle_fly(),
+        welder(),
       ],
       strong: [hubcap_knight(), incinerator(), foreman()],
       boss: compactor(),
@@ -151,13 +152,14 @@ pub fn levels() -> List(Level) {
         smoke_ripper(),
         wasp(),
         hailstorm(),
+        pincushion(),
       ],
       strong: [iron_grinder(), twin_beam()],
       boss: warhead(),
     ),
     Level(
       level: 3,
-      enemies: [iron_grinder(), twin_beam(), gunship(), flare()],
+      enemies: [iron_grinder(), twin_beam(), gunship(), flare(), railgunner()],
       strong: [bulwark(), hornet(), bastion()],
       boss: siege_tank(),
     ),
@@ -464,6 +466,53 @@ pub fn iron_grinder() -> Enemy {
       c.servo_pack(),
       c.heavy_plating(),
       c.heavy_plating(),
+    ],
+  )
+}
+
+pub fn welder() -> Enemy {
+  Enemy(
+    "Welder",
+    "Two arc welders: sparks that bucklers and deflectors both stop.",
+    c.frame(),
+    [
+      c.arc_welder(),
+      c.arc_welder(),
+      c.buckler(),
+      c.hydraulics(),
+      c.servo_pack(),
+      c.plating(),
+    ],
+  )
+}
+
+pub fn pincushion() -> Enemy {
+  Enemy(
+    "Pincushion",
+    "Two needle guns and a ballistic computer: a storm of tiny shots.",
+    c.scout(),
+    [
+      c.needle_gun(),
+      c.needle_gun(),
+      c.ballistic_computer(),
+      c.buckler(),
+      c.cell(),
+      c.plating(),
+    ],
+  )
+}
+
+pub fn railgunner() -> Enemy {
+  Enemy(
+    "Railgunner",
+    "A railgun charging behind shields: the longer it waits, the harder it hits.",
+    c.frame(),
+    [
+      c.railgun(),
+      c.capacitor(),
+      c.deflector(),
+      c.kinetic_shield(),
+      c.plating(),
     ],
   )
 }

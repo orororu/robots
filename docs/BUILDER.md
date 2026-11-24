@@ -193,6 +193,16 @@ so over a match your energy is spent roughly in proportion to your deck.
   pack 3 (90) raise melee attacks. The build tournament tries them as card
   parts; a build gets a plain battery only if its own can't pay for its
   priciest card.
+- **Railgun** (weight 4, fits a Frame's mount): two Pulses and two Rail
+  shots, energy attacks that charge on the table, 12 when drawn and growing
+  to 30 over 15 s (cost 20, a Cannon shot at full charge). Lowered by a
+  Deflector, a Rail shot keeps growing from there. Rated by its full value.
+- **Arc welder** (weight 2): Spark, Arc ×2, Weld, tagged melee **and**
+  energy, so Servo packs, Hydraulics and Capacitors all raise it, and
+  Bucklers and Deflectors both lower it.
+- **Needle gun** (weight 1.5, the lightest gun): Needle ×3 (cost 4, hits 3)
+  and Volley. Cheap gun cards give Targeting and Ballistic computers more
+  targets; a Salvo raises several at once.
 - **Ballistic computer:** raises guns only (machine gun, cannon); its
   Salvo raises every gun on the table. The Targeting computer is broader
   (any range attack, missiles too).

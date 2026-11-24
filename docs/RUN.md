@@ -147,6 +147,10 @@ enemies for each level.
     step: Warhead (~70%), Siege tank (the top Cannon tank). Level 1's
     boss, the Compactor, is a themed robot with a boss-only weapon rather
     than a tournament build (see docs/LEVELS.md).
+- **New weapons have their own enemies:** Welder (two Arc welders, level
+  1), Pincushion (two Needle guns on a Scout, level 2) and Railgunner (a
+  Railgun behind shields, level 3). The Tinker loses 20%, 22% and 52% of
+  its HP against them as met, in line with their levels.
 - **Early enemies are worn down** (`enemies.conditions`), so a fight costs
   little HP; HP doesn't come back between nodes. When an enemy is met
   (`spawn`), every card gets an attribute for its **condition step**: the

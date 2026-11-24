@@ -27,6 +27,9 @@ pub fn all() -> List(Component) {
     point_defence(),
     smoke_launcher(),
     flamethrower(),
+    railgun(),
+    arc_welder(),
+    needle_gun(),
     cell(),
     battery(),
     big_battery(),
@@ -74,6 +77,37 @@ pub fn fist() -> Component {
     cards.punch(),
     cards.punch(),
     cards.haymaker(),
+  ])
+}
+
+/// An energy cannon for a Frame's mount: two Rail shots that charge on the
+/// table, and two Pulses to keep firing meanwhile.
+pub fn railgun() -> Component {
+  part.new("Railgun", part.Weapon, 4.0, [
+    cards.pulse(),
+    cards.pulse(),
+    cards.rail_shot(),
+    cards.rail_shot(),
+  ])
+}
+
+/// Light melee that's also energy: every melee and energy buff raises it.
+pub fn arc_welder() -> Component {
+  part.new("Arc welder", part.Weapon, 2.0, [
+    cards.spark(),
+    cards.arc(),
+    cards.arc(),
+    cards.weld(),
+  ])
+}
+
+/// The lightest gun: many cheap shots for gun buffs to land on.
+pub fn needle_gun() -> Component {
+  part.new("Needle gun", part.Weapon, 1.5, [
+    cards.needle(),
+    cards.needle(),
+    cards.needle(),
+    cards.volley(),
   ])
 }
 
