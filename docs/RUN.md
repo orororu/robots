@@ -313,6 +313,10 @@ plate on a battered robot would also count as battered.
 
 ### Run state (`run/state.gleam`)
 
+- A run starts from the hangar (docs/META.md): the fabricator's robots, a
+  truck for 2 robots (`state.TruckFull` beyond that), and the blueprints the
+  player has. When it's over it pays out `state.salvage`.
+
 - A run holds the level, its map, the current node, the player's robots
   (each a chassis and its parts, with their wear), spare parts and chassis,
   and money.

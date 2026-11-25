@@ -13,7 +13,11 @@
 //// 3. A repair shop (`Repairing`): `repair` robots for money, then `leave`.
 //// 4. A workshop (`Upgrading`): `upgrade` one component for free, once,
 ////    or `leave`.
-//// 5. When every robot is destroyed, the run is `Over`.
+//// 5. When every robot is destroyed, the run is `Over`. It pays out
+////    `salvage`, and the blueprints it `found` (see docs/META.md).
+////
+//// The truck carries at most `truck` robots: assembling or buying one more
+//// fails with `TruckFull`. Spare parts and chassis are unlimited.
 ////
 //// The garage (`install`, `uninstall`, `swap`, `assemble`) works at any time
 //// except during an `Over` run; every change must leave a legal build.
@@ -29,6 +33,7 @@ import robots/construction/wear
 import robots/content/components
 import robots/content/enemies.{type Enemy}
 import robots/content/starters
+import robots/meta/blueprint.{type Blueprint}
 import robots/rules/amount
 import robots/rules/game.{type Game, P1, P2}
 import robots/rules/rng.{type Seed}
@@ -90,13 +95,24 @@ pub type Run {
     money: Int,
     /// What the repair shop the player is at sells (empty elsewhere).
     shop: Shop,
+    /// How many robots the truck carries.
+    truck: Int,
+    /// Each battle won, by tier, latest first.
+    wins: List(Tier),
+    /// Blueprints found in this run, in order.
+    found: List(Blueprint),
     seed: Seed,
   )
 }
 
 /// What a won battle paid.
 pub type Reward {
-  Reward(money: Int, parts: List(Component), chassis: Option(Chassis))
+  Reward(
+    money: Int,
+    parts: List(Component),
+    chassis: Option(Chassis),
+    blueprint: Option(Blueprint),
+  )
 }
 
 /// How a battle went for the player: whether they won, and each robot's HP
@@ -116,6 +132,8 @@ pub type Error {
   NoSuchChassis
   CantBuild(robot: String, errors: List(BuildError))
   NotEnoughMoney(price: Int, money: Int)
+  /// The truck carries `robots` robots and is full.
+  TruckFull(robots: Int)
   /// Every card of the component is at its best attribute already.
   CantUpgrade
 }
@@ -126,8 +144,21 @@ pub type Target {
   Spare(part: Int)
 }
 
-/// A new run at level 1 with the starter robot.
+/// Robots a truck carries without upgrades.
+pub const default_truck = 2
+
+/// A new run at level 1 with the Tinker, a default truck and no blueprints.
 pub fn new(seed: Int) -> Run {
+  start(
+    seed,
+    [Bot("Tinker", components.frame(), starters.tinker_parts())],
+    default_truck,
+  )
+}
+
+/// A new run at level 1 with these robots (the fabricator's) and a truck
+/// for `truck` robots.
+pub fn start(seed: Int, robots: List(Bot), truck: Int) -> Run {
   let seed = rng.new(seed)
   let #(map, seed) = map.generate(1, seed)
   Run(
@@ -136,13 +167,45 @@ pub fn new(seed: Int) -> Run {
     at: None,
     path: [],
     phase: Choosing,
-    robots: [Bot("Tinker", components.frame(), starters.tinker_parts())],
+    robots:,
     parts: [],
     chassis: [],
     money: starting_money,
     shop: shop.empty,
+    truck:,
+    wins: [],
+    found: [],
     seed:,
   )
+}
+
+// SALVAGE ---------------------------------------------------------------------
+
+pub const salvage_normal = 1
+
+pub const salvage_strong = 3
+
+pub const salvage_boss = 10
+
+/// For each level reached past the first.
+pub const salvage_level = 5
+
+/// Credits left at the end, per Salvage.
+pub const credits_per_salvage = 20
+
+/// What the run has earned so far, in Salvage: its wins, the levels it
+/// reached and the credits it holds. Paid out when it's over.
+pub fn salvage(run: Run) -> Int {
+  let wins =
+    list.map(run.wins, fn(tier) {
+      case tier {
+        map.Normal -> salvage_normal
+        map.Strong -> salvage_strong
+        map.Boss -> salvage_boss
+      }
+    })
+    |> int.sum
+  wins + { run.level - 1 } * salvage_level + run.money / credits_per_salvage
 }
 
 // THE MAP ---------------------------------------------------------------------
@@ -263,7 +326,10 @@ pub fn finish(
   let run = Run(..run, robots:)
   case outcome.won, robots {
     False, _ | _, [] ->
-      Ok(#(Run(..run, phase: Over), Reward(money: 0, parts: [], chassis: None)))
+      Ok(#(
+        Run(..run, phase: Over),
+        Reward(money: 0, parts: [], chassis: None, blueprint: None),
+      ))
     True, _ -> Ok(reward(run, tier))
   }
 }
@@ -297,6 +363,7 @@ fn reward(run: Run, tier: Tier) -> #(Run, Reward) {
     }
     _, _ -> #(parts, seed)
   }
+  let #(found, seed) = blueprint.roll(run.level, tier, seed)
   let run =
     Run(
       ..run,
@@ -304,13 +371,15 @@ fn reward(run: Run, tier: Tier) -> #(Run, Reward) {
       money: run.money + money,
       parts: list.append(run.parts, parts),
       chassis: list.append(run.chassis, option.values([chassis])),
+      wins: [tier, ..run.wins],
+      found: list.append(run.found, option.values([found])),
       seed:,
     )
   let run = case tier {
     map.Boss -> next_level(run)
     _ -> run
   }
-  #(run, Reward(money:, parts:, chassis:))
+  #(run, Reward(money:, parts:, chassis:, blueprint: found))
 }
 
 fn next_level(run: Run) -> Run {
@@ -527,6 +596,7 @@ pub fn buy_robot(run: Run, i: Int) -> Result(Run, Error) {
     |> list.first
     |> result.replace_error(NoSuchRobot),
   )
+  use <- require(room_in_truck(run), TruckFull(run.truck))
   use run <- result.try(pay(run, shop.robot_price(offer)))
   let bot = Bot(name: offer.name, chassis: offer.chassis, parts: offer.parts)
   Ok(
@@ -536,6 +606,11 @@ pub fn buy_robot(run: Run, i: Int) -> Result(Run, Error) {
       shop: Shop(..run.shop, robots: remove_at(run.shop.robots, i)),
     ),
   )
+}
+
+/// Whether the truck has room for one more robot.
+pub fn room_in_truck(run: Run) -> Bool {
+  list.length(run.robots) < run.truck
 }
 
 fn pay(run: Run, cost: Int) -> Result(Run, Error) {
@@ -574,6 +649,7 @@ pub fn assemble(
   parts: List(Int),
 ) -> Result(Run, Error) {
   use <- require(run.phase != Over, WrongPhase)
+  use <- require(room_in_truck(run), TruckFull(run.truck))
   use frame <- result.try(
     list.drop(run.chassis, chassis)
     |> list.first

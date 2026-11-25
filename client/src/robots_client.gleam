@@ -9,6 +9,7 @@
 //// The core works in relative amounts (1.0 = base). Every number shown here
 //// goes through `robots/rules/scale`, so the whole game can be rescaled in one place.
 
+import gleam/bool
 import gleam/float
 import gleam/int
 import gleam/list
@@ -29,6 +30,8 @@ import robots/construction/part.{type Component}
 import robots/construction/robot.{type Robot}
 import robots/construction/wear
 import robots/content/enemies
+import robots/meta/blueprint.{type Blueprint, ChassisBlueprint, PartBlueprint}
+import robots/meta/profile.{type Profile}
 import robots/rules/card
 import robots/rules/game.{type Game, P1, P2}
 import robots/rules/scale.{type Scale}
@@ -55,6 +58,11 @@ pub fn main() -> Nil {
 
 type Model {
   Model(
+    /// What carries over between runs; saved in the browser.
+    profile: Profile,
+    /// Between runs: the hangar, where Salvage is spent and the starting
+    /// robot designed. `run` is the last run (or a placeholder) meanwhile.
+    hangar: Option(Hangar),
     run: Run,
     /// The battle being fought, if any.
     battle: Option(Battle),
@@ -104,6 +112,23 @@ type Report {
   )
 }
 
+/// The hangar: the design being edited (the fabricator's first robot) and
+/// what's selected.
+type Hangar {
+  Hangar(design: profile.Design, pick: HangarPick)
+}
+
+type HangarPick {
+  NoHangarPick
+  /// A found blueprint, to research.
+  PickFound(Blueprint)
+  /// A researched blueprint, to add to the design (a part) or build it on
+  /// (a chassis).
+  PickBlueprint(Blueprint)
+  /// Part `index` of the design, to remove.
+  PickInstalled(index: Int)
+}
+
 /// What's selected in the garage; the selected parts' cards are shown.
 type Pick {
   /// An installed part (robot, part) and/or a spare part. With one, it can
@@ -126,9 +151,16 @@ type Stock {
 
 const no_pick = Picked(None, None)
 
-fn new_run(now: Int) -> Model {
-  let run = state.new(browser.random_seed())
+/// A model for `run`, in the hangar if `hangar` is given.
+fn new_model(
+  run: Run,
+  profile: Profile,
+  hangar: Option(Hangar),
+  now: Int,
+) -> Model {
   Model(
+    profile:,
+    hangar:,
     run:,
     battle: None,
     report: None,
@@ -153,7 +185,36 @@ fn init(_: Nil) -> #(Model, Effect(Msg)) {
       browser.every(frame_ms, fn() { dispatch(Frame(browser.now())) })
       browser.on_keydown(fn(key) { dispatch(KeyDown(key)) })
     })
-  #(new_run(browser.now()), subscriptions)
+  let profile =
+    profile.decode(browser.load_profile()) |> result.unwrap(profile.new())
+  let model =
+    new_model(
+      state.new(browser.random_seed()),
+      profile,
+      Some(hangar_for(profile)),
+      browser.now(),
+    )
+  #(model, subscriptions)
+}
+
+fn hangar_for(p: Profile) -> Hangar {
+  let design = case profile.design(p, 0) {
+    Ok(d) -> d
+    Error(Nil) -> profile.Design("Robot", "Frame", [])
+  }
+  Hangar(design:, pick: NoHangarPick)
+}
+
+/// Save the profile and go to the hangar.
+fn open_hangar(model: Model, p: Profile) -> Model {
+  browser.save_profile(profile.encode(p))
+  Model(
+    ..model,
+    profile: p,
+    hangar: Some(hangar_for(p)),
+    battle: None,
+    report: None,
+  )
 }
 
 // UPDATE ----------------------------------------------------------------------
@@ -161,7 +222,17 @@ fn init(_: Nil) -> #(Model, Effect(Msg)) {
 type Msg {
   Frame(now: Int)
   KeyDown(key: String)
-  NewRun
+  // Hangar
+  HangarSelect(pick: HangarPick)
+  Research
+  AddPart
+  RemovePart
+  UseChassis
+  CopyBlueprint
+  ResearchCopier
+  StartRun
+  /// After a run: pay it out and go to the hangar.
+  ToHangar
   // Map
   Go(node: Int)
   // Before a battle
@@ -195,7 +266,81 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   let model = case msg {
     Frame(now) -> advance(model, now)
     KeyDown(key) -> key_down(model, key)
-    NewRun -> new_run(browser.now())
+    HangarSelect(pick) ->
+      update_hangar(model, fn(h) {
+        Hangar(..h, pick: case h.pick == pick {
+          True -> NoHangarPick
+          False -> pick
+        })
+      })
+    Research ->
+      case model.hangar {
+        Some(Hangar(pick: PickFound(b), ..) as h) ->
+          case profile.research(model.profile, b) {
+            Ok(p) -> {
+              browser.save_profile(profile.encode(p))
+              Model(
+                ..model,
+                profile: p,
+                hangar: Some(Hangar(..h, pick: PickBlueprint(b))),
+              )
+            }
+            Error(e) -> flash(model, describe_profile_error(e))
+          }
+        _ -> model
+      }
+    AddPart ->
+      update_hangar(model, fn(h) {
+        case h.pick {
+          PickBlueprint(PartBlueprint(name)) ->
+            Hangar(
+              ..h,
+              design: profile.Design(
+                ..h.design,
+                parts: list.append(h.design.parts, [name]),
+              ),
+            )
+          _ -> h
+        }
+      })
+    RemovePart ->
+      update_hangar(model, fn(h) {
+        case h.pick {
+          PickInstalled(i) ->
+            Hangar(
+              design: profile.Design(
+                ..h.design,
+                parts: list.append(
+                  list.take(h.design.parts, i),
+                  list.drop(h.design.parts, i + 1),
+                ),
+              ),
+              pick: NoHangarPick,
+            )
+          _ -> h
+        }
+      })
+    UseChassis ->
+      update_hangar(model, fn(h) {
+        case h.pick {
+          PickBlueprint(ChassisBlueprint(name)) ->
+            Hangar(
+              design: profile.Design(..h.design, chassis: name),
+              pick: NoHangarPick,
+            )
+          _ -> h
+        }
+      })
+    CopyBlueprint ->
+      case model.hangar {
+        Some(Hangar(pick: PickBlueprint(b), ..)) ->
+          change_profile(model, profile.copy(model.profile, b))
+        _ -> model
+      }
+    ResearchCopier ->
+      change_profile(model, profile.research_copier(model.profile))
+    StartRun -> start_run(model)
+    ToHangar -> open_hangar(model, profile.finish(model.profile, model.run))
     Go(node) ->
       attempt(Model(..model, upgraded: None), state.go(model.run, node), "")
     First(robot) ->
@@ -304,6 +449,77 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
     Cancel -> Model(..model, pick: no_pick)
   }
   #(model, effect.none())
+}
+
+/// Apply a change to the profile and save it, or flash why it failed.
+fn change_profile(
+  model: Model,
+  result: Result(Profile, profile.Error),
+) -> Model {
+  case result {
+    Ok(p) -> {
+      browser.save_profile(profile.encode(p))
+      Model(..model, profile: p)
+    }
+    Error(e) -> flash(model, describe_profile_error(e))
+  }
+}
+
+fn update_hangar(model: Model, f: fn(Hangar) -> Hangar) -> Model {
+  case model.hangar {
+    Some(h) -> Model(..model, hangar: Some(f(h)))
+    None -> model
+  }
+}
+
+/// Save the design and start a run with the fabricated robots.
+fn start_run(model: Model) -> Model {
+  case model.hangar {
+    None -> model
+    Some(h) -> {
+      let started = {
+        use p <- result.try(profile.set_design(model.profile, 0, h.design))
+        use run <- result.map(profile.start(p, browser.random_seed()))
+        #(p, run)
+      }
+      case started {
+        Ok(#(p, run)) -> {
+          browser.save_profile(profile.encode(p))
+          new_model(run, p, None, model.now)
+        }
+        Error(e) -> flash(model, describe_profile_error(e))
+      }
+    }
+  }
+}
+
+fn describe_profile_error(e: profile.Error) -> String {
+  case e {
+    profile.NotFound(b) -> blueprint.describe(b) <> ": no blueprint."
+    profile.NotEnoughCopies(blueprint: b, have:, need:) ->
+      "Needs "
+      <> int.to_string(need)
+      <> " "
+      <> blueprint.describe(b)
+      <> " blueprints; you have "
+      <> int.to_string(have)
+      <> ". Each blueprint makes one."
+    profile.NoCopier -> "Research the blueprint copier first."
+    profile.CopierResearched -> "The blueprint copier is researched already."
+    profile.NotEnoughSalvage(cost:, salvage:) ->
+      "Costs "
+      <> int.to_string(cost)
+      <> " Salvage; you have "
+      <> int.to_string(salvage)
+      <> "."
+    profile.NotResearched(b) ->
+      blueprint.describe(b) <> " isn't researched yet."
+    profile.CantBuild(design:, errors:) ->
+      design
+      <> ": "
+      <> string.join(list.map(errors, builder.describe_error), "; ")
+    profile.NoSuchDesign -> "No such design."
+  }
 }
 
 fn key_down(model: Model, key: String) -> Model {
@@ -526,6 +742,10 @@ fn describe_error(error: state.Error) -> String {
       <> " credits; you have "
       <> int.to_string(money)
     state.CantUpgrade -> "Every card of it is at its best already."
+    state.TruckFull(robots:) ->
+      "The truck carries "
+      <> int.to_string(robots)
+      <> " robots and is full. Keep the chassis as a spare."
   }
 }
 
@@ -548,6 +768,10 @@ fn describe_reward(before: Run, after: Run, reward: state.Reward) -> String {
         Some(c) -> ", and a " <> c.name <> " chassis!"
         None -> "."
       }
+      <> case reward.blueprint {
+        Some(b) -> " Found a blueprint: " <> blueprint.describe(b) <> "!"
+        None -> ""
+      }
       <> case after.level > before.level {
         True -> " On to level " <> int.to_string(after.level) <> "!"
         False -> ""
@@ -562,6 +786,7 @@ fn view(model: Model) -> Element(Msg) {
     html.style([], css),
     html.pre([], [element.text(header(model))]),
     case model.battle, model.run.phase {
+      _, _ if model.hangar != None -> view_hangar(model)
       _, _ if model.report != None -> view_report(model)
       Some(b), _ -> view_battle(model, b)
       None, state.Over -> view_over(model)
@@ -580,16 +805,25 @@ fn view(model: Model) -> Element(Msg) {
 }
 
 fn header(model: Model) -> String {
+  use <- bool.lazy_guard(model.hangar != None, fn() {
+    "ROBOTS · HANGAR · "
+    <> int.to_string(model.profile.salvage)
+    <> " Salvage · "
+    <> int.to_string(model.profile.runs)
+    <> case model.profile.runs {
+      1 -> " run"
+      _ -> " runs"
+    }
+  })
   "ROBOTS · level "
   <> int.to_string(model.run.level)
   <> " · "
   <> int.to_string(model.run.money)
   <> " credits · "
   <> int.to_string(list.length(model.run.robots))
-  <> case model.run.robots {
-    [_] -> " robot"
-    _ -> " robots"
-  }
+  <> " of "
+  <> int.to_string(model.run.truck)
+  <> " robots in the truck"
 }
 
 fn button(label: String, msg: Msg) -> Element(Msg) {
@@ -639,6 +873,14 @@ fn view_report(model: Model) -> Element(Msg) {
     list.map(r.reward.parts, fn(p) { "  + " <> part_line(s, p) })
     |> list.append(case r.reward.chassis {
       Some(c) -> ["  + " <> c.name <> " chassis"]
+      None -> []
+    })
+    |> list.append(case r.reward.blueprint {
+      Some(b) -> [
+        "  + Blueprint: "
+        <> blueprint.describe(b)
+        <> " (research it in the hangar after the run)",
+      ]
       None -> []
     })
   html.div([], [
@@ -1113,8 +1355,306 @@ fn view_over(model: Model) -> Element(Msg) {
         <> int.to_string(model.run.level)
         <> ".",
     ),
-    button_class(">>> New run", "banner", NewRun),
+    view_earnings(model),
+    button_class(">>> To the hangar", "banner", ToHangar),
   ])
+}
+
+// Hangar (between runs)
+
+fn view_hangar(model: Model) -> Element(Msg) {
+  let assert Some(h) = model.hangar
+  let p = model.profile
+  let s = model.scale
+  let picked = fn(yes) {
+    case yes {
+      True -> "picked"
+      False -> ""
+    }
+  }
+  // Found blueprints, to research.
+  let found =
+    list.map(p.found, fn(b) {
+      button_class(
+        "  "
+          <> blueprint.describe(b)
+          <> " · research "
+          <> int.to_string(blueprint.research_cost(b))
+          <> " Salvage",
+        picked(h.pick == PickFound(b)),
+        HangarSelect(PickFound(b)),
+      )
+    })
+  // The design: its chassis and parts.
+  let bot = design_bot(h.design)
+  let installed =
+    list.index_map(h.design.parts, fn(name, i) {
+      let label = case blueprint.part(name) {
+        Ok(c) -> part_line(s, c)
+        Error(Nil) -> name
+      }
+      #(i, label)
+    })
+    |> list.map(fn(pair) {
+      button_class(
+        "    " <> pair.1,
+        picked(h.pick == PickInstalled(pair.0)),
+        HangarSelect(PickInstalled(pair.0)),
+      )
+    })
+  let design_lines = case bot {
+    Some(b) -> [
+      text("", "    " <> weight_line(b)),
+      text("", "    " <> mounts_line(b)),
+    ]
+    None -> []
+  }
+  let status = case profile.fabricate(p, h.design) {
+    Ok(_) -> text("ally", "✓ ready to fabricate")
+    Error(e) -> text("foe", "✗ " <> describe_profile_error(e))
+  }
+  // Researched blueprints: chassis to build on, parts to add.
+  // Copies of a blueprint, and how many the design uses.
+  let count = fn(b) {
+    let have = profile.copies(p, b)
+    let used = list.count(profile.needs(h.design), fn(n) { n == b })
+    " · ×"
+    <> int.to_string(have)
+    <> case used {
+      0 -> ""
+      _ -> ", " <> int.to_string(used) <> " in the design"
+    }
+  }
+  let unique = list.unique(p.researched)
+  let researched_chassis =
+    list.filter_map(unique, fn(b) {
+      case b {
+        ChassisBlueprint(name) ->
+          case blueprint.chassis(name) {
+            Ok(c) ->
+              Ok(button_class(
+                "    "
+                  <> c.name
+                  <> " · "
+                  <> int.to_string(scale.value(s, c.hp))
+                  <> " HP · max weight "
+                  <> num(c.capacity)
+                  <> " · weapon mounts "
+                  <> string.join(list.map(c.weapon_mounts, num), ", ")
+                  <> count(b),
+                picked(h.pick == PickBlueprint(b)),
+                HangarSelect(PickBlueprint(b)),
+              ))
+            Error(Nil) -> Error(Nil)
+          }
+        PartBlueprint(_) -> Error(Nil)
+      }
+    })
+  let researched_parts =
+    unique
+    |> list.filter_map(fn(b) {
+      case b {
+        PartBlueprint(name) -> blueprint.part(name)
+        ChassisBlueprint(_) -> Error(Nil)
+      }
+    })
+    |> by_kind
+    |> list.chunk(fn(pair) { { pair.1 }.kind })
+    |> list.flat_map(fn(group) {
+      let assert [#(_, first), ..] = group
+      [
+        text("dim", "    " <> string.uppercase(kind_plural(first.kind))),
+        ..list.map(group, fn(pair) {
+          let b = PartBlueprint({ pair.1 }.name)
+          button_class(
+            "      " <> part_line(s, pair.1) <> count(b),
+            picked(h.pick == PickBlueprint(b)),
+            HangarSelect(PickBlueprint(b)),
+          )
+        })
+      ]
+    })
+  let actions = case h.pick {
+    NoHangarPick -> []
+    PickFound(b) -> [
+      button(
+        "[Research · "
+          <> int.to_string(blueprint.research_cost(b))
+          <> " Salvage]",
+        Research,
+      ),
+    ]
+    PickBlueprint(PartBlueprint(_) as b) -> {
+      let spare =
+        profile.copies(p, b)
+        > list.count(profile.needs(h.design), fn(n) { n == b })
+      let copy = case p.copier {
+        True -> [
+          button(
+            "[Copy it · " <> int.to_string(profile.copy_cost(b)) <> " Salvage]",
+            CopyBlueprint,
+          ),
+        ]
+        False -> []
+      }
+      case spare {
+        True -> [button("[Add to the design]", AddPart), ..copy]
+        False -> [
+          text(
+            "dim",
+            "  every copy is in the design: each blueprint makes one part. Find another"
+              <> case p.copier {
+              True -> ", or copy it."
+              False -> ", or research the blueprint copier."
+            },
+          ),
+          ..copy
+        ]
+      }
+    }
+    PickBlueprint(ChassisBlueprint(name)) ->
+      case name == h.design.chassis {
+        True -> [text("dim", "  the design is built on it")]
+        False -> [button("[Build the design on it]", UseChassis)]
+      }
+    PickInstalled(_) -> [button("[Remove from the design]", RemovePart)]
+  }
+  let actions = case h.pick {
+    NoHangarPick -> []
+    _ -> list.append(actions, [button("[Cancel]", HangarSelect(NoHangarPick))])
+  }
+  // The selected thing's cards.
+  let selected = case h.pick {
+    PickFound(b) | PickBlueprint(b) -> blueprint_component(b)
+    PickInstalled(i) ->
+      list.drop(h.design.parts, i)
+      |> list.first
+      |> result.try(blueprint.part)
+      |> option.from_result
+    NoHangarPick -> None
+  }
+  let preview = case selected {
+    Some(c) -> preview_section(model, "", c)
+    None ->
+      text(
+        "dim",
+        "Select a blueprint or a part of the design to see its cards.",
+      )
+  }
+  html.div([], [
+    text(
+      "",
+      "HANGAR · the truck carries "
+        <> int.to_string(p.truck)
+        <> " robots · the fabricator builds "
+        <> int.to_string(p.fabricator)
+        <> case p.fabricator {
+        1 -> " robot"
+        _ -> " robots"
+      }
+        <> " for each run, one part per blueprint (plain parts, no attributes)",
+    ),
+    button_class(">>> Start a run", "banner", StartRun),
+    html.div([attribute.class("garage")], [
+      html.div([], [
+        text("", "FOUND BLUEPRINTS · research them with Salvage"),
+        html.div([attribute.class("table")], case found {
+          [] -> [
+            text(
+              "dim",
+              "  none yet: strong enemies sometimes drop one, bosses always",
+            ),
+          ]
+          _ -> found
+        }),
+        text("", "DESIGN · what the fabricator builds"),
+        html.div([attribute.class("table")], [
+          text("ally", "  " <> h.design.name <> " (" <> h.design.chassis <> ")"),
+          ..list.flatten([
+            design_lines,
+            case installed {
+              [] -> [text("dim", "    no parts")]
+              _ -> installed
+            },
+            [status],
+          ])
+        ]),
+        text("", "FABRICATOR"),
+        html.div([attribute.class("table")], [
+          case p.copier {
+            True ->
+              text(
+                "dim",
+                "  Blueprint copier: select a researched blueprint to copy it, at twice its research cost",
+              )
+            False ->
+              button(
+                "  Research the blueprint copier · "
+                  <> int.to_string(profile.copier_cost)
+                  <> " Salvage: copy researched blueprints for twice their research cost",
+                ResearchCopier,
+              )
+          },
+        ]),
+        text(
+          "",
+          "RESEARCHED BLUEPRINTS · each makes one part or chassis (×copies)",
+        ),
+        html.div([attribute.class("table")], [
+          text("dim", "    CHASSIS"),
+          ..list.append(researched_chassis, researched_parts)
+        ]),
+        html.div([attribute.class("actions")], actions),
+      ]),
+      html.div([attribute.class("preview")], [preview]),
+    ]),
+  ])
+}
+
+/// The design as a robot, to show its weight and mounts (if its chassis
+/// and parts exist; research and legality aside).
+fn design_bot(d: profile.Design) -> Option(Bot) {
+  case blueprint.chassis(d.chassis), list.try_map(d.parts, blueprint.part) {
+    Ok(chassis), Ok(parts) -> Some(state.Bot(name: d.name, chassis:, parts:))
+    _, _ -> None
+  }
+}
+
+/// What a blueprint makes, as a component (a chassis as its body).
+fn blueprint_component(b: Blueprint) -> Option(Component) {
+  case b {
+    PartBlueprint(name) -> blueprint.part(name) |> option.from_result
+    ChassisBlueprint(name) ->
+      blueprint.chassis(name) |> result.map(builder.body) |> option.from_result
+  }
+}
+
+/// What the run that just ended pays out.
+fn view_earnings(model: Model) -> Element(Msg) {
+  let e = profile.earnings(model.profile, model.run)
+  let lines =
+    list.flatten([
+      [
+        "SALVAGE · +"
+        <> int.to_string(e.salvage)
+        <> " (battles won, levels reached and credits left)",
+      ],
+      case e.bonus {
+        0 -> []
+        b -> [
+          "  +" <> int.to_string(b) <> " for beating a boss for the first time",
+        ]
+      },
+      case e.found {
+        [] -> []
+        found -> [
+          "BLUEPRINTS FOUND · "
+          <> string.join(list.map(found, blueprint.describe), ", ")
+          <> " · research them in the hangar",
+        ]
+      },
+    ])
+  text("ally", string.join(lines, "\n"))
 }
 
 // Garage

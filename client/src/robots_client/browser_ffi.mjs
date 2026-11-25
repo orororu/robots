@@ -1,4 +1,5 @@
-// The only impure code in the game: the clock, timers and keyboard.
+// The only impure code in the game: the clock, timers, keyboard and the
+// saved profile.
 
 export function now() {
   // Monotonic: unaffected by the system clock being changed mid-match.
@@ -18,4 +19,25 @@ export function onKeydown(callback) {
     if (event.repeat) return;
     callback(event.key);
   });
+}
+
+// The player's profile (Salvage, blueprints, designs), kept in the browser.
+// Storage can be unavailable (private windows, blocked site data): then
+// nothing is kept between visits.
+const profileKey = "robots.profile";
+
+export function loadProfile() {
+  try {
+    return window.localStorage.getItem(profileKey) || "";
+  } catch {
+    return "";
+  }
+}
+
+export function saveProfile(text) {
+  try {
+    window.localStorage.setItem(profileKey, text);
+  } catch {
+    // Not kept: storage is unavailable.
+  }
 }
