@@ -1330,17 +1330,21 @@ fn view_stock(model: Model) -> Element(Msg) {
   ])
 }
 
-/// "13 cards + 3 Malfunctions" or "18 cards".
+/// "18 cards", or "13 cards (small deck)".
 fn offer_deck(o: shop.Offer) -> String {
-  let cards =
-    [builder.body(o.chassis), ..o.parts]
-    |> list.flat_map(part.cards)
-    |> list.length
+  deck_text(builder.deck_size(o.chassis, o.parts))
+}
+
+/// "18 cards", or with a warning below `builder.minimum_deck`.
+fn deck_text(cards: Int) -> String {
   int.to_string(cards)
   <> " cards"
-  <> case builder.malfunction_count(o.chassis, o.parts) {
-    0 -> ""
-    n -> " + " <> int.to_string(n) <> " Malfunctions"
+  <> case cards < builder.minimum_deck {
+    True ->
+      " · ⚠ small deck (under "
+      <> int.to_string(builder.minimum_deck)
+      <> "): the same few cards keep coming round"
+    False -> ""
   }
 }
 
@@ -2039,14 +2043,10 @@ fn own_chassis_line(s: Scale, bot: Bot) -> String {
   <> int.to_string(scale.value(s, bot.chassis.hp))
 }
 
-/// "Weight 11 of max 12 · 1 free · 18 cards" (or "· 14 cards + 2
-/// Malfunctions" for a deck below the minimum).
+/// "Weight 11 of max 12 · 1 free · 18 cards" (with a warning for a deck
+/// below the minimum).
 fn weight_line(bot: Bot) -> String {
   let used = part.total_weight(bot.parts)
-  let cards =
-    [builder.body(bot.chassis), ..bot.parts]
-    |> list.flat_map(part.cards)
-    |> list.length
   "Weight "
   <> num(used)
   <> " of max "
@@ -2054,22 +2054,7 @@ fn weight_line(bot: Bot) -> String {
   <> " · "
   <> num(float.max(0.0, bot.chassis.capacity -. used))
   <> " free · "
-  <> int.to_string(cards)
-  <> " cards"
-  <> case builder.malfunction_count(bot.chassis, bot.parts) {
-    0 -> ""
-    n ->
-      " + "
-      <> int.to_string(n)
-      <> " Malfunction"
-      <> case n {
-        1 -> ""
-        _ -> "s"
-      }
-      <> " (a deck needs "
-      <> int.to_string(builder.minimum_deck)
-      <> ")"
-  }
+  <> deck_text(builder.deck_size(bot.chassis, bot.parts))
 }
 
 /// "Weapon mounts: [4] Laser (3) · [4] empty": a weapon fits a mount at

@@ -211,7 +211,7 @@ enemies for each level.
   - **A used robot** (`robot_count`, at most 1) from the level's normal
     roster, at 60% of its price (`used_share`). It's stripped until the player could pay for it:
     armor first, then utilities, defences, spare weapons and batteries; it
-    always keeps a weapon and a battery (a small deck gets Malfunctions).
+    always keeps a weapon and a battery (a small deck plays with a warning).
     "Could pay" is the shop's budget: money plus what the spares would sell
     for (`state.budget`). If even the bare robot costs more, none is offered.
     A level 1 robot needs about 235 credits (a stripped Scrap gunner).
@@ -356,7 +356,7 @@ Plays whole runs (100) like a cautious player:
   then buys the used robot on sale if it can (selling spares to make up the
   difference), then shop parts worth installing right away;
 - after every battle and shop: installs spares worth it (armor always; other
-  parts only on a robot short of cards, replacing Malfunctions; never a dead
+  parts only on a robot short of 16 cards; never a dead
   card), builds a robot from a spare chassis (a wreck) when the spares
   include a weapon and a battery for it, and swaps broken plates for looted
   ones. It never trades weapons;

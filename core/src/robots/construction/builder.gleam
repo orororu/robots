@@ -18,9 +18,8 @@ import robots/rules/card.{
   OwnHp, Self,
 }
 
-/// Decks smaller than this (chassis, parts and armor together) are
-/// filled up with Malfunctions, so every deck varies and no one can just
-/// repeat their best combo for free.
+/// Decks smaller than this (chassis, parts and armor together) get a
+/// `SmallDeck` warning: they play, but cycle the same few cards.
 pub const minimum_deck = 16
 
 pub type Chassis {
@@ -61,6 +60,9 @@ pub type Warning {
   DeadCard(card: String)
   /// A card that costs more energy than the batteries can hold.
   Unaffordable(card: String, cost: Float, cap: Float)
+  /// Fewer cards than `minimum_deck`: it plays, but the same few cards
+  /// keep coming round.
+  SmallDeck(cards: Int, minimum: Int)
 }
 
 pub fn build(
@@ -92,18 +94,13 @@ fn assemble(name: String, chassis: Chassis, parts: List(Component)) -> Robot {
       chassis: chassis.name,
       max_hp: chassis.hp +. armor,
       energy_cap:,
-      components: list.append(
-        [body(chassis), ..parts],
-        malfunctions(chassis, parts),
-      ),
+      components: [body(chassis), ..parts],
     )
   robot.Robot(..bot, hp: chassis_hp(chassis) +. left)
 }
 
-/// A robot with fewer than `minimum_deck` cards runs badly: Malfunctions
-/// fill its deck up to the minimum. Each costs about an average shot and
-/// damages its own robot a little. It does nothing else, so it's only
-/// played to clear its slot.
+/// A card that damages its own robot. No build gets one now (small decks
+/// used to be filled up with them); kept for the rules and tests.
 pub fn malfunction() -> Card {
   Card(
     name: "Malfunction",
@@ -119,19 +116,9 @@ pub const malfunction_cost = 1.0
 
 pub const malfunction_damage = 0.2
 
-/// How many Malfunctions a build gets: what its deck lacks of the minimum.
-pub fn malfunction_count(chassis: Chassis, parts: List(Component)) -> Int {
-  let cards =
-    [body(chassis), ..parts] |> list.flat_map(part.cards) |> list.length
-  int.max(0, minimum_deck - cards)
-}
-
-/// The Malfunctions as a weightless part, or nothing for a full deck.
-fn malfunctions(chassis: Chassis, parts: List(Component)) -> List(Component) {
-  case malfunction_count(chassis, parts) {
-    0 -> []
-    n -> [part.new("Malfunctions", Body, 0.0, list.repeat(malfunction(), n))]
-  }
+/// How many cards a build's deck has: its chassis' and parts'.
+pub fn deck_size(chassis: Chassis, parts: List(Component)) -> Int {
+  [body(chassis), ..parts] |> list.flat_map(part.cards) |> list.length
 }
 
 /// The chassis' own cards, as a weightless part.
@@ -211,8 +198,17 @@ fn check_battery(parts: List(Component)) -> List(BuildError) {
 
 // WARNINGS --------------------------------------------------------------------
 
-/// Each distinct problem once, in deck order.
+/// Each distinct problem once, in deck order; a small deck last.
 pub fn warnings(bot: Robot) -> List(Warning) {
+  let size = list.length(robot.deck(bot))
+  let small = case size < minimum_deck {
+    True -> [SmallDeck(cards: size, minimum: minimum_deck)]
+    False -> []
+  }
+  list.append(card_warnings(bot), small)
+}
+
+fn card_warnings(bot: Robot) -> List(Warning) {
   // Launched drones are on the table too, so buffs may target them.
   let deck =
     robot.deck(bot)

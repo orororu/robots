@@ -150,12 +150,12 @@ Chosen to get started; each can change:
   mix weapons with defences and buffs, and stalemates fell from ~10% to ~6%.
   Stronger armor was tried instead and made it worse (thin armored builds
   stayed on top, stalls rose).
-- **A smaller deck is legal, but it malfunctions.** The builder fills a deck
-  below 16 cards with **Malfunction** cards (`builder.malfunction`): cost 10
-  (about an average shot), 2 damage to your own robot, nothing else. They
-  take table slots and are only played to clear them. The AI clears them
-  as soon as it can while saving up, and never plays one that would destroy
-  its own robot. The garage shows "13 cards + 3 Malfunctions".
+- **A smaller deck is legal, with a warning.** Below 16 cards the builder
+  warns (`builder.SmallDeck`) and the garage shows "13 cards · ⚠ small
+  deck": it plays as it is, cycling the same few cards. (Decks used to be
+  filled up with Malfunction cards that damaged their own robot; a
+  Mosquito with a few parts drew mostly Malfunctions, so they were removed.
+  The card `builder.malfunction` stays in the rules.)
 - No maximum deck size: weight is the limit.
 
 ### Every robot's deck is diluted (why carry a second weapon?)

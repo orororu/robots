@@ -319,16 +319,22 @@ fn shop_for_parts(run: Run) -> Run {
 /// Legal, with no dead or unaffordable cards.
 fn fits(bot: state.Bot) -> Bool {
   case state.build(bot) {
-    Ok(robot) -> builder.warnings(robot) == []
+    Ok(robot) ->
+      list.all(builder.warnings(robot), fn(w) {
+        case w {
+          builder.SmallDeck(..) -> True
+          _ -> False
+        }
+      })
     Error(_) -> False
   }
 }
 
 /// Worth installing `p` on `bot`: armor always (more HP); other parts only
-/// while the deck is short and they'd replace Malfunctions (extra cards
-/// dilute a full deck: a second Buckler made the Tinker much weaker).
+/// while the deck is short of `builder.minimum_deck` (extra cards dilute a
+/// full deck: a second Buckler made the Tinker much weaker).
 fn worth(bot: state.Bot, p: part.Component) -> Bool {
-  let short = builder.malfunction_count(bot.chassis, bot.parts) > 0
+  let short = builder.deck_size(bot.chassis, bot.parts) < builder.minimum_deck
   { p.kind == part.Armor || short }
   && !wear.is_broken(p)
   && fits(state.Bot(..bot, parts: [p, ..bot.parts]))

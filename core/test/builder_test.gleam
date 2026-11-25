@@ -186,18 +186,15 @@ fn one_shot(weight: Float) -> part.Component {
   part.new("One-shot", part.Weapon, weight, [shot])
 }
 
-pub fn a_small_deck_is_filled_with_malfunctions_test() {
+pub fn a_small_deck_plays_with_a_warning_test() {
   let parts = [components.battery(), components.plating(), one_shot(1.0)]
   let assert Ok(bot) = builder.build("B", bare(), parts)
-  // 2 cards (Block, Shot): 14 Malfunctions make it 16.
-  assert builder.malfunction_count(bare(), parts) == 14
-  let deck = robot.deck(bot)
-  assert list.length(deck) == 16
-  assert list.count(deck, fn(c) { c == builder.malfunction() }) == 14
+  // 2 cards (Block, Shot): it plays as it is, with a warning.
+  assert builder.deck_size(bare(), parts) == 2
+  assert robot.deck(bot) |> list.length == 2
+  assert list.contains(builder.warnings(bot), builder.SmallDeck(2, 16))
   // A full deck gets none.
-  assert builder.malfunction_count(components.frame(), starters.tinker_parts())
-    == 0
-  assert !list.contains(robot.deck(starters.tinker()), builder.malfunction())
+  assert builder.warnings(starters.tinker()) == []
 }
 
 pub fn all_problems_are_reported_together_test() {
@@ -261,8 +258,8 @@ pub fn card_costing_more_than_the_batteries_hold_is_flagged_test() {
     robot.new("B", chassis: "Test", max_hp: 5.0, energy_cap: 3.0, components: [
       part.new("Launcher", part.Weapon, 1.0, [nuke, nuke]),
     ])
-  assert builder.warnings(bot)
-    == [Unaffordable(card: "Nuke", cost: 4.0, cap: 3.0)]
+  let assert [Unaffordable(card: "Nuke", cost: 4.0, cap: 3.0), ..] =
+    builder.warnings(bot)
 }
 
 pub fn a_weapon_is_required_test() {
