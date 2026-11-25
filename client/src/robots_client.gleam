@@ -37,6 +37,7 @@ import robots/rules/game.{type Game, P1, P2}
 import robots/rules/scale.{type Scale}
 import robots/run/map
 import robots/run/price
+import robots/run/save
 import robots/run/shop
 import robots/run/state.{type Bot, type Run}
 import robots/run/upgrade
@@ -63,6 +64,8 @@ type Model {
     /// Between runs: the hangar, where Salvage is spent and the starting
     /// robot designed. `run` is the last run (or a placeholder) meanwhile.
     hangar: Option(Hangar),
+    /// On opening the game with a saved run: continue it or abandon it.
+    saved: Option(Run),
     run: Run,
     /// The battle being fought, if any.
     battle: Option(Battle),
@@ -161,6 +164,7 @@ fn new_model(
   Model(
     profile:,
     hangar:,
+    saved: None,
     run:,
     battle: None,
     report: None,
@@ -187,13 +191,17 @@ fn init(_: Nil) -> #(Model, Effect(Msg)) {
     })
   let profile =
     profile.decode(browser.load_profile()) |> result.unwrap(profile.new())
-  let model =
-    new_model(
-      state.new(browser.random_seed()),
-      profile,
-      Some(hangar_for(profile)),
-      browser.now(),
-    )
+  let model = case save.decode(browser.load_run()) {
+    Ok(run) ->
+      Model(..new_model(run, profile, None, browser.now()), saved: Some(run))
+    Error(Nil) ->
+      new_model(
+        state.new(browser.random_seed()),
+        profile,
+        Some(hangar_for(profile)),
+        browser.now(),
+      )
+  }
   #(model, subscriptions)
 }
 
@@ -208,6 +216,8 @@ fn hangar_for(p: Profile) -> Hangar {
 /// Save the profile and go to the hangar.
 fn open_hangar(model: Model, p: Profile) -> Model {
   browser.save_profile(profile.encode(p))
+  // The run is over and paid out: nothing to continue.
+  browser.save_run("")
   Model(
     ..model,
     profile: p,
@@ -225,6 +235,9 @@ type Msg {
   // Hangar
   HangarSelect(pick: HangarPick)
   Research
+  // The start screen
+  ContinueRun
+  AbandonRun
   AddPart
   RemovePart
   UseChassis
@@ -340,6 +353,18 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
     ResearchCopier ->
       change_profile(model, profile.research_copier(model.profile))
     StartRun -> start_run(model)
+    ContinueRun ->
+      Model(
+        ..model,
+        saved: None,
+        news: "Run continued.",
+        order: default_order(model.run),
+      )
+    AbandonRun ->
+      open_hangar(
+        Model(..model, saved: None),
+        profile.finish(model.profile, model.run),
+      )
     ToHangar -> open_hangar(model, profile.finish(model.profile, model.run))
     Go(node) ->
       attempt(Model(..model, upgraded: None), state.go(model.run, node), "")
@@ -485,6 +510,7 @@ fn start_run(model: Model) -> Model {
       case started {
         Ok(#(p, run)) -> {
           browser.save_profile(profile.encode(p))
+          keep(run)
           new_model(run, p, None, model.now)
         }
         Error(e) -> flash(model, describe_profile_error(e))
@@ -543,7 +569,8 @@ fn attempt(
   news: String,
 ) -> Model {
   case result {
-    Ok(run) ->
+    Ok(run) -> {
+      keep(run)
       Model(
         ..model,
         run:,
@@ -554,6 +581,7 @@ fn attempt(
           _ -> news
         },
       )
+    }
     Error(error) -> flash(model, describe_error(error))
   }
 }
@@ -671,6 +699,7 @@ fn end_if_over(model: Model) -> Model {
       let outcome = state.outcome(b.game, list.length(b.order))
       case state.finish(model.run, b.order, outcome) {
         Ok(#(run, reward)) -> {
+          keep(run)
           let report =
             Report(
               won: outcome.won,
@@ -703,6 +732,11 @@ fn end_if_over(model: Model) -> Model {
     }
     _ -> model
   }
+}
+
+/// Save the run, so a reload continues it.
+fn keep(run: Run) -> Nil {
+  browser.save_run(save.encode(run))
 }
 
 /// Leave the battle report.
@@ -786,6 +820,7 @@ fn view(model: Model) -> Element(Msg) {
     html.style([], css),
     html.pre([], [element.text(header(model))]),
     case model.battle, model.run.phase {
+      _, _ if model.saved != None -> view_start(model)
       _, _ if model.hangar != None -> view_hangar(model)
       _, _ if model.report != None -> view_report(model)
       Some(b), _ -> view_battle(model, b)
@@ -805,6 +840,9 @@ fn view(model: Model) -> Element(Msg) {
 }
 
 fn header(model: Model) -> String {
+  use <- bool.lazy_guard(model.saved != None, fn() {
+    "ROBOTS · " <> int.to_string(model.profile.salvage) <> " Salvage"
+  })
   use <- bool.lazy_guard(model.hangar != None, fn() {
     "ROBOTS · HANGAR · "
     <> int.to_string(model.profile.salvage)
@@ -1361,6 +1399,50 @@ fn view_over(model: Model) -> Element(Msg) {
     ),
     view_earnings(model),
     button_class(">>> To the hangar", "banner", ToHangar),
+  ])
+}
+
+// The start screen (with a saved run)
+
+fn view_start(model: Model) -> Element(Msg) {
+  let run = model.run
+  let robots =
+    run.robots
+    |> list.map(fn(b) { b.name })
+    |> string.join(", ")
+  let e = profile.earnings(model.profile, run)
+  let where = case run.phase {
+    state.Over -> "over: its Salvage isn't paid out yet"
+    state.Fighting(_) -> "before a battle"
+    state.Repairing(_) -> "at a repair shop"
+    state.Upgrading(_) -> "at a workshop"
+    state.Choosing -> "on the map"
+  }
+  html.div([], [
+    text(
+      "",
+      "A RUN IN PROGRESS · level "
+        <> int.to_string(run.level)
+        <> ", "
+        <> where
+        <> "\n  "
+        <> case robots {
+        "" -> "no robots left"
+        _ -> robots
+      }
+        <> " · "
+        <> int.to_string(run.money)
+        <> " credits · "
+        <> int.to_string(list.length(run.wins))
+        <> " battles won",
+    ),
+    button_class(">>> Continue the run", "banner", ContinueRun),
+    button(
+      "[Abandon it] and go to the hangar: it pays "
+        <> int.to_string(e.salvage + e.bonus)
+        <> " Salvage, as if lost",
+      AbandonRun,
+    ),
   ])
 }
 

@@ -316,6 +316,14 @@ plate on a battered robot would also count as battered.
 - A run starts from the hangar (docs/META.md): the fabricator's robots, a
   truck for 2 robots (`state.TruckFull` beyond that), and the blueprints the
   player has. When it's over it pays out `state.salvage`.
+- **Saved in the browser** (`run/save`) after every step: map moves, shops,
+  workshops, battle results. Parts and chassis are saved by name with their
+  wear, modifiers and attributes, and rebuilt from the content on loading,
+  so a new build of the game continues the run with its new numbers. A run
+  naming something removed from the game doesn't load. Opening the game
+  with a saved run shows a start screen: continue it, or abandon it (paid
+  out like a lost run). A battle isn't saved mid-fight: a reload restarts
+  it from the pre-battle screen.
 
 - A run holds the level, its map, the current node, the player's robots
   (each a chassis and its parts, with their wear), spare parts and chassis,

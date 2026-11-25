@@ -72,3 +72,16 @@ pub fn shuffle(items: List(a), seed: Seed) -> #(List(a), Seed) {
     |> list.map(fn(pair) { pair.1 })
   #(shuffled, seed)
 }
+
+/// The seed as a number, to save it (`from_state` restores it exactly).
+pub fn to_state(seed: Seed) -> Int {
+  seed.state
+}
+
+/// A seed saved with `to_state`. Unlike `new`, no warm-up: the same seed.
+pub fn from_state(state: Int) -> Seed {
+  case state >= 1 && state < modulus {
+    True -> Seed(state)
+    False -> new(state)
+  }
+}

@@ -41,3 +41,23 @@ export function saveProfile(text) {
     // Not kept: storage is unavailable.
   }
 }
+
+// The run in progress, so a reload continues it. "" removes it.
+const runKey = "robots.run";
+
+export function loadRun() {
+  try {
+    return window.localStorage.getItem(runKey) || "";
+  } catch {
+    return "";
+  }
+}
+
+export function saveRun(text) {
+  try {
+    if (text === "") window.localStorage.removeItem(runKey);
+    else window.localStorage.setItem(runKey, text);
+  } catch {
+    // Not kept: storage is unavailable.
+  }
+}
