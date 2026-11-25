@@ -102,7 +102,7 @@ pub fn armor_adds_hp_and_batteries_stack_test() {
       components.battery(),
       components.plating(),
     ])
-  assert bot.max_hp == 4.5 +. 1.25
+  assert bot.max_hp == 3.0 +. 2.0
   assert bot.hp == bot.max_hp
   assert bot.energy_cap == 8.0
 }
@@ -133,7 +133,7 @@ pub fn light_parts_make_room_test() {
       light_plating,
     ])
   // Light changes weight only, not HP.
-  assert bot.max_hp == 4.5 +. 5.0
+  assert bot.max_hp == 3.0 +. 8.0
 }
 
 pub fn too_many_weapons_is_rejected_test() {
@@ -225,7 +225,7 @@ pub fn overclocked_parts_are_stronger_test() {
   assert part.weight(hot) == 3.0
   // Overclocked armor gives more HP.
   assert part.hp(components.plating() |> part.with(part.overclocked()))
-    == 1.25 *. 1.15
+    == 2.0 *. 1.15
 }
 
 pub fn modifiers_stack_and_name_the_part_test() {

@@ -338,21 +338,23 @@ pub fn big_servo_pack() -> Component {
 // armor per weight.
 
 pub fn plating() -> Component {
-  part.armor("Plating", 2.0, 1.25, [cards.block()])
+  part.armor("Plating", 2.0, 2.0, [cards.block()])
 }
 
 pub fn heavy_plating() -> Component {
-  part.armor("Heavy plating", 4.0, 2.5, [cards.block(), cards.block()])
+  part.armor("Heavy plating", 4.0, 4.0, [cards.block(), cards.block()])
 }
 
 // CHASSIS ---------------------------------------------------------------------
-// Each chassis brings its own cards: mobility and identity.
+// Each chassis brings its own cards: mobility and identity. Most of a robot's
+// HP comes from armor (Plating 20 for 2 weight): a chassis alone is fragile,
+// so stripping armor for weapons is a risk.
 
 /// All-rounder: two medium weapons, a sidestep and a kick.
 pub fn frame() -> Chassis {
   Chassis(
     "Frame",
-    hp: 4.5,
+    hp: 3.0,
     capacity: 12.0,
     weapon_mounts: [4.0, 4.0],
     cards: [cards.sidestep(), cards.kick()],
@@ -364,7 +366,7 @@ pub fn frame() -> Chassis {
 pub fn brute() -> Chassis {
   Chassis(
     "Brute",
-    hp: 3.5,
+    hp: 2.0,
     capacity: 12.0,
     weapon_mounts: [4.0, 2.0],
     cards: [cards.ram(), cards.ram()],
@@ -376,7 +378,7 @@ pub fn brute() -> Chassis {
 pub fn tank() -> Chassis {
   Chassis(
     "Tank",
-    hp: 4.5,
+    hp: 3.0,
     capacity: 16.0,
     weapon_mounts: [8.0],
     cards: [cards.brace()],
@@ -388,7 +390,7 @@ pub fn tank() -> Chassis {
 pub fn scout() -> Chassis {
   Chassis(
     "Scout",
-    hp: 4.0,
+    hp: 2.5,
     capacity: 12.0,
     weapon_mounts: [2.0, 2.0, 2.0, 2.0],
     cards: [cards.jump(), cards.jump(), cards.dodge(), cards.dodge()],
@@ -402,7 +404,7 @@ pub fn scout() -> Chassis {
 pub fn mosquito() -> Chassis {
   Chassis(
     "Mosquito",
-    hp: 2.5,
+    hp: 1.5,
     capacity: 7.0,
     weapon_mounts: [2.0],
     cards: [

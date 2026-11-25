@@ -16,7 +16,8 @@ new parts (Cannon, Machine gun, Tank, Scout) are placeholders, not yet balanced.
   - A **battery** sets the maximum energy you can store (the energy cap).
   - **Weapons** (Laser, Chainsaw, …) and **defences** (Shield, Jump engine, …)
     mainly add cards.
-- **Chassis have their own HP**, which armor adds to.
+- **Chassis have their own HP**, which armor adds to. Most of a robot's HP
+  is armor: a bare chassis is fragile.
 - **Slots are mostly generic,** with some restrictions. In particular, the
   chassis limits **how many weapons, and how heavy each one can be.** That
   allows a **tank with one big cannon** and a **small robot with four machine guns**.
@@ -180,12 +181,17 @@ so over a match your energy is spent roughly in proportion to your deck.
   values, armor HP and battery capacity.
 - Weights for now: weapons 1–6 (Fist 1, Laser and Saw arm 3, Cannon 6),
   defences and utilities 1–2, Cell 1 (cap 30), Battery 2 (50), Big battery 4
-  (90), Plating 2 (+12.5 HP, 1 Block), Heavy plating 4 (+25 HP, 2 Blocks).
-  Chassis HP / capacity: Frame 45/12, Brute 35/12, Tank 45/16, Scout 40/12,
-  Mosquito 25/7 (one weapon mount of 2; six dodges: Hover against melee,
+  (90), Plating 2 (+20 HP, 1 Block), Heavy plating 4 (+40 HP, 2 Blocks).
+  Chassis HP / capacity: Frame 30/12, Brute 20/12, Tank 30/16, Scout 25/12,
+  Mosquito 15/7 (one weapon mount of 2; six dodges: Hover against melee,
   Barrel roll ×2 and Zigzag against range, Dodge ×2 against anything. A
   level monster: weak on purpose, lasers get through).
   (All HP was halved to make battles about 2.5 times shorter.)
+  (Later 15 HP moved from every chassis to armor: Plating was 12.5,
+  Frame 45. In a run most fights are against worn-down enemies that chip HP
+  away, so a second weapon, which makes every fight cheaper, beat armor,
+  which only adds to the pool. With most HP in armor, stripping it is a
+  risk: the Tinker is 70 HP, a Frame with two Lasers and no armor 30.)
   Shown at display scale ×10.
 - **Batteries with cards:** some batteries also bring buffs, a little
   heavier than plain ones. Capacitor 1.5 (cap 50) and Big capacitor 3 (90)

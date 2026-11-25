@@ -64,11 +64,11 @@ pub fn a_worn_robot_keeps_its_deck_size_test() {
     components.big_capacitor(),
     components.plating(),
   ]
-  let #(frame, parts) = wear.assign(frame, parts, 2.0)
+  let #(frame, parts) = wear.assign(frame, parts, 2.75)
   // The plating broke, but its Block stays: still a legal 16-card deck.
   let assert Ok(bot) = builder.build("Tinker", frame, parts)
-  // 1.25 went on the plating, 0.75 on the Frame (4.5 HP): 3.75 left.
-  assert bot.hp == 3.75
+  // 2.0 went on the plating, 0.75 on the Frame (3.0 HP): 2.25 left.
+  assert bot.hp == 2.25
 }
 
 pub fn chassis_wear_never_exceeds_its_hp_test() {

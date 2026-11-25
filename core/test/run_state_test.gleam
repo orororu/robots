@@ -72,14 +72,14 @@ pub fn a_win_wears_the_robot_and_pays_out_test() {
   let run = at_first_battle()
   let assert Some(node_id) = run.at
   let assert Ok(#(after, reward)) =
-    state.finish(run, [0], Outcome(won: True, hp_left: [tinker_hp() -. 4.0]))
+    state.finish(run, [0], Outcome(won: True, hp_left: [tinker_hp() -. 6.0]))
   assert after.phase == state.Choosing
   assert reward.money == state.money_normal
   assert after.money == state.money_normal
   assert reward.chassis == None
   assert list.length(reward.parts) == state.drops_normal
   assert after.parts == reward.parts
-  // The plating (2.875 HP) broke and the Frame took the rest.
+  // A plating broke and the Frame took the rest.
   let assert [tinker] = after.robots
   assert list.any(tinker.parts, wear.is_broken)
   assert tinker.chassis.wear >. 1.0
@@ -149,12 +149,12 @@ pub fn the_repair_shop_restores_wear_for_money_test() {
 pub fn the_repair_shop_can_fix_one_part_at_a_time_test() {
   let run = at(state.new(1), fn(e) { e == map.RepairShop })
   let assert [tinker] = run.robots
-  // 3 HP: both Platings (1.25 each) break, 0.5 reaches the Frame.
-  let #(chassis, parts) = wear.assign(tinker.chassis, tinker.parts, 3.0)
+  // 4.5 HP: both Platings (2 each) break, 0.5 reaches the Frame.
+  let #(chassis, parts) = wear.assign(tinker.chassis, tinker.parts, 4.5)
   let run =
-    Run(..run, money: 30, robots: [state.Bot(..tinker, chassis:, parts:)])
+    Run(..run, money: 45, robots: [state.Bot(..tinker, chassis:, parts:)])
   assert state.repair_one_price(run, state.RepairChassis(0)) == Ok(10)
-  assert state.repair_one_price(run, state.RepairPart(0, 3)) == Ok(25)
+  assert state.repair_one_price(run, state.RepairPart(0, 3)) == Ok(40)
   // The Laser doesn't wear.
   assert state.repair_one_price(run, state.RepairPart(0, 0)) == Ok(0)
   let assert Ok(run) = state.repair_one(run, state.RepairPart(0, 3))
@@ -171,7 +171,7 @@ pub fn the_repair_shop_can_fix_one_part_at_a_time_test() {
   let assert Ok(run) = state.repair_one(run, state.RepairSpare(0))
   let assert [spare] = run.parts
   assert !wear.is_broken(spare)
-  assert run.money == 75
+  assert run.money == 60
   assert state.repair_one(run, state.RepairSpare(5)) == Error(state.NoSuchPart)
 }
 
