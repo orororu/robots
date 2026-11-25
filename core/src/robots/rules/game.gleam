@@ -241,6 +241,101 @@ fn play(
   |> Ok
 }
 
+// AIMING ----------------------------------------------------------------------
+
+/// What a card would hit if played now (see `aims`).
+pub type Aim {
+  /// `side`'s robot: an attack with no drones in the way, or a Malfunction
+  /// (its own robot).
+  AimRobot(side: Side)
+  /// Cards in `slots` of `side`'s table: all of them, or one picked at
+  /// random when played.
+  AimCards(side: Side, slots: List(Int), all: Bool)
+  /// It launches a drone.
+  AimLaunch
+}
+
+/// What playing card `index` of `side`'s table would hit at `now`, so a
+/// player can see it before playing. Slots are indexes of the tables as
+/// they stand. An empty list: it would hit nothing.
+pub fn aims(game: Game, side: Side, index: Int, now: Int) -> List(Aim) {
+  let game = settle(game, now)
+  let own = combatant_of(game, side)
+  let foe = combatant_of(game, other(side))
+  case list.drop(own.table, index) {
+    [] -> []
+    [played, ..] -> {
+      // The card leaves the table before it resolves: it can't aim at
+      // itself. Indexes after it are shifted back to the table as it is.
+      let rest =
+        list.append(
+          list.take(own.table, index),
+          list.drop(own.table, index + 1),
+        )
+      let own_slots = fn(slots) {
+        list.map(slots, fn(i) {
+          case i >= index {
+            True -> i + 1
+            False -> i
+          }
+        })
+      }
+      let cards = fn(side, slots, scope) {
+        case slots {
+          [] -> []
+          _ -> [
+            AimCards(side, slots, case scope {
+              card.All(_) -> True
+              card.One(_) -> False
+            }),
+          ]
+        }
+      }
+      let lower = lowered(_, played.value, game.config.defence_floor)
+      case played.card.target {
+        card.OpponentHp ->
+          case
+            list.index_map(foe.table, fn(s, i) { #(i, s) })
+            |> list.filter(fn(pair) { table.is_drone(pair.1) })
+            |> list.map(fn(pair) { pair.0 })
+          {
+            [] -> [AimRobot(other(side))]
+            drones -> [AimCards(other(side), drones, False)]
+          }
+        card.Opponent(scope) ->
+          cards(other(side), table.candidates(foe.table, scope, lower), scope)
+        card.Self(scope) ->
+          cards(
+            side,
+            own_slots(
+              table.candidates(rest, scope, fn(s: Slot) {
+                s.value +. played.value
+              }),
+            ),
+            scope,
+          )
+        card.Both(scope) ->
+          list.append(
+            cards(other(side), table.candidates(foe.table, scope, lower), scope),
+            cards(side, own_slots(table.candidates(rest, scope, lower)), scope),
+          )
+        card.Burn(_) ->
+          case
+            list.index_map(foe.table, fn(s, i) { #(i, s) })
+            |> list.filter(fn(pair) { table.burnable(pair.1) })
+            |> list.map(fn(pair) { pair.0 })
+          {
+            [] -> []
+            slots -> [AimCards(other(side), slots, False)]
+          }
+        card.Launch(_) -> [AimLaunch]
+        card.NoEffect -> []
+        card.OwnHp -> [AimRobot(side)]
+      }
+    }
+  }
+}
+
 /// Returns the new game, how many things were affected (1 for HP, else the
 /// number of table cards), and the total amount actually changed.
 fn resolve(

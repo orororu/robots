@@ -197,7 +197,7 @@ so over a match your energy is spent roughly in proportion to your deck.
   shots, energy attacks that charge on the table, 12 when drawn and growing
   to 30 over 15 s (cost 20, a Cannon shot at full charge). Lowered by a
   Deflector, a Rail shot keeps growing from there. Rated by its full value.
-- **Arc welder** (weight 2): Spark, Arc ×2, Weld, tagged melee **and**
+- **Arc welder** (weight 1.5): Spark, Arc ×2, Weld, tagged melee **and**
   energy, so Servo packs, Hydraulics and Capacitors all raise it, and
   Bucklers and Deflectors both lower it.
 - **Needle gun** (weight 1.5, the lightest gun): Needle ×3 (cost 4, hits 3)

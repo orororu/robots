@@ -93,7 +93,7 @@ pub fn railgun() -> Component {
 
 /// Light melee that's also energy: every melee and energy buff raises it.
 pub fn arc_welder() -> Component {
-  part.new("Arc welder", part.Weapon, 2.0, [
+  part.new("Arc welder", part.Weapon, 1.5, [
     cards.spark(),
     cards.arc(),
     cards.arc(),

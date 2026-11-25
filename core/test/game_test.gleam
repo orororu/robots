@@ -758,3 +758,28 @@ pub fn a_side_loses_when_no_robot_is_left_test() {
   let assert Ok(g) = game.update(g, PlayCard(P1, 0, 0))
   assert g.status == Won(P1)
 }
+
+// AIMING (what a card would hit, before playing it) -------------------------
+
+pub fn an_attack_aims_at_the_robot_test() {
+  let g = arena([laser()], [punch()])
+  assert game.aims(g, P1, 0, 0) == [game.AimRobot(P2)]
+}
+
+pub fn a_defence_aims_at_the_cards_it_could_lower_test() {
+  let g = arena([parry()], [laser(), punch(), laser()])
+  assert game.aims(g, P1, 0, 0) == [game.AimCards(P2, [1], False)]
+  // Nothing to parry: it would hit nothing.
+  let g = arena([parry()], [laser(), laser()])
+  assert game.aims(g, P1, 0, 0) == []
+}
+
+pub fn a_jump_aims_at_every_melee_attack_test() {
+  let g = arena([jump()], [punch(), laser(), punch()])
+  assert game.aims(g, P1, 0, 0) == [game.AimCards(P2, [0, 2], True)]
+}
+
+pub fn a_buff_aims_at_own_cards_but_not_itself_test() {
+  let g = arena([punch(), lock_on(), laser()], [punch()])
+  assert game.aims(g, P1, 1, 0) == [game.AimCards(P1, [2], False)]
+}

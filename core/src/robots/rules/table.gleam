@@ -68,34 +68,40 @@ pub fn affect(
   change: fn(Slot) -> Float,
   seed: Seed,
 ) -> #(List(Slot), Int, Seed) {
-  case scope {
-    All(tags) -> {
-      let targets =
-        table
-        |> list.index_map(fn(s, i) { #(i, s) })
-        |> list.filter(fn(pair) { card.matches({ pair.1 }.card, tags) })
-        |> list.map(fn(pair) { pair.0 })
-      #(update_at(table, targets, change), list.length(targets), seed)
-    }
-    One(tags) -> {
-      let candidates =
-        table
-        |> list.index_map(fn(s, i) { #(i, s) })
-        |> list.filter(fn(pair) {
-          let s = pair.1
-          card.matches(s.card, tags) && change(s) != s.value
-        })
-        |> list.map(fn(pair) { pair.0 })
-      case candidates {
-        [] -> #(table, 0, seed)
-        _ -> {
-          let #(pick, seed) = rng.int_below(seed, list.length(candidates))
-          let target = list.drop(candidates, pick) |> list.take(1)
-          #(update_at(table, target, change), 1, seed)
-        }
-      }
+  let targets = candidates(table, scope, change)
+  case scope, targets {
+    All(_), _ -> #(
+      update_at(table, targets, change),
+      list.length(targets),
+      seed,
+    )
+    One(_), [] -> #(table, 0, seed)
+    One(_), _ -> {
+      let #(pick, seed) = rng.int_below(seed, list.length(targets))
+      let target = list.drop(targets, pick) |> list.take(1)
+      #(update_at(table, target, change), 1, seed)
     }
   }
+}
+
+/// The indexes of the cards `scope` could affect: for `All`, every match;
+/// for `One`, the matches `change` would actually alter (one of them is
+/// picked at random).
+pub fn candidates(
+  table: List(Slot),
+  scope: Scope,
+  change: fn(Slot) -> Float,
+) -> List(Int) {
+  table
+  |> list.index_map(fn(s, i) { #(i, s) })
+  |> list.filter(fn(pair) {
+    let s = pair.1
+    case scope {
+      All(tags) -> card.matches(s.card, tags)
+      One(tags) -> card.matches(s.card, tags) && change(s) != s.value
+    }
+  })
+  |> list.map(fn(pair) { pair.0 })
 }
 
 fn update_at(

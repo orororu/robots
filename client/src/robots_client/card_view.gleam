@@ -120,9 +120,11 @@ pub fn view(
         element.text("⚡" <> int.to_string(scale.cost(s, c.cost))),
       ]),
     ]),
-    html.div([attribute.class("cardname")], [element.text(c.name)]),
+    html.div([attribute.class("cardname clamp2")], [element.text(c.name)]),
     html.div([attribute.class("cardvalue")], [element.text(value_line)]),
-    html.div([attribute.class("cardtarget")], [element.text(target_text(c))]),
+    html.div([attribute.class("cardtarget clamp2")], [
+      element.text(target_text(c)),
+    ]),
     html.div([attribute.class("cardtags")], [
       element.text(
         string.join(detail_tags(c), " · ")

@@ -31,16 +31,17 @@ pub fn view(
       element.text(status_panel("ENEMY", state.p2, s, now)),
     ]),
     card_view.row(
-      list.map(state.p2.table, fn(slot) {
+      list.index_map(state.p2.table, fn(slot, index) {
         card_view.view(
           s,
           slot.card,
           current: slot.value,
-          key: None,
+          key: Some(letter(index)),
           dim: False,
           on_click: None,
           charge: Some(charge(state.p2, now)),
         )
+        |> aimed(game.aims(state, game.P2, index, now), state.config.table_size)
       }),
     ),
     html.pre([attribute.class("dim")], [element.text(string.repeat("─", 64))]),
@@ -58,6 +59,7 @@ pub fn view(
           on_click: Some(on_play(index)),
           charge: Some(charge(state.p1, now)),
         )
+        |> aimed(game.aims(state, game.P1, index, now), state.config.table_size)
       }),
     ),
     banner,
@@ -68,6 +70,79 @@ pub fn view(
         |> list.map(fn(event) { "  " <> describe_event(state, s, event) })
         |> string.join("\n"),
       ),
+    ]),
+  ])
+}
+
+// AIMING ----------------------------------------------------------------------
+
+/// Enemy cards are lettered (A, B...), so your cards can say which they'd hit.
+fn letter(index: Int) -> String {
+  case string.to_utf_codepoints("ABCDEFGH") |> list.drop(index) {
+    [c, ..] -> string.from_utf_codepoints([c])
+    [] -> int.to_string(index + 1)
+  }
+}
+
+/// A card with what it would hit if played now: one dot per table slot,
+/// red if it hits that enemy card, green if it hits that card of yours
+/// (half and half if both), gray if it hits neither. A hollow ring: one of
+/// the ringed cards is picked at random when played. Before the dots, a
+/// small square stands for the robot: red if it hits the enemy robot, green
+/// if your own (a Malfunction), gray if neither. A drone launch is spelled
+/// out after the dots.
+fn aimed(el: Element(msg), aims: List(game.Aim), size: Int) -> Element(msg) {
+  // A random pick among several candidates is only a maybe: drawn as a ring.
+  let hits = fn(side, i) {
+    list.any(aims, fn(aim) {
+      case aim {
+        game.AimCards(s, slots, _) -> s == side && list.contains(slots, i)
+        _ -> False
+      }
+    })
+  }
+  let random = fn(side, i) {
+    list.any(aims, fn(aim) {
+      case aim {
+        game.AimCards(s, [_, _, ..] as slots, False) ->
+          s == side && list.contains(slots, i)
+        _ -> False
+      }
+    })
+  }
+  let dots =
+    list.repeat(Nil, size)
+    |> list.index_map(fn(_, i) {
+      let class = case hits(game.P2, i), hits(game.P1, i) {
+        True, True -> "aimdot both"
+        True, False -> "aimdot enemy"
+        False, True -> "aimdot own"
+        False, False -> "aimdot"
+      }
+      let class = case random(game.P2, i) || random(game.P1, i) {
+        True -> class <> " random"
+        False -> class
+      }
+      html.span([attribute.class(class)], [])
+    })
+  let robot_class = case
+    list.contains(aims, game.AimRobot(game.P2)),
+    list.contains(aims, game.AimRobot(game.P1))
+  {
+    True, _ -> "aimbot enemy"
+    _, True -> "aimbot own"
+    _, _ -> "aimbot"
+  }
+  let label = case list.contains(aims, game.AimLaunch) {
+    True -> "drone"
+    False -> ""
+  }
+  html.div([attribute.class("noted")], [
+    el,
+    html.div([attribute.class("aims")], [
+      html.span([attribute.class(robot_class)], []),
+      html.span([attribute.class("aimdots")], dots),
+      html.span([attribute.class("aimlabel")], [element.text(label)]),
     ]),
   ])
 }
