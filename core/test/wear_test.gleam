@@ -1,4 +1,6 @@
+import gleam/float
 import gleam/list
+import robots/construction/attribute
 import robots/construction/builder
 import robots/construction/part.{type Component, Component}
 import robots/construction/wear
@@ -92,4 +94,25 @@ pub fn a_robot_starts_with_what_its_worn_parts_have_left_test() {
   // Max HP counts parts as new; current HP is 3.0 lower.
   assert worn.max_hp == fresh.max_hp
   assert worn.hp == fresh.hp -. 3.0
+}
+
+pub fn good_armor_attributes_add_hp_test() {
+  let plain = components.plating()
+  let hardened = part.attach(plain, 0, attribute.tuned())
+  let thick = part.attach(plain, 0, attribute.strong())
+  assert part.hp(hardened) >. part.hp(plain)
+  assert part.hp(thick) >. part.hp(hardened)
+  // A bad attribute weakens the card, not the HP.
+  assert part.hp(part.attach(plain, 0, attribute.damaged())) == part.hp(plain)
+  // Hardened Plating: 25 HP for 20 (as shown, ×10).
+  assert float.loosely_equals(part.hp(hardened), 2.5, 0.000001)
+  assert float.loosely_equals(part.hp(thick), 3.0, 0.000001)
+  // Two cards share it: one Thick card on Heavy plating is +25%.
+  let heavy = components.heavy_plating()
+  let one = part.attach(heavy, 0, attribute.strong())
+  assert float.loosely_equals(part.hp(one), 5.0, 0.000001)
+  // Broken, it loses the extra HP with the card: none left, repaired plain.
+  let broken = wear.break(thick)
+  assert wear.is_broken(broken)
+  assert part.hp(wear.repair_part(broken)) == part.hp(plain)
 }

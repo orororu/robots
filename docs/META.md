@@ -27,8 +27,16 @@ a little stronger or with more options for the next one.
   (A blueprint copier was tried and removed: another copy has to be
   found.)
 - **The fabricator** builds a run's starting robots from researched
-  blueprints. At first it builds **one robot**; upgrades raise that to 2,
-  then maybe 3.
+  blueprints. At first it builds **one robot**. The **fabricator upgrade
+  blueprint** raises that to 2 (`blueprint.max_fabricator`; maybe 3
+  later): a boss's blueprint drop is the upgrade **25%** of the time
+  while the fabricator can still be upgraded (`fabricator_percent`; the
+  run knows its size, `Run.fabricator`). Researching it costs **120
+  Data** (`fabricator_research`, about five runs). It isn't a component:
+  research raises `Profile.fabricator`, and the hangar's + New robot tab
+  then designs the second robot, which needs its own components. A spare
+  one can only be sold (24 Data; researching it is refused,
+  `FabricatorFull`).
 - Meta progression changes what a run starts with and what's possible, never
   card rules or enemy numbers (enemies stay symmetric).
 
@@ -109,8 +117,8 @@ The autopilot earns about **24 Data per run** and finds 0.7 blueprints.
 
 ## Next
 
-- Upgrades for Data: the truck (3rd robot, then 4th), the fabricator
-  (2nd robot, then 3rd), each with a second design in the hangar.
+- Upgrades for Data: the truck (3rd robot, then 4th), the fabricator's
+  3rd robot.
 - An autopilot campaign: runs that earn, research and upgrade, to tune how
   fast progress comes.
 - Maybe: blueprints for sale in shops; a starting kit (scrap or a spare).

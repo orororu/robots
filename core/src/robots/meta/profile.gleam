@@ -15,6 +15,7 @@
 //// Saved as text (`encode`, `decode`), so the client can keep it in the
 //// browser.
 
+import gleam/bool
 import gleam/int
 import gleam/list
 import gleam/result
@@ -22,7 +23,9 @@ import gleam/string
 import robots/construction/builder.{type BuildError}
 import robots/construction/part.{type Component}
 import robots/content/starters
-import robots/meta/blueprint.{type Blueprint, ChassisBlueprint, PartBlueprint}
+import robots/meta/blueprint.{
+  type Blueprint, ChassisBlueprint, FabricatorBlueprint, PartBlueprint,
+}
 import robots/run/state.{type Bot, type Run, Bot}
 
 pub type Profile {
@@ -63,6 +66,8 @@ pub type Error {
   InUse(Blueprint)
   CantBuild(design: String, errors: List(BuildError))
   NoSuchDesign
+  /// The fabricator builds `blueprint.max_fabricator` robots already.
+  FabricatorFull
 }
 
 /// Data for each level whose boss is beaten for the first time.
@@ -95,7 +100,21 @@ pub fn new() -> Profile {
 pub fn research(profile: Profile, b: Blueprint) -> Result(Profile, Error) {
   use <- guard(!list.contains(profile.found, b), NotFound(b))
   let cost = blueprint.research_cost(b)
+  use <- guard(
+    b == FabricatorBlueprint && profile.fabricator >= blueprint.max_fabricator,
+    FabricatorFull,
+  )
   use profile <- result.try(pay(profile, cost))
+  use <- bool.guard(
+    b == FabricatorBlueprint,
+    Ok(
+      Profile(
+        ..profile,
+        fabricator: profile.fabricator + 1,
+        found: remove_one(profile.found, b),
+      ),
+    ),
+  )
   Ok(
     Profile(
       ..profile,
@@ -257,7 +276,7 @@ pub fn start(profile: Profile, seed: Int) -> Result(Run, Error) {
     profile,
     list.take(profile.designs, profile.fabricator),
   ))
-  Ok(state.start(seed, robots, profile.truck))
+  Ok(state.start(seed, robots, profile.truck, profile.fabricator))
 }
 
 // AFTER A RUN -----------------------------------------------------------------

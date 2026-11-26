@@ -19,7 +19,9 @@ import robots/construction/builder.{type Chassis, Chassis}
 import robots/construction/part.{type Component, type Modifier, Component}
 import robots/content/components
 import robots/content/enemies.{type Enemy, Enemy}
-import robots/meta/blueprint.{type Blueprint, ChassisBlueprint, PartBlueprint}
+import robots/meta/blueprint.{
+  type Blueprint, ChassisBlueprint, FabricatorBlueprint, PartBlueprint,
+}
 import robots/rules/rng
 import robots/run/map.{type Map, type Node, type Tier, Map, Node}
 import robots/run/shop.{type Shop, Offer, Shop}
@@ -143,6 +145,7 @@ fn run_data(run: Run) -> Data {
     I(run.money),
     shop_data(run.shop),
     I(run.truck),
+    I(run.fabricator),
     L(list.map(run.wins, fn(t) { S(map.tier_name(t)) })),
     L(list.map(run.found, blueprint_data)),
     I(rng.to_state(run.seed)),
@@ -232,6 +235,7 @@ fn blueprint_data(b: Blueprint) -> Data {
   case b {
     PartBlueprint(p) -> L([S("part"), component_data(p)])
     ChassisBlueprint(name) -> L([S("chassis"), S(name)])
+    FabricatorBlueprint -> L([S("fabricator")])
   }
 }
 
@@ -251,6 +255,7 @@ fn to_run(d: Data) -> Result(Run, Nil) {
       I(money),
       shop,
       I(truck),
+      I(fabricator),
       L(wins),
       L(found),
       I(seed),
@@ -277,6 +282,7 @@ fn to_run(d: Data) -> Result(Run, Nil) {
         money:,
         shop:,
         truck:,
+        fabricator:,
         wins:,
         found:,
         seed: rng.from_state(seed),
@@ -462,6 +468,7 @@ fn to_blueprint(d: Data) -> Result(Blueprint, Nil) {
   case d {
     L([S("part"), p]) -> to_component(p) |> result.map(PartBlueprint)
     L([S("chassis"), S(name)]) -> Ok(ChassisBlueprint(name))
+    L([S("fabricator")]) -> Ok(FabricatorBlueprint)
     _ -> Error(Nil)
   }
 }

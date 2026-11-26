@@ -25,12 +25,26 @@ pub type Blueprint {
   /// and attributes the blueprint was found with.
   PartBlueprint(part: Component)
   ChassisBlueprint(name: String)
+  /// Researched, it lets the fabricator build one more robot for each run
+  /// (up to `max_fabricator`). Only a boss drops it.
+  FabricatorBlueprint
 }
+
+/// The most robots the fabricator builds for a run, fully upgraded.
+pub const max_fabricator = 2
+
+/// What researching the fabricator upgrade costs: about five runs' Data.
+pub const fabricator_research = 120
+
+/// Chance a boss's drop is the fabricator upgrade while it can still be
+/// upgraded, in percent.
+pub const fabricator_percent = 25
 
 pub fn name(blueprint: Blueprint) -> String {
   case blueprint {
     PartBlueprint(p) -> p.name
     ChassisBlueprint(name) -> name
+    FabricatorBlueprint -> "Fabricator upgrade"
   }
 }
 
@@ -53,13 +67,22 @@ pub fn exists(blueprint: Blueprint) -> Bool {
   case blueprint {
     PartBlueprint(p) -> part(p.name) != Error(Nil)
     ChassisBlueprint(name) -> chassis(name) != Error(Nil)
+    FabricatorBlueprint -> True
   }
 }
 
 /// What researching it costs in Data: a share of the thing's price,
 /// rounded to 5, at least `min_research`. Better parts cost more.
 pub fn research_cost(blueprint: Blueprint) -> Int {
+  case blueprint {
+    FabricatorBlueprint -> fabricator_research
+    _ -> item_research_cost(blueprint)
+  }
+}
+
+fn item_research_cost(blueprint: Blueprint) -> Int {
   let #(scrap, share) = case blueprint {
+    FabricatorBlueprint -> #(0, research_share)
     PartBlueprint(p) -> #(price.of(p), research_share)
     ChassisBlueprint(name) ->
       case chassis(name) {
@@ -83,12 +106,33 @@ pub const min_research = 10
 /// Chance a strong enemy drops a blueprint, in percent. A boss always does.
 pub const strong_percent = 15
 
-/// A blueprint drop for beating an enemy of `tier` on `level`: one of the
+/// A blueprint drop for beating an enemy of `tier` on `level`, with a
+/// fabricator that builds `fabricator` robots: a boss's is the fabricator
+/// upgrade `fabricator_percent` of the time while there's one left to
+/// research. Otherwise one of the
 /// level's parts (its loot chart), with the quality a shop's parts have
 /// (`loot.roll_shop`), or one of its chassis (what its bosses and strong
 /// enemies drop). Every drop is one more copy: a second Laser needs a
 /// second Laser blueprint.
-pub fn roll(level: Int, tier: Tier, seed: Seed) -> #(Option(Blueprint), Seed) {
+pub fn roll(
+  level: Int,
+  tier: Tier,
+  fabricator: Int,
+  seed: Seed,
+) -> #(Option(Blueprint), Seed) {
+  case tier, fabricator < max_fabricator {
+    map.Boss, True -> {
+      let #(r, seed) = rng.int_below(seed, 100)
+      case r < fabricator_percent {
+        True -> #(Some(FabricatorBlueprint), seed)
+        False -> roll_item(level, tier, seed)
+      }
+    }
+    _, _ -> roll_item(level, tier, seed)
+  }
+}
+
+fn roll_item(level: Int, tier: Tier, seed: Seed) -> #(Option(Blueprint), Seed) {
   let #(drops, seed) = case tier {
     map.Boss -> #(True, seed)
     map.Strong -> {
@@ -125,6 +169,7 @@ pub fn describe(blueprint: Blueprint) -> String {
     PartBlueprint(p) ->
       part.display_name(p) <> " (" <> part.kind_name(p.kind) <> ")"
     ChassisBlueprint(name) -> name <> " (chassis)"
+    FabricatorBlueprint -> "Fabricator upgrade (builds one more robot a run)"
   }
 }
 
@@ -135,12 +180,14 @@ pub fn describe(blueprint: Blueprint) -> String {
 pub fn to_text(blueprint: Blueprint) -> String {
   case blueprint {
     ChassisBlueprint(name) -> "c:" <> name
+    FabricatorBlueprint -> "f:upgrade"
     PartBlueprint(p) -> "p:" <> part_text(p)
   }
 }
 
 pub fn from_text(text: String) -> Result(Blueprint, Nil) {
   case string.split_once(text, ":") {
+    Ok(#("f", "upgrade")) -> Ok(FabricatorBlueprint)
     Ok(#("p", rest)) -> part_from_text(rest) |> result.map(PartBlueprint)
     Ok(#("c", name)) ->
       case chassis(name) {

@@ -72,10 +72,12 @@ fn wear_armor(
 /// the card had). It keeps its weight and its place in the deck until it's
 /// replaced.
 pub fn break(plate: Component) -> Component {
-  let plate = Component(..plate, wear: part.hp(plate))
-  list.index_fold(plate.cards, plate, fn(plate, _, i) {
-    part.attach(plate, i, attribute.broken())
-  })
+  let plate =
+    list.index_fold(plate.cards, plate, fn(plate, _, i) {
+      part.attach(plate, i, attribute.broken())
+    })
+  // Its HP as broken (a Thick card's extra HP is gone with the card).
+  Component(..plate, wear: part.hp(plate))
 }
 
 /// All the damage the chassis and the armor carry.

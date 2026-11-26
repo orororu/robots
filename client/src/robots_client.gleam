@@ -30,7 +30,9 @@ import robots/construction/part.{type Component}
 import robots/construction/robot.{type Robot}
 import robots/construction/wear
 import robots/content/enemies
-import robots/meta/blueprint.{type Blueprint, ChassisBlueprint, PartBlueprint}
+import robots/meta/blueprint.{
+  type Blueprint, ChassisBlueprint, FabricatorBlueprint, PartBlueprint,
+}
 import robots/meta/profile.{type Profile}
 import robots/rules/card
 import robots/rules/game.{type Game, P1, P2}
@@ -363,13 +365,24 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
           case profile.research(model.profile, b) {
             Ok(p) -> {
               browser.save_profile(profile.encode(p))
-              Model(
-                ..model,
-                profile: p,
-                hangar: Some(Hangar(..h, pick: NoHangarPick)),
-                news: "Researched "
+              let message = case b {
+                FabricatorBlueprint ->
+                  "The fabricator now builds "
+                  <> int.to_string(p.fabricator)
+                  <> " robots a run: design the next one in the + New robot tab."
+                _ ->
+                  "Researched "
                   <> blueprint.describe(b)
-                  <> ": it's in the fabricator.",
+                  <> ": it's in the fabricator."
+              }
+              flash(
+                Model(
+                  ..model,
+                  profile: p,
+                  hangar: Some(Hangar(..h, pick: NoHangarPick)),
+                  news: message,
+                ),
+                message,
               )
             }
             Error(e) -> flash(model, describe_profile_error(e))
@@ -788,7 +801,7 @@ fn spare_parts(p: Profile, designs: List(profile.Design)) -> List(Component) {
     list.filter_map(p.researched, fn(b) {
       case b {
         PartBlueprint(c) -> Ok(c)
-        ChassisBlueprint(_) -> Error(Nil)
+        ChassisBlueprint(_) | FabricatorBlueprint -> Error(Nil)
       }
     })
   list.fold(list.flat_map(designs, fn(d) { d.parts }), made, remove_first)
@@ -800,7 +813,7 @@ fn spare_chassis(p: Profile, designs: List(profile.Design)) -> List(String) {
     list.filter_map(p.researched, fn(b) {
       case b {
         ChassisBlueprint(name) -> Ok(name)
-        PartBlueprint(_) -> Error(Nil)
+        PartBlueprint(_) | FabricatorBlueprint -> Error(Nil)
       }
     })
   list.fold(list.map(designs, fn(d) { d.chassis }), made, remove_first)
@@ -880,6 +893,10 @@ fn start_run(model: Model) -> Model {
 
 fn describe_profile_error(e: profile.Error) -> String {
   case e {
+    profile.FabricatorFull ->
+      "The fabricator builds "
+      <> int.to_string(blueprint.max_fabricator)
+      <> " robots already: sell this one."
     profile.NotFound(b) -> blueprint.describe(b) <> ": no blueprint."
     profile.InUse(b) ->
       "Every "
@@ -2040,7 +2057,15 @@ fn view_lab(model: Model, h: Hangar) -> Element(Msg) {
       ],
       case blueprint_component(b) {
         Some(c) -> preview_section(model, "", c)
-        None -> text("", "")
+        None ->
+          text(
+            "",
+            "FABRICATOR UPGRADE · the fabricator builds "
+              <> int.to_string(model.profile.fabricator + 1)
+              <> " robots for each run instead of "
+              <> int.to_string(model.profile.fabricator)
+              <> ". Each robot needs its own components: design it in the + New robot tab.",
+          )
       },
     )
     _ -> #([], text("dim", "Select a blueprint to see its cards."))
@@ -2412,6 +2437,7 @@ fn blueprint_component(b: Blueprint) -> Option(Component) {
     PartBlueprint(p) -> Some(p)
     ChassisBlueprint(name) ->
       blueprint.chassis(name) |> result.map(builder.body) |> option.from_result
+    FabricatorBlueprint -> None
   }
 }
 

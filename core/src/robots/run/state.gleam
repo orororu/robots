@@ -97,6 +97,9 @@ pub type Run {
     shop: Shop,
     /// How many robots the truck carries.
     truck: Int,
+    /// How many robots the player's fabricator builds (bosses can drop its
+    /// upgrade while it's below the most).
+    fabricator: Int,
     /// Each battle won, by tier, latest first.
     wins: List(Tier),
     /// Blueprints found in this run, in order.
@@ -153,12 +156,13 @@ pub fn new(seed: Int) -> Run {
     seed,
     [Bot("Tinker", components.frame(), starters.tinker_parts())],
     default_truck,
+    1,
   )
 }
 
 /// A new run at level 1 with these robots (the fabricator's) and a truck
-/// for `truck` robots.
-pub fn start(seed: Int, robots: List(Bot), truck: Int) -> Run {
+/// for `truck` robots; the player's fabricator builds `fabricator`.
+pub fn start(seed: Int, robots: List(Bot), truck: Int, fabricator: Int) -> Run {
   let seed = rng.new(seed)
   let #(map, seed) = map.generate(1, seed)
   Run(
@@ -173,6 +177,7 @@ pub fn start(seed: Int, robots: List(Bot), truck: Int) -> Run {
     money: starting_money,
     shop: shop.empty,
     truck:,
+    fabricator:,
     wins: [],
     found: [],
     seed:,
@@ -363,7 +368,7 @@ fn reward(run: Run, tier: Tier) -> #(Run, Reward) {
     }
     _, _ -> #(parts, seed)
   }
-  let #(found, seed) = blueprint.roll(run.level, tier, seed)
+  let #(found, seed) = blueprint.roll(run.level, tier, run.fabricator, seed)
   let run =
     Run(
       ..run,

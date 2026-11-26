@@ -3,7 +3,9 @@ import gleam/option.{None, Some}
 import robots/construction/attribute
 import robots/construction/part
 import robots/content/components
-import robots/meta/blueprint.{ChassisBlueprint, PartBlueprint}
+import robots/meta/blueprint.{
+  ChassisBlueprint, FabricatorBlueprint, PartBlueprint,
+}
 import robots/meta/profile.{Design, Profile}
 import robots/rules/rng
 import robots/run/map
@@ -190,25 +192,26 @@ pub fn a_saved_profile_forgets_what_left_the_game_test() {
 
 pub fn bosses_always_drop_a_blueprint_test() {
   list.each([1, 2, 3, 4, 5], fn(seed) {
-    let #(drop, _) = blueprint.roll(1, map.Boss, rng.new(seed))
+    let #(drop, _) = blueprint.roll(1, map.Boss, 1, rng.new(seed))
     let assert Some(b) = drop
     assert blueprint.exists(b)
   })
-  let #(drop, _) = blueprint.roll(1, map.Normal, rng.new(1))
+  let #(drop, _) = blueprint.roll(1, map.Normal, 1, rng.new(1))
   assert drop == None
 }
 
 pub fn blueprints_come_in_different_qualities_test() {
   let #(_, drops) =
     list.map_fold(list.repeat(Nil, 200), rng.new(3), fn(seed, _) {
-      let #(drop, seed) = blueprint.roll(2, map.Boss, seed)
+      let #(drop, seed) =
+        blueprint.roll(2, map.Boss, blueprint.max_fabricator, seed)
       #(seed, drop)
     })
   let parts =
     list.filter_map(option.values(drops), fn(b) {
       case b {
         PartBlueprint(p) -> Ok(p)
-        ChassisBlueprint(_) -> Error(Nil)
+        ChassisBlueprint(_) | FabricatorBlueprint -> Error(Nil)
       }
     })
   assert list.any(parts, fn(p) { p.attributes != [] })
@@ -220,7 +223,7 @@ pub fn blueprints_come_in_different_qualities_test() {
 pub fn strong_enemies_sometimes_drop_a_blueprint_test() {
   let #(_, drops) =
     list.map_fold(list.repeat(Nil, 400), rng.new(7), fn(seed, _) {
-      let #(drop, seed) = blueprint.roll(1, map.Strong, seed)
+      let #(drop, seed) = blueprint.roll(1, map.Strong, 1, seed)
       #(seed, drop)
     })
   let share = list.length(option.values(drops)) * 100 / 400
@@ -273,4 +276,43 @@ pub fn blueprints_sell_for_a_little_data_test() {
       ]),
     ])
   let assert Error(profile.InUse(_)) = profile.sell_researched(uses, railgun)
+}
+
+pub fn bosses_sometimes_drop_the_fabricator_upgrade_test() {
+  let drops = fn(fabricator) {
+    let #(_, drops) =
+      list.map_fold(list.repeat(Nil, 400), rng.new(11), fn(seed, _) {
+        let #(drop, seed) = blueprint.roll(1, map.Boss, fabricator, seed)
+        #(seed, drop)
+      })
+    list.count(drops, fn(d) { d == Some(FabricatorBlueprint) }) * 100 / 400
+  }
+  let share = drops(1)
+  assert share >= blueprint.fabricator_percent - 6
+  assert share <= blueprint.fabricator_percent + 6
+  // Not once the fabricator is fully upgraded, and never from other enemies.
+  assert drops(blueprint.max_fabricator) == 0
+  let #(strong, _) = blueprint.roll(1, map.Strong, 1, rng.new(1))
+  assert strong != Some(FabricatorBlueprint)
+}
+
+pub fn researching_the_fabricator_upgrade_builds_a_second_robot_test() {
+  let p = Profile(..profile.new(), data: 200, found: [FabricatorBlueprint])
+  let assert Ok(after) = profile.research(p, FabricatorBlueprint)
+  assert after.fabricator == 2
+  assert after.data == 200 - blueprint.fabricator_research
+  assert after.found == []
+  // It isn't a component: nothing to fabricate from it.
+  assert profile.copies(after, FabricatorBlueprint) == 0
+  // A run started from it knows: no more upgrades drop.
+  let assert Ok(run) = profile.start(after, 1)
+  assert run.fabricator == 2
+  // A second one can only be sold.
+  let again = Profile(..after, data: 200, found: [FabricatorBlueprint])
+  let assert Error(profile.FabricatorFull) =
+    profile.research(again, FabricatorBlueprint)
+  let assert Ok(sold) = profile.sell_found(again, FabricatorBlueprint)
+  assert sold.data == 200 + profile.sell_price(FabricatorBlueprint)
+  // Saved and loaded like any blueprint.
+  assert profile.decode(profile.encode(p)) == Ok(p)
 }

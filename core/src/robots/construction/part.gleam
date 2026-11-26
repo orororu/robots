@@ -5,6 +5,7 @@
 //// parts weigh less, "Overclocked" parts are stronger.
 
 import gleam/float
+import gleam/int
 import gleam/list
 import gleam/result
 import gleam/string
@@ -209,8 +210,31 @@ pub fn attached(component: Component) -> List(#(Attribute, Card)) {
 }
 
 /// Full HP, when undamaged.
+/// An armor plate's HP: its modifiers, and its good card attributes
+/// (Hardened, Thick, Masterwork) add `toughness_factor` times what they
+/// add to the card, shared over the plate's cards: a one-card plate with a
+/// Hardened card (+10% card) has 25% more HP, Thick 50%, Masterwork 100%. Bad attributes only weaken the card (wear is
+/// what takes HP away).
 pub fn hp(component: Component) -> Float {
-  component.hp *. strength(component)
+  component.hp *. strength(component) *. toughness(component)
+}
+
+pub const toughness_factor = 2.5
+
+fn toughness(component: Component) -> Float {
+  case list.length(component.cards) {
+    0 -> 1.0
+    n -> {
+      let bonus =
+        list.fold(component.attributes, 0.0, fn(sum, pair) {
+          case { pair.1 }.effect {
+            attribute.Scale(value:, ..) if value >. 1.0 -> sum +. value -. 1.0
+            _ -> sum
+          }
+        })
+      1.0 +. bonus *. toughness_factor /. int.to_float(n)
+    }
+  }
 }
 
 /// HP left after wear.
