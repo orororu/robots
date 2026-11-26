@@ -91,8 +91,12 @@ The autopilot earns about **24 Data per run** and finds 0.7 blueprints.
   the fabricator and the design (whether it can be fabricated), with Start
   a run and two screens:
   - the **Research lab**: blueprints found in runs, to research or sell;
-  - the **Garage**: the design and the FABRICATOR, where a researched
-    blueprint becomes a component ("Plating ×2, 2 in the design").
+  - the **Garage**, laid out like a run's garage: the design as a robot
+    (chassis, installed parts by kind), and below it the FABRICATOR's
+    spare components, one row per copy (no stacking), grouped by kind,
+    plus spare chassis. Installing a component takes it off the list.
+    Select as in a run: install, remove, swap (an installed part and a
+    component), build the design on another chassis, or sell a spare.
   Select, then act: Research, Sell, Add to the design (while a copy is
   free), Remove, Build the design on a chassis. Start a run.
 - **The run's end** shows the Data earned and blueprints found; "To the

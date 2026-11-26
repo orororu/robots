@@ -132,13 +132,15 @@ type HangarScreen {
 
 type HangarPick {
   NoHangarPick
-  /// A found blueprint, to research.
+  /// A found blueprint, to research or sell.
   PickFound(Blueprint)
-  /// A researched blueprint, to add to the design (a part) or build it on
-  /// (a chassis).
-  PickBlueprint(Blueprint)
-  /// Part `index` of the design, to remove.
-  PickInstalled(index: Int)
+  /// In the garage, as in a run's: a part of the design and/or one of the
+  /// fabricator's spare components (by index in `spare_parts`).
+  PickGarage(installed: Option(Int), spare: Option(Int))
+  /// One of the fabricator's spare chassis (in `spare_chassis`).
+  PickSpareChassis(Int)
+  /// The design's own chassis, to see its cards.
+  PickDesignChassis
 }
 
 /// What's selected in the garage; the selected parts' cards are shown.
@@ -251,8 +253,13 @@ type Msg {
   NewGame
   ToMenu
   HangarGo(screen: HangarScreen)
+  HangarInstalled(index: Int)
+  HangarSpare(index: Int)
+  HangarSpareChassis(index: Int)
+  HangarOwnChassis
   AddPart
   RemovePart
+  SwapPart
   UseChassis
   StartRun
   /// After a run: pay it out and go to the hangar.
@@ -306,31 +313,71 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
               Model(
                 ..model,
                 profile: p,
-                hangar: Some(Hangar(..h, pick: PickBlueprint(b))),
+                hangar: Some(Hangar(..h, pick: NoHangarPick)),
+                news: "Researched "
+                  <> blueprint.describe(b)
+                  <> ": it's in the fabricator.",
               )
             }
             Error(e) -> flash(model, describe_profile_error(e))
           }
         _ -> model
       }
+    HangarInstalled(i) ->
+      update_hangar(model, fn(h) {
+        let pick = case h.pick {
+          PickGarage(installed, spare) ->
+            PickGarage(toggle(installed, i), spare)
+          _ -> PickGarage(Some(i), None)
+        }
+        Hangar(..h, pick: tidy(pick))
+      })
+    HangarSpare(i) ->
+      update_hangar(model, fn(h) {
+        let pick = case h.pick {
+          PickGarage(installed, spare) ->
+            PickGarage(installed, toggle(spare, i))
+          _ -> PickGarage(None, Some(i))
+        }
+        Hangar(..h, pick: tidy(pick))
+      })
+    HangarSpareChassis(i) ->
+      update_hangar(model, fn(h) {
+        Hangar(..h, pick: case h.pick == PickSpareChassis(i) {
+          True -> NoHangarPick
+          False -> PickSpareChassis(i)
+        })
+      })
+    HangarOwnChassis ->
+      update_hangar(model, fn(h) {
+        Hangar(..h, pick: case h.pick == PickDesignChassis {
+          True -> NoHangarPick
+          False -> PickDesignChassis
+        })
+      })
     AddPart ->
       update_hangar(model, fn(h) {
         case h.pick {
-          PickBlueprint(PartBlueprint(p)) ->
-            Hangar(
-              ..h,
-              design: profile.Design(
-                ..h.design,
-                parts: list.append(h.design.parts, [p]),
-              ),
-            )
+          PickGarage(None, Some(j)) ->
+            case at(spare_parts(model.profile, h.design), j) {
+              Some(p) ->
+                Hangar(
+                  ..h,
+                  design: profile.Design(
+                    ..h.design,
+                    parts: list.append(h.design.parts, [p]),
+                  ),
+                  pick: NoHangarPick,
+                )
+              None -> h
+            }
           _ -> h
         }
       })
     RemovePart ->
       update_hangar(model, fn(h) {
         case h.pick {
-          PickInstalled(i) ->
+          PickGarage(Some(i), None) ->
             Hangar(
               ..h,
               design: profile.Design(
@@ -345,15 +392,42 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
           _ -> h
         }
       })
+    SwapPart ->
+      update_hangar(model, fn(h) {
+        case h.pick {
+          PickGarage(Some(i), Some(j)) ->
+            case at(spare_parts(model.profile, h.design), j) {
+              Some(p) ->
+                Hangar(
+                  ..h,
+                  design: profile.Design(
+                    ..h.design,
+                    parts: list.flatten([
+                      list.take(h.design.parts, i),
+                      [p],
+                      list.drop(h.design.parts, i + 1),
+                    ]),
+                  ),
+                  pick: NoHangarPick,
+                )
+              None -> h
+            }
+          _ -> h
+        }
+      })
     UseChassis ->
       update_hangar(model, fn(h) {
         case h.pick {
-          PickBlueprint(ChassisBlueprint(name)) ->
-            Hangar(
-              ..h,
-              design: profile.Design(..h.design, chassis: name),
-              pick: NoHangarPick,
-            )
+          PickSpareChassis(i) ->
+            case at(spare_chassis(model.profile, h.design), i) {
+              Some(name) ->
+                Hangar(
+                  ..h,
+                  design: profile.Design(..h.design, chassis: name),
+                  pick: NoHangarPick,
+                )
+              None -> h
+            }
           _ -> h
         }
       })
@@ -361,8 +435,32 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
       case model.hangar {
         Some(Hangar(pick: PickFound(b), ..) as h) ->
           sell_blueprint(model, h, profile.sell_found(model.profile, b), b)
-        Some(Hangar(pick: PickBlueprint(b), ..) as h) ->
-          sell_blueprint(model, h, profile.sell_researched(model.profile, b), b)
+        Some(Hangar(pick: PickGarage(None, Some(j)), ..) as h) ->
+          case at(spare_parts(model.profile, h.design), j) {
+            Some(c) -> {
+              let b = PartBlueprint(c)
+              sell_blueprint(
+                model,
+                h,
+                profile.sell_researched(model.profile, b),
+                b,
+              )
+            }
+            None -> model
+          }
+        Some(Hangar(pick: PickSpareChassis(i), ..) as h) ->
+          case at(spare_chassis(model.profile, h.design), i) {
+            Some(name) -> {
+              let b = ChassisBlueprint(name)
+              sell_blueprint(
+                model,
+                h,
+                profile.sell_researched(model.profile, b),
+                b,
+              )
+            }
+            None -> model
+          }
         _ -> model
       }
     StartRun -> start_run(model)
@@ -500,6 +598,57 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   #(model, effect.none())
 }
 
+fn toggle(selected: Option(Int), i: Int) -> Option(Int) {
+  case selected == Some(i) {
+    True -> None
+    False -> Some(i)
+  }
+}
+
+fn tidy(pick: HangarPick) -> HangarPick {
+  case pick {
+    PickGarage(None, None) -> NoHangarPick
+    _ -> pick
+  }
+}
+
+fn at(items: List(a), i: Int) -> Option(a) {
+  list.drop(items, i) |> list.first |> option.from_result
+}
+
+/// The fabricator's components the design doesn't use: one entry per
+/// copy, in research order (each installed part takes one copy away).
+fn spare_parts(p: Profile, d: profile.Design) -> List(Component) {
+  let made =
+    list.filter_map(p.researched, fn(b) {
+      case b {
+        PartBlueprint(c) -> Ok(c)
+        ChassisBlueprint(_) -> Error(Nil)
+      }
+    })
+  list.fold(d.parts, made, remove_first)
+}
+
+/// The fabricator's chassis the design isn't built on.
+fn spare_chassis(p: Profile, d: profile.Design) -> List(String) {
+  let made =
+    list.filter_map(p.researched, fn(b) {
+      case b {
+        ChassisBlueprint(name) -> Ok(name)
+        PartBlueprint(_) -> Error(Nil)
+      }
+    })
+  remove_first(made, d.chassis)
+}
+
+fn remove_first(items: List(a), item: a) -> List(a) {
+  case items {
+    [] -> []
+    [x, ..rest] if x == item -> rest
+    [x, ..rest] -> [x, ..remove_first(rest, item)]
+  }
+}
+
 /// Sell a blueprint and save; keep it selected while copies are left.
 fn sell_blueprint(
   model: Model,
@@ -510,9 +659,10 @@ fn sell_blueprint(
   case result {
     Ok(p) -> {
       browser.save_profile(profile.encode(p))
+      // Indexes into the spares shift after a sale: clear the selection.
       let left = case h.pick {
         PickFound(_) -> list.contains(p.found, b)
-        _ -> profile.copies(p, b) > 0
+        _ -> False
       }
       Model(
         ..model,
@@ -1507,15 +1657,101 @@ fn view_menu(model: Model) -> Element(Msg) {
 
 fn view_hangar(model: Model) -> Element(Msg) {
   let assert Some(h) = model.hangar
-  let p = model.profile
-  let s = model.scale
-  let picked = fn(yes) {
-    case yes {
-      True -> "picked"
-      False -> ""
-    }
+  case h.screen {
+    Overview -> view_hangar_overview(model, h)
+    Lab -> view_lab(model, h)
+    Garage -> view_hangar_garage(model, h)
   }
-  // Found blueprints, to research.
+}
+
+fn picked(yes: Bool) -> String {
+  case yes {
+    True -> "picked"
+    False -> ""
+  }
+}
+
+/// Whether the design can be fabricated, or why not.
+fn design_status(model: Model, h: Hangar) -> Element(Msg) {
+  case profile.fabricate(model.profile, h.design) {
+    Ok(_) -> text("ally", "✓ ready to fabricate")
+    Error(e) -> text("foe", "✗ " <> describe_profile_error(e))
+  }
+}
+
+fn design_lines(h: Hangar) -> List(Element(Msg)) {
+  case design_bot(h.design) {
+    Some(b) -> [
+      text("", "    " <> weight_line(b)),
+      text("", "    " <> mounts_line(b)),
+    ]
+    None -> []
+  }
+}
+
+fn back_to_hangar() -> Element(Msg) {
+  button("[Back to the hangar]", HangarGo(Overview))
+}
+
+fn with_cancel(actions: List(Element(Msg))) -> List(Element(Msg)) {
+  case actions {
+    [] -> []
+    _ -> list.append(actions, [button("[Cancel]", HangarSelect(NoHangarPick))])
+  }
+}
+
+fn view_hangar_overview(model: Model, h: Hangar) -> Element(Msg) {
+  let p = model.profile
+  let found = list.length(p.found)
+  html.div([], [
+    text(
+      "",
+      "HANGAR · the truck carries "
+        <> int.to_string(p.truck)
+        <> " robots · the fabricator builds "
+        <> int.to_string(p.fabricator)
+        <> case p.fabricator {
+        1 -> " robot"
+        _ -> " robots"
+      }
+        <> " for each run from its components",
+    ),
+    button_class(">>> Start a run", "banner", StartRun),
+    text("", "DESIGN · change it in the garage"),
+    html.div([attribute.class("table")], [
+      text(
+        "ally",
+        "  "
+          <> h.design.name
+          <> " ("
+          <> h.design.chassis
+          <> "): "
+          <> string.join(list.map(h.design.parts, part.display_name), ", "),
+      ),
+      ..list.append(design_lines(h), [design_status(model, h)])
+    ]),
+    button(
+      "[Research lab] · "
+        <> int.to_string(found)
+        <> case found {
+        1 -> " blueprint"
+        _ -> " blueprints"
+      }
+        <> " found in runs, to research or sell with Data",
+      HangarGo(Lab),
+    ),
+    button(
+      "[Garage] · change the design, from the fabricator's "
+        <> int.to_string(list.length(spare_parts(p, h.design)))
+        <> " spare components",
+      HangarGo(Garage),
+    ),
+    button("[Menu]", ToMenu),
+  ])
+}
+
+fn view_lab(model: Model, h: Hangar) -> Element(Msg) {
+  let p = model.profile
   let found =
     list.map(p.found, fn(b) {
       button_class(
@@ -1528,251 +1764,217 @@ fn view_hangar(model: Model) -> Element(Msg) {
         HangarSelect(PickFound(b)),
       )
     })
-  // The design: its chassis and parts.
-  let bot = design_bot(h.design)
-  let installed =
-    list.index_map(h.design.parts, fn(c, i) { #(i, part_line(s, c)) })
-    |> list.map(fn(pair) {
-      button_class(
-        "    " <> pair.1,
-        picked(h.pick == PickInstalled(pair.0)),
-        HangarSelect(PickInstalled(pair.0)),
-      )
-    })
-  let design_lines = case bot {
-    Some(b) -> [
-      text("", "    " <> weight_line(b)),
-      text("", "    " <> mounts_line(b)),
-    ]
-    None -> []
+  let #(actions, preview) = case h.pick {
+    PickFound(b) -> #(
+      [
+        button(
+          "[Research · "
+            <> int.to_string(blueprint.research_cost(b))
+            <> " Data]",
+          Research,
+        ),
+        sell_button(b),
+      ],
+      case blueprint_component(b) {
+        Some(c) -> preview_section(model, "", c)
+        None -> text("", "")
+      },
+    )
+    _ -> #([], text("dim", "Select a blueprint to see its cards."))
   }
-  let status = case profile.fabricate(p, h.design) {
-    Ok(_) -> text("ally", "✓ ready to fabricate")
-    Error(e) -> text("foe", "✗ " <> describe_profile_error(e))
+  html.div([], [
+    back_to_hangar(),
+    html.div([attribute.class("garage")], [
+      html.div([], [
+        text(
+          "",
+          "RESEARCH LAB · blueprints found in runs: research one to get its component in the fabricator",
+        ),
+        html.div([attribute.class("table")], case found {
+          [] -> [
+            text(
+              "dim",
+              "  none yet: strong enemies sometimes drop one, bosses always",
+            ),
+          ]
+          _ -> found
+        }),
+        html.div([attribute.class("actions")], with_cancel(actions)),
+      ]),
+      html.div([attribute.class("preview")], [preview]),
+    ]),
+  ])
+}
+
+/// The garage between runs: the design as a robot, as in a run's garage,
+/// and the fabricator's spare components below it, one per copy, grouped
+/// by kind. Installing one takes it off the list.
+fn view_hangar_garage(model: Model, h: Hangar) -> Element(Msg) {
+  let p = model.profile
+  let s = model.scale
+  let spares = spare_parts(p, h.design)
+  let chassis = spare_chassis(p, h.design)
+  let #(installed, spare) = case h.pick {
+    PickGarage(installed, spare) -> #(installed, spare)
+    _ -> #(None, None)
   }
-  // Researched blueprints: chassis to build on, parts to add.
-  // Copies of a blueprint, and how many the design uses.
-  let count = fn(b) {
-    let have = profile.copies(p, b)
-    let used = list.count(profile.needs(h.design), fn(n) { n == b })
-    " · ×"
-    <> int.to_string(have)
-    <> case used {
-      0 -> ""
-      _ -> ", " <> int.to_string(used) <> " in the design"
-    }
+  let robot = case design_bot(h.design) {
+    Some(bot) ->
+      html.div([attribute.class("robot")], [
+        text("ally", bot_line(s, bot)),
+        ..list.flatten([
+          design_lines(h),
+          [
+            button_class(
+              "    " <> own_chassis_line(s, bot),
+              picked(h.pick == PickDesignChassis),
+              HangarOwnChassis,
+            ),
+          ],
+          by_kind(bot.parts)
+            |> list.map(fn(pair) {
+              let #(i, c) = pair
+              button_class(
+                "    " <> part_line(s, c),
+                picked(installed == Some(i)),
+                HangarInstalled(i),
+              )
+            }),
+          [design_status(model, h)],
+        ])
+      ])
+    None -> text("foe", "  " <> h.design.name <> ": unknown chassis")
   }
-  let unique = list.unique(p.researched)
-  let researched_chassis =
-    list.filter_map(unique, fn(b) {
-      case b {
-        ChassisBlueprint(name) ->
-          case blueprint.chassis(name) {
-            Ok(c) ->
-              Ok(button_class(
-                "    "
-                  <> c.name
-                  <> " · "
-                  <> int.to_string(scale.value(s, c.hp))
-                  <> " HP · max weight "
-                  <> num(c.capacity)
-                  <> " · weapon mounts "
-                  <> string.join(list.map(c.weapon_mounts, num), ", ")
-                  <> count(b),
-                picked(h.pick == PickBlueprint(b)),
-                HangarSelect(PickBlueprint(b)),
-              ))
-            Error(Nil) -> Error(Nil)
-          }
-        PartBlueprint(_) -> Error(Nil)
-      }
-    })
-  let researched_parts =
-    unique
-    |> list.filter_map(fn(b) {
-      case b {
-        PartBlueprint(p) -> Ok(p)
-        ChassisBlueprint(_) -> Error(Nil)
-      }
-    })
-    |> by_kind
+  let spare_rows =
+    by_kind(spares)
     |> list.chunk(fn(pair) { { pair.1 }.kind })
     |> list.flat_map(fn(group) {
       let assert [#(_, first), ..] = group
       [
-        text("dim", "    " <> string.uppercase(kind_plural(first.kind))),
+        text("dim", "  " <> string.uppercase(kind_plural(first.kind))),
         ..list.map(group, fn(pair) {
-          let b = PartBlueprint(pair.1)
+          let #(i, c) = pair
           button_class(
-            "      " <> part_line(s, pair.1) <> count(b),
-            picked(h.pick == PickBlueprint(b)),
-            HangarSelect(PickBlueprint(b)),
+            "    " <> part_line(s, c),
+            picked(spare == Some(i)),
+            HangarSpare(i),
           )
         })
       ]
     })
-  let actions = case h.pick {
-    NoHangarPick -> []
-    PickFound(b) -> [
-      button(
-        "[Research · " <> int.to_string(blueprint.research_cost(b)) <> " Data]",
-        Research,
-      ),
-      sell_button(b),
-    ]
-    PickBlueprint(PartBlueprint(_) as b) -> {
-      let spare =
-        profile.copies(p, b)
-        > list.count(profile.needs(h.design), fn(n) { n == b })
-      case spare {
-        True -> [button("[Add to the design]", AddPart), sell_button(b)]
-        False -> [
-          text(
-            "dim",
-            "  every one in the fabricator is in the design. Find another blueprint in a run.",
-          ),
-        ]
+  let chassis_rows =
+    list.index_map(chassis, fn(name, i) {
+      case blueprint.chassis(name) {
+        Ok(c) ->
+          button_class(
+            "  "
+              <> c.name
+              <> " chassis · "
+              <> int.to_string(scale.value(s, c.hp))
+              <> " HP · max weight "
+              <> num(c.capacity)
+              <> " · weapon mounts "
+              <> string.join(list.map(c.weapon_mounts, num), ", "),
+            picked(h.pick == PickSpareChassis(i)),
+            HangarSpareChassis(i),
+          )
+        Error(Nil) -> text("dim", "  " <> name)
       }
-    }
-    PickBlueprint(ChassisBlueprint(name)) ->
-      case name == h.design.chassis {
-        True -> [text("dim", "  the design is built on it")]
-        False -> [
-          button("[Build the design on it]", UseChassis),
-          sell_button(ChassisBlueprint(name)),
-        ]
-      }
-    PickInstalled(_) -> [button("[Remove from the design]", RemovePart)]
-  }
-  let actions = case h.pick {
-    NoHangarPick -> []
-    _ -> list.append(actions, [button("[Cancel]", HangarSelect(NoHangarPick))])
-  }
-  // The selected thing's cards.
-  let selected = case h.pick {
-    PickFound(b) | PickBlueprint(b) -> blueprint_component(b)
-    PickInstalled(i) ->
-      list.drop(h.design.parts, i)
-      |> list.first
-      |> option.from_result
-    NoHangarPick -> None
-  }
-  let preview = case selected {
-    Some(c) -> preview_section(model, "", c)
-    None ->
-      text(
-        "dim",
-        "Select a blueprint or a part of the design to see its cards.",
-      )
-  }
-  let lab_list =
-    html.div([attribute.class("table")], case found {
-      [] -> [
-        text(
-          "dim",
-          "  none yet: strong enemies sometimes drop one, bosses always",
-        ),
-      ]
-      _ -> found
     })
-  let design_table =
-    html.div([attribute.class("table")], [
-      text("ally", "  " <> h.design.name <> " (" <> h.design.chassis <> ")"),
-      ..list.flatten([
-        design_lines,
-        case installed {
-          [] -> [text("dim", "    no parts")]
-          _ -> installed
+  let spare_blueprint = fn(j) { option.map(at(spares, j), PartBlueprint) }
+  let actions = case h.pick {
+    PickGarage(Some(_), Some(_)) -> [button("[Swap them]", SwapPart)]
+    PickGarage(Some(_), None) -> [button("[Remove part]", RemovePart)]
+    PickGarage(None, Some(j)) ->
+      list.flatten([
+        [button("[Install on " <> h.design.name <> "]", AddPart)],
+        case spare_blueprint(j) {
+          Some(b) -> [sell_button(b)]
+          None -> []
         },
-        [status],
       ])
-    ])
-  let back = button("[Back to the hangar]", HangarGo(Overview))
-  // A screen with a list on the left and the selection's cards on the right.
-  let split = fn(left: List(Element(Msg))) {
-    html.div([attribute.class("garage")], [
-      html.div(
-        [],
-        list.append(left, [html.div([attribute.class("actions")], actions)]),
-      ),
-      html.div([attribute.class("preview")], [preview]),
-    ])
+    PickSpareChassis(i) ->
+      list.flatten([
+        [button("[Build " <> h.design.name <> " on it]", UseChassis)],
+        case at(chassis, i) {
+          Some(name) -> [sell_button(ChassisBlueprint(name))]
+          None -> []
+        },
+      ])
+    _ -> []
   }
-  case h.screen {
-    Overview ->
+  let installed_part = fn(i) { at(h.design.parts, i) }
+  let previews = case h.pick {
+    PickGarage(installed, spare) ->
+      case
+        option.then(installed, installed_part),
+        option.then(spare, at(spares, _))
+      {
+        Some(o), Some(n) -> [
+          preview_section(model, "OUT", o),
+          preview_section(model, "IN", n),
+        ]
+        Some(o), None -> [preview_section(model, "", o)]
+        None, Some(n) -> [preview_section(model, "", n)]
+        None, None -> []
+      }
+    PickSpareChassis(i) ->
+      case
+        option.then(at(chassis, i), fn(n) {
+          option.from_result(blueprint.chassis(n))
+        })
+      {
+        Some(c) -> [preview_section(model, "CHASSIS", builder.body(c))]
+        None -> []
+      }
+    PickDesignChassis ->
+      case blueprint.chassis(h.design.chassis) {
+        Ok(c) -> [preview_section(model, "", builder.body(c))]
+        Error(Nil) -> []
+      }
+    _ -> []
+  }
+  let previews = case previews {
+    [] -> [text("dim", "Select a part, component or chassis to see its cards.")]
+    _ -> previews
+  }
+  let hint = case h.pick {
+    PickGarage(Some(_), None) ->
+      "remove it, or select a component to swap it for"
+    PickGarage(None, Some(_)) ->
+      "install it, or select an installed part to swap"
+    PickGarage(Some(_), Some(_)) -> "swap them, or change either selection"
+    PickSpareChassis(_) -> "build the design on it (its parts move over)"
+    PickDesignChassis -> "the chassis' own cards"
+    _ -> "select a part or component to see its cards; a chassis to build on"
+  }
+  html.div([], [
+    back_to_hangar(),
+    html.div([attribute.class("garage")], [
       html.div([], [
+        text("", "GARAGE · " <> hint),
+        html.div([attribute.class("table")], [robot]),
         text(
           "",
-          "HANGAR · the truck carries "
-            <> int.to_string(p.truck)
-            <> " robots · the fabricator builds "
-            <> int.to_string(p.fabricator)
-            <> case p.fabricator {
-            1 -> " robot"
-            _ -> " robots"
-          }
-            <> " for each run from its components",
+          "FABRICATOR · spare components it can make, one per researched blueprint",
         ),
-        button_class(">>> Start a run", "banner", StartRun),
-        text("", "DESIGN · change it in the garage"),
-        html.div([attribute.class("table")], [
-          text(
-            "ally",
-            "  "
-              <> h.design.name
-              <> " ("
-              <> h.design.chassis
-              <> "): "
-              <> string.join(list.map(h.design.parts, part.display_name), ", "),
-          ),
-          ..list.append(design_lines, [status])
-        ]),
-        button(
-          "[Research lab] · "
-            <> int.to_string(list.length(p.found))
-            <> case list.length(p.found) {
-            1 -> " blueprint"
-            _ -> " blueprints"
-          }
-            <> " found in runs, to research or sell with Data",
-          HangarGo(Lab),
-        ),
-        button(
-          "[Garage] · change the design, from the fabricator's "
-            <> int.to_string(list.length(p.researched))
-            <> " components",
-          HangarGo(Garage),
-        ),
-        button("[Menu]", ToMenu),
-      ])
-    Lab ->
-      html.div([], [
-        back,
-        split([
-          text(
-            "",
-            "RESEARCH LAB · blueprints found in runs: research one to get its component in the fabricator",
-          ),
-          lab_list,
-        ]),
-      ])
-    Garage ->
-      html.div([], [
-        back,
-        split([
-          text("", "DESIGN · what the fabricator builds"),
-          design_table,
-          text(
-            "",
-            "FABRICATOR · components from researched blueprints (×how many)",
-          ),
-          html.div([attribute.class("table")], [
-            text("dim", "    CHASSIS"),
-            ..list.append(researched_chassis, researched_parts)
-          ]),
-        ]),
-      ])
-  }
+        html.div([attribute.class("table")], case spare_rows {
+          [] -> [text("dim", "  none: research blueprints in the research lab")]
+          _ -> spare_rows
+        }),
+        case chassis_rows {
+          [] -> text("", "")
+          _ ->
+            html.div([attribute.class("table")], [
+              text("", "SPARE CHASSIS"),
+              ..chassis_rows
+            ])
+        },
+        html.div([attribute.class("actions")], with_cancel(actions)),
+      ]),
+      html.div([attribute.class("preview")], previews),
+    ]),
+  ])
 }
 
 fn sell_button(b: Blueprint) -> Element(Msg) {
