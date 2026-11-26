@@ -320,9 +320,9 @@ plate on a battered robot would also count as battered.
   workshops, battle results. Parts and chassis are saved by name with their
   wear, modifiers and attributes, and rebuilt from the content on loading,
   so a new build of the game continues the run with its new numbers. A run
-  naming something removed from the game doesn't load. Opening the game
-  with a saved run shows a start screen: continue it, or abandon it (paid
-  out like a lost run). A battle isn't saved mid-fight: a reload restarts
+  naming something removed from the game doesn't load. The game opens on a
+  start menu: Continue the saved run, or New run (abandoning a saved run
+  pays it out like a lost one). A battle isn't saved mid-fight: a reload restarts
   it from the pre-battle screen.
 
 - A run holds the level, its map, the current node, the player's robots

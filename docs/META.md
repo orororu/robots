@@ -84,10 +84,15 @@ The autopilot earns about **24 Data per run** and finds 0.7 blueprints.
 
 ## The client
 
-- **The hangar** opens before every run: Data, the RESEARCH LAB (found
-  blueprints to research or sell), the design (weight, mounts, whether it
-  can be fabricated), and the FABRICATOR: a researched blueprint leaves
-  the lab and becomes a component there ("Plating ×2, 2 in the design").
+- **The start menu** opens the game: Continue (the run saved in the
+  browser, if any) or New run (abandoning a saved run pays it out like a
+  lost one), then the hangar.
+- **The hangar** opens before every run. Its overview shows the truck,
+  the fabricator and the design (whether it can be fabricated), with Start
+  a run and two screens:
+  - the **Research lab**: blueprints found in runs, to research or sell;
+  - the **Garage**: the design and the FABRICATOR, where a researched
+    blueprint becomes a component ("Plating ×2, 2 in the design").
   Select, then act: Research, Sell, Add to the design (while a copy is
   free), Remove, Build the design on a chassis. Start a run.
 - **The run's end** shows the Data earned and blueprints found; "To the

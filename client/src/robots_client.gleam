@@ -64,7 +64,9 @@ type Model {
     /// Between runs: the hangar, where Data is spent and the starting
     /// robot designed. `run` is the last run (or a placeholder) meanwhile.
     hangar: Option(Hangar),
-    /// On opening the game with a saved run: continue it or abandon it.
+    /// The start menu: continue the saved run, or a new one.
+    menu: Bool,
+    /// The run saved in the browser, while the menu can continue it.
     saved: Option(Run),
     run: Run,
     /// The battle being fought, if any.
@@ -118,7 +120,14 @@ type Report {
 /// The hangar: the design being edited (the fabricator's first robot) and
 /// what's selected.
 type Hangar {
-  Hangar(design: profile.Design, pick: HangarPick)
+  Hangar(design: profile.Design, pick: HangarPick, screen: HangarScreen)
+}
+
+/// The hangar's screens: an overview, the research lab, the garage.
+type HangarScreen {
+  Overview
+  Lab
+  Garage
 }
 
 type HangarPick {
@@ -164,6 +173,7 @@ fn new_model(
   Model(
     profile:,
     hangar:,
+    menu: False,
     saved: None,
     run:,
     battle: None,
@@ -191,17 +201,17 @@ fn init(_: Nil) -> #(Model, Effect(Msg)) {
     })
   let profile =
     profile.decode(browser.load_profile()) |> result.unwrap(profile.new())
-  let model = case save.decode(browser.load_run()) {
-    Ok(run) ->
-      Model(..new_model(run, profile, None, browser.now()), saved: Some(run))
-    Error(Nil) ->
-      new_model(
+  let model =
+    Model(
+      ..new_model(
         state.new(browser.random_seed()),
         profile,
-        Some(hangar_for(profile)),
+        None,
         browser.now(),
-      )
-  }
+      ),
+      menu: True,
+      saved: save.decode(browser.load_run()) |> option.from_result,
+    )
   #(model, subscriptions)
 }
 
@@ -210,7 +220,7 @@ fn hangar_for(p: Profile) -> Hangar {
     Ok(d) -> d
     Error(Nil) -> profile.Design("Robot", "Frame", [])
   }
-  Hangar(design:, pick: NoHangarPick)
+  Hangar(design:, pick: NoHangarPick, screen: Overview)
 }
 
 /// Save the profile and go to the hangar.
@@ -238,7 +248,9 @@ type Msg {
   SellBlueprint
   // The start screen
   ContinueRun
-  AbandonRun
+  NewGame
+  ToMenu
+  HangarGo(screen: HangarScreen)
   AddPart
   RemovePart
   UseChassis
@@ -320,6 +332,7 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
         case h.pick {
           PickInstalled(i) ->
             Hangar(
+              ..h,
               design: profile.Design(
                 ..h.design,
                 parts: list.append(
@@ -337,6 +350,7 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
         case h.pick {
           PickBlueprint(ChassisBlueprint(name)) ->
             Hangar(
+              ..h,
               design: profile.Design(..h.design, chassis: name),
               pick: NoHangarPick,
             )
@@ -353,17 +367,28 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
       }
     StartRun -> start_run(model)
     ContinueRun ->
-      Model(
-        ..model,
-        saved: None,
-        news: "Run continued.",
-        order: default_order(model.run),
-      )
-    AbandonRun ->
-      open_hangar(
-        Model(..model, saved: None),
-        profile.finish(model.profile, model.run),
-      )
+      case model.saved {
+        Some(run) ->
+          Model(
+            ..new_model(run, model.profile, None, model.now),
+            news: "Run continued.",
+          )
+        None -> model
+      }
+    // A saved run is abandoned: paid out like a lost one.
+    NewGame ->
+      case model.saved {
+        Some(run) ->
+          open_hangar(
+            Model(..model, menu: False, saved: None),
+            profile.finish(model.profile, run),
+          )
+        None ->
+          Model(..model, menu: False, hangar: Some(hangar_for(model.profile)))
+      }
+    ToMenu -> Model(..model, menu: True)
+    HangarGo(screen) ->
+      update_hangar(model, fn(h) { Hangar(..h, screen:, pick: NoHangarPick) })
     ToHangar -> open_hangar(model, profile.finish(model.profile, model.run))
     Go(node) ->
       attempt(Model(..model, upgraded: None), state.go(model.run, node), "")
@@ -538,7 +563,9 @@ fn describe_profile_error(e: profile.Error) -> String {
   case e {
     profile.NotFound(b) -> blueprint.describe(b) <> ": no blueprint."
     profile.InUse(b) ->
-      "Every " <> blueprint.describe(b) <> " in the fabricator is in the design."
+      "Every "
+      <> blueprint.describe(b)
+      <> " in the fabricator is in the design."
     profile.NotEnoughCopies(blueprint: b, have:, need:) ->
       "Needs "
       <> int.to_string(need)
@@ -554,7 +581,8 @@ fn describe_profile_error(e: profile.Error) -> String {
       <> int.to_string(data)
       <> "."
     profile.NotResearched(b) ->
-      blueprint.describe(b) <> " isn't in the fabricator: research its blueprint in the research lab."
+      blueprint.describe(b)
+      <> " isn't in the fabricator: research its blueprint in the research lab."
     profile.CantBuild(design:, errors:) ->
       design
       <> ": "
@@ -835,7 +863,7 @@ fn view(model: Model) -> Element(Msg) {
     html.style([], css),
     html.pre([], [element.text(header(model))]),
     case model.battle, model.run.phase {
-      _, _ if model.saved != None -> view_start(model)
+      _, _ if model.menu -> view_menu(model)
       _, _ if model.hangar != None -> view_hangar(model)
       _, _ if model.report != None -> view_report(model)
       Some(b), _ -> view_battle(model, b)
@@ -855,8 +883,15 @@ fn view(model: Model) -> Element(Msg) {
 }
 
 fn header(model: Model) -> String {
-  use <- bool.lazy_guard(model.saved != None, fn() {
-    "ROBOTS · " <> int.to_string(model.profile.data) <> " Data"
+  use <- bool.lazy_guard(model.menu, fn() {
+    "ROBOTS · "
+    <> int.to_string(model.profile.data)
+    <> " Data · "
+    <> int.to_string(model.profile.runs)
+    <> case model.profile.runs {
+      1 -> " run played"
+      _ -> " runs played"
+    }
   })
   use <- bool.lazy_guard(model.hangar != None, fn() {
     "ROBOTS · HANGAR · "
@@ -1417,48 +1452,55 @@ fn view_over(model: Model) -> Element(Msg) {
   ])
 }
 
-// The start screen (with a saved run)
+// The start menu
 
-fn view_start(model: Model) -> Element(Msg) {
-  let run = model.run
-  let robots =
-    run.robots
-    |> list.map(fn(b) { b.name })
-    |> string.join(", ")
-  let e = profile.earnings(model.profile, run)
-  let where = case run.phase {
-    state.Over -> "over: its Data isn't paid out yet"
-    state.Fighting(_) -> "before a battle"
-    state.Repairing(_) -> "at a repair shop"
-    state.Upgrading(_) -> "at a workshop"
-    state.Choosing -> "on the map"
-  }
-  html.div([], [
-    text(
-      "",
-      "A RUN IN PROGRESS · level "
-        <> int.to_string(run.level)
-        <> ", "
-        <> where
-        <> "\n  "
-        <> case robots {
-        "" -> "no robots left"
-        _ -> robots
+fn view_menu(model: Model) -> Element(Msg) {
+  let continue = case model.saved {
+    Some(run) -> {
+      let robots = run.robots |> list.map(fn(b) { b.name }) |> string.join(", ")
+      let where = case run.phase {
+        state.Over -> "over, not paid out yet"
+        state.Fighting(_) -> "before a battle"
+        state.Repairing(_) -> "at a repair shop"
+        state.Upgrading(_) -> "at a workshop"
+        state.Choosing -> "on the map"
       }
-        <> " · "
-        <> int.to_string(run.money)
-        <> " scrap · "
-        <> int.to_string(list.length(run.wins))
-        <> " battles won",
-    ),
-    button_class(">>> Continue the run", "banner", ContinueRun),
-    button(
-      "[Abandon it] and go to the hangar: it pays "
-        <> int.to_string(e.data + e.bonus)
-        <> " Data, as if lost",
-      AbandonRun,
-    ),
-  ])
+      [
+        button_class(">>> Continue", "banner", ContinueRun),
+        text(
+          "dim",
+          "    level "
+            <> int.to_string(run.level)
+            <> ", "
+            <> where
+            <> " · "
+            <> case robots {
+            "" -> "no robots left"
+            _ -> robots
+          }
+            <> " · "
+            <> int.to_string(run.money)
+            <> " scrap · "
+            <> int.to_string(list.length(run.wins))
+            <> " battles won",
+        ),
+      ]
+    }
+    None -> [text("dim", "    Continue: no run in progress")]
+  }
+  let new = case model.saved {
+    Some(run) -> {
+      let e = profile.earnings(model.profile, run)
+      button(
+        ">>> New run · abandons the current one (it pays "
+          <> int.to_string(e.data + e.bonus)
+          <> " Data, as if lost)",
+        NewGame,
+      )
+    }
+    None -> button_class(">>> New run", "banner", NewGame)
+  }
+  html.div([], [text("", "MENU"), ..list.append(continue, [new])])
 }
 
 // Hangar (between runs)
@@ -1623,57 +1665,114 @@ fn view_hangar(model: Model) -> Element(Msg) {
         "Select a blueprint or a part of the design to see its cards.",
       )
   }
-  html.div([], [
-    text(
-      "",
-      "HANGAR · the truck carries "
-        <> int.to_string(p.truck)
-        <> " robots · the fabricator builds "
-        <> int.to_string(p.fabricator)
-        <> case p.fabricator {
-        1 -> " robot"
-        _ -> " robots"
-      }
-        <> " for each run, from its components · research a blueprint in the research lab to add its component",
-    ),
-    button_class(">>> Start a run", "banner", StartRun),
+  let lab_list =
+    html.div([attribute.class("table")], case found {
+      [] -> [
+        text(
+          "dim",
+          "  none yet: strong enemies sometimes drop one, bosses always",
+        ),
+      ]
+      _ -> found
+    })
+  let design_table =
+    html.div([attribute.class("table")], [
+      text("ally", "  " <> h.design.name <> " (" <> h.design.chassis <> ")"),
+      ..list.flatten([
+        design_lines,
+        case installed {
+          [] -> [text("dim", "    no parts")]
+          _ -> installed
+        },
+        [status],
+      ])
+    ])
+  let back = button("[Back to the hangar]", HangarGo(Overview))
+  // A screen with a list on the left and the selection's cards on the right.
+  let split = fn(left: List(Element(Msg))) {
     html.div([attribute.class("garage")], [
+      html.div(
+        [],
+        list.append(left, [html.div([attribute.class("actions")], actions)]),
+      ),
+      html.div([attribute.class("preview")], [preview]),
+    ])
+  }
+  case h.screen {
+    Overview ->
       html.div([], [
-        text("", "RESEARCH LAB · blueprints found in runs: research them with Data"),
-        html.div([attribute.class("table")], case found {
-          [] -> [
-            text(
-              "dim",
-              "  none yet: strong enemies sometimes drop one, bosses always",
-            ),
-          ]
-          _ -> found
-        }),
-        text("", "DESIGN · what the fabricator builds"),
-        html.div([attribute.class("table")], [
-          text("ally", "  " <> h.design.name <> " (" <> h.design.chassis <> ")"),
-          ..list.flatten([
-            design_lines,
-            case installed {
-              [] -> [text("dim", "    no parts")]
-              _ -> installed
-            },
-            [status],
-          ])
-        ]),
         text(
           "",
-          "FABRICATOR · components from researched blueprints (×how many)",
+          "HANGAR · the truck carries "
+            <> int.to_string(p.truck)
+            <> " robots · the fabricator builds "
+            <> int.to_string(p.fabricator)
+            <> case p.fabricator {
+            1 -> " robot"
+            _ -> " robots"
+          }
+            <> " for each run from its components",
         ),
+        button_class(">>> Start a run", "banner", StartRun),
+        text("", "DESIGN · change it in the garage"),
         html.div([attribute.class("table")], [
-          text("dim", "    CHASSIS"),
-          ..list.append(researched_chassis, researched_parts)
+          text(
+            "ally",
+            "  "
+              <> h.design.name
+              <> " ("
+              <> h.design.chassis
+              <> "): "
+              <> string.join(list.map(h.design.parts, part.display_name), ", "),
+          ),
+          ..list.append(design_lines, [status])
         ]),
-        html.div([attribute.class("actions")], actions),
-      ]),
-      html.div([attribute.class("preview")], [preview]),
-    ]),
-  ])
+        button(
+          "[Research lab] · "
+            <> int.to_string(list.length(p.found))
+            <> case list.length(p.found) {
+            1 -> " blueprint"
+            _ -> " blueprints"
+          }
+            <> " found in runs, to research or sell with Data",
+          HangarGo(Lab),
+        ),
+        button(
+          "[Garage] · change the design, from the fabricator's "
+            <> int.to_string(list.length(p.researched))
+            <> " components",
+          HangarGo(Garage),
+        ),
+        button("[Menu]", ToMenu),
+      ])
+    Lab ->
+      html.div([], [
+        back,
+        split([
+          text(
+            "",
+            "RESEARCH LAB · blueprints found in runs: research one to get its component in the fabricator",
+          ),
+          lab_list,
+        ]),
+      ])
+    Garage ->
+      html.div([], [
+        back,
+        split([
+          text("", "DESIGN · what the fabricator builds"),
+          design_table,
+          text(
+            "",
+            "FABRICATOR · components from researched blueprints (×how many)",
+          ),
+          html.div([attribute.class("table")], [
+            text("dim", "    CHASSIS"),
+            ..list.append(researched_chassis, researched_parts)
+          ]),
+        ]),
+      ])
+  }
 }
 
 fn sell_button(b: Blueprint) -> Element(Msg) {
