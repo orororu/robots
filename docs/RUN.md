@@ -366,11 +366,18 @@ plate on a battered robot would also count as battered.
 - **The garage** (install, uninstall, swap, assemble a new robot from a
   spare chassis) works at any time except after the run is over; every
   change must leave a legal build.
-- **In the client, a repair shop has two tabs** at the top, Shop first
-  and open on arrival: the Shop (repair whole robots, buy parts and used
-  robots, sell spare parts, each with its cards beside it) and the Garage
-  (install, swap, assemble, repair a single part or chassis). Selling
-  happens only in the Shop tab; Leave is on both.
+- **Rebuilding** (`state.rebuild`): a robot moves onto a spare chassis.
+  It keeps every part that fits (weapons first, then batteries, then the
+  rest); the others and the old chassis become spares. Refused when what's
+  left can't fight (no weapon or battery fits).
+- **In the client, the garage has a tab per robot** and a **+ New robot**
+  tab, in one row; at a repair shop a **Shop** tab comes first and opens
+  on arrival. A robot's tab shows that robot, the shared spare parts and
+  the spare chassis: install, remove, swap, repair (at a shop), upgrade
+  (at a workshop), or rebuild it on a spare chassis (what would come off
+  is shown first). The New robot tab assembles one from a spare chassis
+  and spare parts, then opens its tab. The Shop tab repairs whole robots,
+  buys and sells; Leave is on every tab.
 
 ### Autopilot (`gleam run -m run`)
 

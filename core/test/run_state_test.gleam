@@ -13,7 +13,7 @@ import robots/rules/rng
 import robots/run/loot
 import robots/run/map
 import robots/run/price
-import robots/run/state.{type Run, Outcome, Run}
+import robots/run/state.{type Run, Bot, Outcome, Run}
 
 /// A run standing at its first battle.
 fn at_first_battle() -> Run {
@@ -305,4 +305,31 @@ pub fn a_workshop_upgrades_one_component_once_test() {
   // Or leave without upgrading.
   let assert Ok(left) = state.leave(run)
   assert left.phase == state.Choosing
+}
+
+pub fn rebuilding_on_another_chassis_keeps_what_fits_test() {
+  let run = state.new(1)
+  let bot =
+    Bot("Tinker", components.frame(), [
+      components.laser(),
+      components.fist(),
+      components.cell(),
+      components.plating(),
+    ])
+  let run = Run(..run, robots: [bot], parts: [], chassis: [components.scout()])
+  // The Scout's mounts take up to 2: the Laser (3) comes off, the Fist stays.
+  let assert Ok(#(after, dropped)) = state.rebuild(run, 0, 0)
+  assert dropped == [components.laser()]
+  let assert [rebuilt] = after.robots
+  assert rebuilt.chassis == components.scout()
+  assert rebuilt.parts
+    == [components.fist(), components.cell(), components.plating()]
+  assert after.parts == [components.laser()]
+  assert after.chassis == [components.frame()]
+  // With only the Laser for a weapon, nothing could fight: refused.
+  let laser_only =
+    Run(..run, robots: [
+      Bot(..bot, parts: [components.laser(), components.cell()]),
+    ])
+  let assert Error(state.CantBuild(..)) = state.rebuild(laser_only, 0, 0)
 }
