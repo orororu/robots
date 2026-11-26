@@ -285,3 +285,15 @@ pub fn mounts_show_which_weapon_sits_where_test() {
     |> list.map(fn(m) { m.1 |> option.is_some })
     == [True, False]
 }
+
+pub fn fit_keeps_what_fits_a_chassis_test() {
+  // The Scout's mounts take up to 2: the Laser doesn't fit, the rest does.
+  let #(kept, dropped) =
+    builder.fit(components.scout(), [
+      components.laser(),
+      components.cell(),
+      components.plating(),
+    ])
+  assert kept == [components.cell(), components.plating()]
+  assert dropped == [components.laser()]
+}

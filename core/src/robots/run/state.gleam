@@ -25,7 +25,6 @@
 import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}
-import gleam/order
 import gleam/result
 import robots/construction/builder.{type BuildError, type Chassis}
 import robots/construction/part.{type Component}
@@ -686,31 +685,7 @@ pub fn rebuild(
     |> list.first
     |> result.replace_error(NoSuchChassis),
   )
-  let rank = fn(p: Component) {
-    case p.kind {
-      part.Weapon -> 0
-      part.Battery -> 1
-      _ -> 2
-    }
-  }
-  let ordered =
-    list.index_map(bot.parts, fn(p, i) { #(rank(p), i, p) })
-    |> list.sort(fn(a, b) {
-      case int.compare(a.0, b.0) {
-        order.Eq -> int.compare(a.1, b.1)
-        other -> other
-      }
-    })
-    |> list.map(fn(t) { t.2 })
-  let #(kept, dropped) =
-    list.fold(ordered, #([], []), fn(acc, p) {
-      let #(kept, dropped) = acc
-      let trial = list.append(kept, [p])
-      case fits(frame, trial) {
-        True -> #(trial, dropped)
-        False -> #(kept, list.append(dropped, [p]))
-      }
-    })
+  let #(kept, dropped) = builder.fit(frame, bot.parts)
   let rebuilt = Bot(..bot, chassis: frame, parts: kept)
   use _ <- result.try(build(rebuilt))
   let robots =
@@ -729,21 +704,6 @@ pub fn rebuild(
     ),
     dropped,
   ))
-}
-
-/// Whether the parts fit the chassis: weight and weapon mounts (a missing
-/// weapon or battery doesn't count here).
-fn fits(chassis: Chassis, parts: List(Component)) -> Bool {
-  case builder.build("", chassis, parts) {
-    Ok(_) -> True
-    Error(errors) ->
-      list.all(errors, fn(e) {
-        case e {
-          builder.NoWeapon | builder.NoBattery -> True
-          _ -> False
-        }
-      })
-  }
 }
 
 fn swap_parts(

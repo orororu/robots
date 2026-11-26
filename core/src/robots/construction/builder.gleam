@@ -82,6 +82,40 @@ pub fn build(
   }
 }
 
+/// The parts that fit `chassis` (weight and weapon mounts), and those that
+/// don't: weapons are tried first, then batteries, then the rest, each in
+/// its order. A missing weapon or battery isn't checked here.
+pub fn fit(
+  chassis: Chassis,
+  parts: List(Component),
+) -> #(List(Component), List(Component)) {
+  let rank = fn(p: Component) {
+    case p.kind {
+      part.Weapon -> 0
+      part.Battery -> 1
+      _ -> 2
+    }
+  }
+  list.index_map(parts, fn(p, i) { #(rank(p), i, p) })
+  |> list.sort(fn(a, b) {
+    case int.compare(a.0, b.0) {
+      order.Eq -> int.compare(a.1, b.1)
+      other -> other
+    }
+  })
+  |> list.fold(#([], []), fn(acc, t) {
+    let #(kept, dropped) = acc
+    let trial = list.append(kept, [t.2])
+    let fits =
+      list.flatten([check_weight(chassis, trial), check_weapons(chassis, trial)])
+      |> list.all(fn(e) { e == NoWeapon })
+    case fits {
+      True -> #(trial, dropped)
+      False -> #(kept, list.append(dropped, [t.2]))
+    }
+  })
+}
+
 /// Max HP counts every part as new; the robot starts with what its worn
 /// parts have left.
 fn assemble(name: String, chassis: Chassis, parts: List(Component)) -> Robot {

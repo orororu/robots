@@ -87,19 +87,21 @@ The autopilot earns about **24 Data per run** and finds 0.7 blueprints.
 - **The start menu** opens the game: Continue (the run saved in the
   browser, if any) or New run (abandoning a saved run pays it out like a
   lost one), then the hangar.
-- **The hangar** opens before every run, with three tabs at the top. The
-  first, **Hangar**, open by default, shows the truck, the fabricator and
-  the design (whether it can be fabricated), with Start a run. The others:
-  - **Research lab** (with the count of found blueprints): blueprints
-    found in runs, to research or sell;
-  - **Garage**, laid out like a run's garage: the design as a robot
-    (chassis, installed parts by kind), and below it the FABRICATOR's
-    spare components, one row per copy (no stacking), grouped by kind,
-    plus spare chassis. Installing a component takes it off the list.
-    Select as in a run: install, remove, swap (an installed part and a
-    component), build the design on another chassis, or sell a spare.
-  Select, then act: Research, Sell, Add to the design (while a copy is
-  free), Remove, Build the design on a chassis. Start a run.
+- **The hangar** opens before every run, with tabs at the top, as in a
+  run's garage: **Hangar** (open by default: the truck, the fabricator,
+  every robot it builds and whether it can be fabricated, Start a run),
+  **Research lab** (with the count of found blueprints: research or sell
+  them), **a tab per robot**, and **+ New robot**.
+  - A robot's tab is laid out like a run's: the robot (chassis, installed
+    parts by kind), the FABRICATOR's spare components (one row per copy,
+    no stacking, grouped by kind; what any design uses is off the list)
+    and spare chassis. Install, remove, swap, sell a spare, or rebuild the
+    robot on a spare chassis (`builder.fit`: the parts that fit stay, the
+    rest go back to the spares; refused if it couldn't fight).
+  - **+ New robot** builds another design from a spare chassis and
+    components, while the fabricator has room (`fabricator` robots a
+    run; with one, it says an upgrade will let it build more).
+  - Designs are saved when a run starts.
 - **The run's end** shows the Data earned and blueprints found; "To the
   hangar" pays it out.
 - The battle report notes a blueprint drop; the header shows the truck
