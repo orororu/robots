@@ -25,19 +25,13 @@ import robots/run/map.{type Map, type Node, type Tier, Map, Node}
 import robots/run/shop.{type Shop, Offer, Shop}
 import robots/run/state.{type Bot, type Phase, type Run, Bot, Run}
 
-/// Bumped when the format changes; older saves don't load.
-const version = 1
-
 pub fn encode(run: Run) -> String {
-  L([I(version), run_data(run)]) |> write
+  run_data(run) |> write
 }
 
+/// A saved run; one in another format doesn't load.
 pub fn decode(text: String) -> Result(Run, Nil) {
-  use data <- result.try(read(text))
-  case data {
-    L([I(v), r]) if v == version -> to_run(r)
-    _ -> Error(Nil)
-  }
+  read(text) |> result.try(to_run)
 }
 
 // THE TREE --------------------------------------------------------------------
@@ -236,7 +230,7 @@ fn shop_data(s: Shop) -> Data {
 
 fn blueprint_data(b: Blueprint) -> Data {
   case b {
-    PartBlueprint(name) -> L([S("part"), S(name)])
+    PartBlueprint(p) -> L([S("part"), component_data(p)])
     ChassisBlueprint(name) -> L([S("chassis"), S(name)])
   }
 }
@@ -466,7 +460,7 @@ fn to_shop(d: Data) -> Result(Shop, Nil) {
 
 fn to_blueprint(d: Data) -> Result(Blueprint, Nil) {
   case d {
-    L([S("part"), S(name)]) -> Ok(PartBlueprint(name))
+    L([S("part"), p]) -> to_component(p) |> result.map(PartBlueprint)
     L([S("chassis"), S(name)]) -> Ok(ChassisBlueprint(name))
     _ -> Error(Nil)
   }

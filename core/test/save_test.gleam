@@ -50,7 +50,7 @@ pub fn wear_modifiers_attributes_and_the_rest_survive_saving_test() {
       shop: stock,
       truck: 3,
       wins: [map.Boss, map.Normal],
-      found: [PartBlueprint("Railgun")],
+      found: [blueprint.of_part(laser), PartBlueprint(components.railgun())],
     )
   let assert Ok(back) = save.decode(save.encode(run))
   assert back == run

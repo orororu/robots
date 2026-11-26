@@ -1,11 +1,25 @@
 import gleam/list
 import gleam/option.{None, Some}
+import robots/construction/attribute
+import robots/construction/part
 import robots/content/components
 import robots/meta/blueprint.{ChassisBlueprint, PartBlueprint}
 import robots/meta/profile.{Design, Profile}
 import robots/rules/rng
 import robots/run/map
 import robots/run/state.{Bot, Run}
+
+/// The plain blueprint of a part.
+fn bp(p: part.Component) {
+  blueprint.of_part(p)
+}
+
+/// A Laser whose first two cards are tuned up: a different blueprint.
+fn rapid_laser() {
+  components.laser()
+  |> part.attach(0, attribute.rapid())
+  |> part.attach(1, attribute.precise())
+}
 
 pub fn a_new_profile_fabricates_the_tinker_test() {
   let p = profile.new()
@@ -15,12 +29,12 @@ pub fn a_new_profile_fabricates_the_tinker_test() {
   assert bot.chassis == components.frame()
   assert run.truck == 2
   // One copy of each blueprint the Tinker uses: two Platings.
-  assert profile.copies(profile.new(), PartBlueprint("Laser")) == 1
-  assert profile.copies(profile.new(), PartBlueprint("Plating")) == 2
+  assert profile.copies(p, bp(components.laser())) == 1
+  assert profile.copies(p, bp(components.plating())) == 2
 }
 
-pub fn research_takes_salvage_and_unlocks_the_blueprint_test() {
-  let railgun = PartBlueprint("Railgun")
+pub fn research_takes_data_and_unlocks_the_blueprint_test() {
+  let railgun = bp(components.railgun())
   let p = Profile(..profile.new(), data: 1000, found: [railgun])
   let assert Ok(after) = profile.research(p, railgun)
   assert after.data == 1000 - blueprint.research_cost(railgun)
@@ -29,20 +43,21 @@ pub fn research_takes_salvage_and_unlocks_the_blueprint_test() {
   // Only found blueprints, and only with the Data for it.
   let assert Error(profile.NotFound(_)) = profile.research(after, railgun)
   let assert Error(profile.NotFound(_)) =
-    profile.research(p, PartBlueprint("Cannon"))
+    profile.research(p, bp(components.cannon()))
   let assert Error(profile.NotEnoughData(..)) =
     profile.research(Profile(..p, data: 0), railgun)
 }
 
 pub fn a_design_needs_researched_blueprints_and_a_legal_build_test() {
   let p = profile.new()
-  let gunner = Design("Gunner", "Frame", ["Machine gun", "Cell"])
-  let assert Error(profile.NotResearched(PartBlueprint("Machine gun"))) =
+  let gunner =
+    Design("Gunner", "Frame", [components.machine_gun(), components.cell()])
+  let assert Error(profile.NotResearched(PartBlueprint(_))) =
     profile.set_design(p, 0, gunner)
   let p =
     Profile(..p, researched: [
-      PartBlueprint("Machine gun"),
-      PartBlueprint("Cell"),
+      bp(components.machine_gun()),
+      bp(components.cell()),
       ..p.researched
     ])
   let assert Ok(p) = profile.set_design(p, 0, gunner)
@@ -51,19 +66,44 @@ pub fn a_design_needs_researched_blueprints_and_a_legal_build_test() {
   assert bot.name == "Gunner"
   // No battery: not a legal build.
   let assert Error(profile.CantBuild(..)) =
-    profile.set_design(p, 0, Design("Bad", "Frame", ["Machine gun"]))
+    profile.set_design(p, 0, Design("Bad", "Frame", [components.machine_gun()]))
 }
 
 pub fn one_blueprint_makes_one_part_test() {
   let p = profile.new()
   let assert [tinker] = p.designs
-  // A second Laser needs a second Laser blueprint.
-  // One Plating fewer, to keep the weight.
-  let twin = Design(..tinker, parts: ["Laser", ..list.take(tinker.parts, 4)])
-  let assert Error(profile.NotEnoughCopies(PartBlueprint("Laser"), 1, 2)) =
+  // A second Laser needs a second Laser blueprint (one Plating fewer, to
+  // keep the weight).
+  let twin =
+    Design(..tinker, parts: [components.laser(), ..list.take(tinker.parts, 4)])
+  let assert Error(profile.NotEnoughCopies(PartBlueprint(_), 1, 2)) =
     profile.set_design(p, 0, twin)
-  let p2 = Profile(..p, researched: [PartBlueprint("Laser"), ..p.researched])
+  let p2 = Profile(..p, researched: [bp(components.laser()), ..p.researched])
   let assert Ok(_) = profile.set_design(p2, 0, twin)
+}
+
+pub fn a_better_part_is_its_own_blueprint_test() {
+  let p = profile.new()
+  let assert [tinker] = p.designs
+  let better =
+    Design(..tinker, parts: [rapid_laser(), ..list.drop(tinker.parts, 1)])
+  // The plain Laser's blueprint doesn't make a Rapid one.
+  let assert Error(profile.NotResearched(_)) = profile.set_design(p, 0, better)
+  let p = Profile(..p, data: 1000, found: [bp(rapid_laser())])
+  let assert Ok(p) = profile.research(p, bp(rapid_laser()))
+  let assert Ok(p) = profile.set_design(p, 0, better)
+  // The fabricator builds it with its attributes.
+  let assert Ok(run) = profile.start(p, 1)
+  let assert [bot] = run.robots
+  assert list.contains(bot.parts, rapid_laser())
+  // Much stronger parts cost more to research.
+  let strong =
+    components.laser()
+    |> part.attach(2, attribute.masterwork())
+    |> part.attach(3, attribute.masterwork())
+    |> part.attach(4, attribute.masterwork())
+  assert blueprint.research_cost(bp(strong))
+    > blueprint.research_cost(bp(components.laser()))
 }
 
 pub fn the_fabricator_builds_only_as_many_robots_as_it_can_test() {
@@ -85,32 +125,17 @@ pub fn the_fabricator_builds_only_as_many_robots_as_it_can_test() {
   assert list.map(run.robots, fn(b) { b.name }) == ["Tinker", "Second"]
 }
 
-pub fn the_copier_copies_researched_blueprints_test() {
-  let laser = PartBlueprint("Laser")
-  let p = Profile(..profile.new(), data: 1000)
-  let assert Error(profile.NoCopier) = profile.copy(p, laser)
-  let assert Ok(p) = profile.research_copier(p)
-  assert p.data == 1000 - profile.copier_cost
-  let assert Error(profile.CopierResearched) = profile.research_copier(p)
-  let assert Ok(after) = profile.copy(p, laser)
-  assert profile.copies(after, laser) == 2
-  assert after.data == p.data - profile.copy_cost(laser)
-  assert profile.copy_cost(laser) > blueprint.research_cost(laser)
-  // Only blueprints it has.
-  let assert Error(profile.NotResearched(_)) =
-    profile.copy(p, PartBlueprint("Cannon"))
-}
-
 pub fn a_duplicate_blueprint_is_one_more_copy_test() {
-  let laser = PartBlueprint("Laser")
+  let laser = bp(components.laser())
   let p = Profile(..profile.new(), data: 1000, found: [laser])
   let assert Ok(p) = profile.research(p, laser)
   assert profile.copies(p, laser) == 2
 }
 
-pub fn a_finished_run_pays_salvage_and_keeps_its_blueprints_test() {
+pub fn a_finished_run_pays_data_and_keeps_its_blueprints_test() {
   let p = profile.new()
   let assert Ok(run) = profile.start(p, 1)
+  let railgun = bp(components.railgun())
   let run =
     Run(
       ..run,
@@ -118,7 +143,7 @@ pub fn a_finished_run_pays_salvage_and_keeps_its_blueprints_test() {
       level: 2,
       money: 45,
       wins: [map.Boss, map.Strong, map.Normal, map.Normal],
-      found: [PartBlueprint("Railgun")],
+      found: [railgun],
     )
   // Wins 10 + 3 + 1 + 1, one level past the first 5, scrap 45 / 20 = 2.
   assert state.data(run) == 22
@@ -126,7 +151,7 @@ pub fn a_finished_run_pays_salvage_and_keeps_its_blueprints_test() {
   assert e.bonus == profile.first_boss_bonus
   let after = profile.finish(p, run)
   assert after.data == 22 + profile.first_boss_bonus
-  assert after.found == [PartBlueprint("Railgun")]
+  assert after.found == [railgun]
   assert after.best_level == 1
   assert after.runs == 1
   // The first-boss bonus is paid once.
@@ -134,13 +159,19 @@ pub fn a_finished_run_pays_salvage_and_keeps_its_blueprints_test() {
 }
 
 pub fn a_profile_survives_saving_test() {
+  let light_rapid = rapid_laser() |> part.with(part.light())
+  let base = profile.new()
+  let assert [tinker] = base.designs
   let p =
     Profile(
-      ..profile.new(),
+      ..base,
       data: 37,
-      found: [PartBlueprint("Railgun"), ChassisBlueprint("Scout")],
+      researched: [bp(light_rapid), ..base.researched],
+      found: [bp(components.railgun()), ChassisBlueprint("Scout")],
+      designs: [
+        Design(..tinker, parts: [light_rapid, ..list.drop(tinker.parts, 1)]),
+      ],
       truck: 3,
-      copier: True,
       best_level: 1,
       runs: 4,
     )
@@ -151,14 +182,10 @@ pub fn a_profile_survives_saving_test() {
 
 pub fn a_saved_profile_forgets_what_left_the_game_test() {
   let text =
-    profile.encode(
-      Profile(..profile.new(), found: [
-        PartBlueprint("Railgun"),
-        PartBlueprint("Gone gun"),
-      ]),
-    )
+    profile.encode(Profile(..profile.new(), found: [bp(components.railgun())]))
+    <> "|p:Gone gun|p:Laser+0=Gone attribute"
   let assert Ok(p) = profile.decode(text)
-  assert p.found == [PartBlueprint("Railgun")]
+  assert p.found == [bp(components.railgun())]
 }
 
 pub fn bosses_always_drop_a_blueprint_test() {
@@ -169,6 +196,25 @@ pub fn bosses_always_drop_a_blueprint_test() {
   })
   let #(drop, _) = blueprint.roll(1, map.Normal, rng.new(1))
   assert drop == None
+}
+
+pub fn blueprints_come_in_different_qualities_test() {
+  let #(_, drops) =
+    list.map_fold(list.repeat(Nil, 200), rng.new(3), fn(seed, _) {
+      let #(drop, seed) = blueprint.roll(2, map.Boss, seed)
+      #(seed, drop)
+    })
+  let parts =
+    list.filter_map(option.values(drops), fn(b) {
+      case b {
+        PartBlueprint(p) -> Ok(p)
+        ChassisBlueprint(_) -> Error(Nil)
+      }
+    })
+  assert list.any(parts, fn(p) { p.attributes != [] })
+  assert list.any(parts, fn(p) { p.attributes == [] && p.modifiers == [] })
+  // New, whatever the loot was.
+  assert list.all(parts, fn(p) { p.wear == 0.0 })
 }
 
 pub fn strong_enemies_sometimes_drop_a_blueprint_test() {
@@ -189,18 +235,42 @@ pub fn the_truck_limits_the_robots_test() {
   let assert Error(state.TruckFull(2)) = state.assemble(full, "Third", 0, [])
 }
 
-pub fn an_old_save_keeps_the_starter_blueprints_test() {
-  // Saved before blueprints made one part each: a single Plating.
-  let old =
-    "version:1\nsalvage:5\nresearched:c:Frame|p:Laser|p:Buckler|p:Big capacitor|p:Plating\nfound:\ntruck:2\nfabricator:1\nbest_level:0\nruns:2\ndesigns:Tinker/Frame/Laser;Buckler;Big capacitor;Plating;Plating"
-  let assert Ok(p) = profile.decode(old)
-  assert profile.copies(p, PartBlueprint("Plating")) == 2
-  let assert Ok(_) = profile.start(p, 1)
-}
-
-pub fn a_profile_saved_with_salvage_keeps_it_as_data_test() {
-  let old =
-    "version:1\nsalvage:42\nresearched:c:Frame|p:Laser|p:Buckler|p:Big capacitor|p:Plating|p:Plating\nfound:\ntruck:2\nfabricator:1\nbest_level:0\nruns:2\ndesigns:Tinker/Frame/Laser;Buckler;Big capacitor;Plating;Plating"
-  let assert Ok(p) = profile.decode(old)
-  assert p.data == 42
+pub fn blueprints_sell_for_a_little_data_test() {
+  let railgun = bp(components.railgun())
+  let laser = bp(components.laser())
+  let p = Profile(..profile.new(), found: [railgun])
+  assert profile.sell_price(railgun) == blueprint.research_cost(railgun) / 5
+  let assert Ok(after) = profile.sell_found(p, railgun)
+  assert after.found == []
+  assert after.data == profile.sell_price(railgun)
+  let assert Error(profile.NotFound(_)) = profile.sell_found(after, railgun)
+  // A component sells, the starting kit's too, unless a design needs every
+  // one of it.
+  let assert Error(profile.InUse(_)) =
+    profile.sell_researched(profile.new(), laser)
+  let assert [kit] = profile.new().designs
+  let spare_laser =
+    Profile(..profile.new(), researched: [laser, ..profile.new().researched])
+  let assert Ok(_) = profile.sell_researched(spare_laser, laser)
+  let no_laser =
+    Profile(..profile.new(), designs: [
+      Design(..kit, parts: [components.fist(), ..list.drop(kit.parts, 1)]),
+    ])
+  let assert Ok(sold_kit) = profile.sell_researched(no_laser, laser)
+  // And it stays sold after saving.
+  let assert Ok(back) = profile.decode(profile.encode(sold_kit))
+  assert profile.copies(back, laser) == 0
+  let extra =
+    Profile(..profile.new(), researched: [railgun, ..profile.new().researched])
+  let assert Ok(sold) = profile.sell_researched(extra, railgun)
+  assert profile.copies(sold, railgun) == 0
+  let assert [tinker] = extra.designs
+  let uses =
+    Profile(..extra, designs: [
+      Design(..tinker, parts: [
+        components.railgun(),
+        ..list.drop(tinker.parts, 1)
+      ]),
+    ])
+  let assert Error(profile.InUse(_)) = profile.sell_researched(uses, railgun)
 }

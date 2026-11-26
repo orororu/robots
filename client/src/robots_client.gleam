@@ -235,14 +235,13 @@ type Msg {
   // Hangar
   HangarSelect(pick: HangarPick)
   Research
+  SellBlueprint
   // The start screen
   ContinueRun
   AbandonRun
   AddPart
   RemovePart
   UseChassis
-  CopyBlueprint
-  ResearchCopier
   StartRun
   /// After a run: pay it out and go to the hangar.
   ToHangar
@@ -305,12 +304,12 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
     AddPart ->
       update_hangar(model, fn(h) {
         case h.pick {
-          PickBlueprint(PartBlueprint(name)) ->
+          PickBlueprint(PartBlueprint(p)) ->
             Hangar(
               ..h,
               design: profile.Design(
                 ..h.design,
-                parts: list.append(h.design.parts, [name]),
+                parts: list.append(h.design.parts, [p]),
               ),
             )
           _ -> h
@@ -344,14 +343,14 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
           _ -> h
         }
       })
-    CopyBlueprint ->
+    SellBlueprint ->
       case model.hangar {
-        Some(Hangar(pick: PickBlueprint(b), ..)) ->
-          change_profile(model, profile.copy(model.profile, b))
+        Some(Hangar(pick: PickFound(b), ..) as h) ->
+          sell_blueprint(model, h, profile.sell_found(model.profile, b), b)
+        Some(Hangar(pick: PickBlueprint(b), ..) as h) ->
+          sell_blueprint(model, h, profile.sell_researched(model.profile, b), b)
         _ -> model
       }
-    ResearchCopier ->
-      change_profile(model, profile.research_copier(model.profile))
     StartRun -> start_run(model)
     ContinueRun ->
       Model(
@@ -476,15 +475,31 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   #(model, effect.none())
 }
 
-/// Apply a change to the profile and save it, or flash why it failed.
-fn change_profile(
+/// Sell a blueprint and save; keep it selected while copies are left.
+fn sell_blueprint(
   model: Model,
+  h: Hangar,
   result: Result(Profile, profile.Error),
+  b: Blueprint,
 ) -> Model {
   case result {
     Ok(p) -> {
       browser.save_profile(profile.encode(p))
-      Model(..model, profile: p)
+      let left = case h.pick {
+        PickFound(_) -> list.contains(p.found, b)
+        _ -> profile.copies(p, b) > 0
+      }
+      Model(
+        ..model,
+        profile: p,
+        hangar: Some(
+          Hangar(..h, pick: case left {
+            True -> h.pick
+            False -> NoHangarPick
+          }),
+        ),
+        news: "Sold " <> blueprint.describe(b) <> ".",
+      )
     }
     Error(e) -> flash(model, describe_profile_error(e))
   }
@@ -522,16 +537,16 @@ fn start_run(model: Model) -> Model {
 fn describe_profile_error(e: profile.Error) -> String {
   case e {
     profile.NotFound(b) -> blueprint.describe(b) <> ": no blueprint."
+    profile.InUse(b) ->
+      "Every " <> blueprint.describe(b) <> " in the fabricator is in the design."
     profile.NotEnoughCopies(blueprint: b, have:, need:) ->
       "Needs "
       <> int.to_string(need)
       <> " "
       <> blueprint.describe(b)
-      <> " blueprints; you have "
+      <> "; the fabricator has "
       <> int.to_string(have)
-      <> ". Each blueprint makes one."
-    profile.NoCopier -> "Research the blueprint copier first."
-    profile.CopierResearched -> "The blueprint copier is researched already."
+      <> ". Find another blueprint in a run."
     profile.NotEnoughData(cost:, data:) ->
       "Costs "
       <> int.to_string(cost)
@@ -539,7 +554,7 @@ fn describe_profile_error(e: profile.Error) -> String {
       <> int.to_string(data)
       <> "."
     profile.NotResearched(b) ->
-      blueprint.describe(b) <> " isn't researched yet."
+      blueprint.describe(b) <> " isn't in the fabricator: research its blueprint in the research lab."
     profile.CantBuild(design:, errors:) ->
       design
       <> ": "
@@ -1474,13 +1489,7 @@ fn view_hangar(model: Model) -> Element(Msg) {
   // The design: its chassis and parts.
   let bot = design_bot(h.design)
   let installed =
-    list.index_map(h.design.parts, fn(name, i) {
-      let label = case blueprint.part(name) {
-        Ok(c) -> part_line(s, c)
-        Error(Nil) -> name
-      }
-      #(i, label)
-    })
+    list.index_map(h.design.parts, fn(c, i) { #(i, part_line(s, c)) })
     |> list.map(fn(pair) {
       button_class(
         "    " <> pair.1,
@@ -1540,7 +1549,7 @@ fn view_hangar(model: Model) -> Element(Msg) {
     unique
     |> list.filter_map(fn(b) {
       case b {
-        PartBlueprint(name) -> blueprint.part(name)
+        PartBlueprint(p) -> Ok(p)
         ChassisBlueprint(_) -> Error(Nil)
       }
     })
@@ -1551,7 +1560,7 @@ fn view_hangar(model: Model) -> Element(Msg) {
       [
         text("dim", "    " <> string.uppercase(kind_plural(first.kind))),
         ..list.map(group, fn(pair) {
-          let b = PartBlueprint({ pair.1 }.name)
+          let b = PartBlueprint(pair.1)
           button_class(
             "      " <> part_line(s, pair.1) <> count(b),
             picked(h.pick == PickBlueprint(b)),
@@ -1567,39 +1576,29 @@ fn view_hangar(model: Model) -> Element(Msg) {
         "[Research · " <> int.to_string(blueprint.research_cost(b)) <> " Data]",
         Research,
       ),
+      sell_button(b),
     ]
     PickBlueprint(PartBlueprint(_) as b) -> {
       let spare =
         profile.copies(p, b)
         > list.count(profile.needs(h.design), fn(n) { n == b })
-      let copy = case p.copier {
-        True -> [
-          button(
-            "[Copy it · " <> int.to_string(profile.copy_cost(b)) <> " Data]",
-            CopyBlueprint,
-          ),
-        ]
-        False -> []
-      }
       case spare {
-        True -> [button("[Add to the design]", AddPart), ..copy]
+        True -> [button("[Add to the design]", AddPart), sell_button(b)]
         False -> [
           text(
             "dim",
-            "  every copy is in the design: each blueprint makes one part. Find another"
-              <> case p.copier {
-              True -> ", or copy it."
-              False -> ", or research the blueprint copier."
-            },
+            "  every one in the fabricator is in the design. Find another blueprint in a run.",
           ),
-          ..copy
         ]
       }
     }
     PickBlueprint(ChassisBlueprint(name)) ->
       case name == h.design.chassis {
         True -> [text("dim", "  the design is built on it")]
-        False -> [button("[Build the design on it]", UseChassis)]
+        False -> [
+          button("[Build the design on it]", UseChassis),
+          sell_button(ChassisBlueprint(name)),
+        ]
       }
     PickInstalled(_) -> [button("[Remove from the design]", RemovePart)]
   }
@@ -1613,7 +1612,6 @@ fn view_hangar(model: Model) -> Element(Msg) {
     PickInstalled(i) ->
       list.drop(h.design.parts, i)
       |> list.first
-      |> result.try(blueprint.part)
       |> option.from_result
     NoHangarPick -> None
   }
@@ -1636,12 +1634,12 @@ fn view_hangar(model: Model) -> Element(Msg) {
         1 -> " robot"
         _ -> " robots"
       }
-        <> " for each run, one part per blueprint (plain parts, no attributes)",
+        <> " for each run, from its components · research a blueprint in the research lab to add its component",
     ),
     button_class(">>> Start a run", "banner", StartRun),
     html.div([attribute.class("garage")], [
       html.div([], [
-        text("", "FOUND BLUEPRINTS · research them with Data"),
+        text("", "RESEARCH LAB · blueprints found in runs: research them with Data"),
         html.div([attribute.class("table")], case found {
           [] -> [
             text(
@@ -1663,26 +1661,9 @@ fn view_hangar(model: Model) -> Element(Msg) {
             [status],
           ])
         ]),
-        text("", "FABRICATOR"),
-        html.div([attribute.class("table")], [
-          case p.copier {
-            True ->
-              text(
-                "dim",
-                "  Blueprint copier: select a researched blueprint to copy it, at twice its research cost",
-              )
-            False ->
-              button(
-                "  Research the blueprint copier · "
-                  <> int.to_string(profile.copier_cost)
-                  <> " Data: copy researched blueprints for twice their research cost",
-                ResearchCopier,
-              )
-          },
-        ]),
         text(
           "",
-          "RESEARCHED BLUEPRINTS · each makes one part or chassis (×copies)",
+          "FABRICATOR · components from researched blueprints (×how many)",
         ),
         html.div([attribute.class("table")], [
           text("dim", "    CHASSIS"),
@@ -1695,19 +1676,26 @@ fn view_hangar(model: Model) -> Element(Msg) {
   ])
 }
 
+fn sell_button(b: Blueprint) -> Element(Msg) {
+  button(
+    "[Sell · +" <> int.to_string(profile.sell_price(b)) <> " Data]",
+    SellBlueprint,
+  )
+}
+
 /// The design as a robot, to show its weight and mounts (if its chassis
 /// and parts exist; research and legality aside).
 fn design_bot(d: profile.Design) -> Option(Bot) {
-  case blueprint.chassis(d.chassis), list.try_map(d.parts, blueprint.part) {
-    Ok(chassis), Ok(parts) -> Some(state.Bot(name: d.name, chassis:, parts:))
-    _, _ -> None
+  case blueprint.chassis(d.chassis) {
+    Ok(chassis) -> Some(state.Bot(name: d.name, chassis:, parts: d.parts))
+    Error(Nil) -> None
   }
 }
 
 /// What a blueprint makes, as a component (a chassis as its body).
 fn blueprint_component(b: Blueprint) -> Option(Component) {
   case b {
-    PartBlueprint(name) -> blueprint.part(name) |> option.from_result
+    PartBlueprint(p) -> Some(p)
     ChassisBlueprint(name) ->
       blueprint.chassis(name) |> result.map(builder.body) |> option.from_result
   }

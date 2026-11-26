@@ -2,12 +2,13 @@
 //// the truck and the fabricator, and the robot designs a run starts with.
 ////
 //// - Between runs, Data `research`es found blueprints. Each researched
-////   blueprint makes **one** part or chassis: a second Laser needs a
-////   second Laser blueprint (found again), or a `copy` once the blueprint
-////   copier is researched (`research_copier`). A design can only use the
-////   copies there are, and so can all the fabricated designs together.
+////   blueprint becomes **one** component in the hangar's garage (the
+////   `researched` list), with the blueprint's quality:
+////   a second Laser needs a second Laser blueprint, found in a run. A
+////   design can only use the copies there are, and so can all the
+////   fabricated designs together.
 //// - The fabricator builds the first `fabricator` designs into the run's
-////   starting robots (`start`), plain: no attributes or modifiers.
+////   starting robots (`start`), each part as its blueprint has it.
 //// - When a run is over, `finish` pays out its Data and adds the
 ////   blueprints it found.
 ////
@@ -19,6 +20,7 @@ import gleam/list
 import gleam/result
 import gleam/string
 import robots/construction/builder.{type BuildError}
+import robots/construction/part.{type Component}
 import robots/content/starters
 import robots/meta/blueprint.{type Blueprint, ChassisBlueprint, PartBlueprint}
 import robots/run/state.{type Bot, type Run, Bot}
@@ -31,8 +33,6 @@ pub type Profile {
     researched: List(Blueprint),
     /// Found in runs, waiting for research (duplicates too).
     found: List(Blueprint),
-    /// Whether the fabricator can copy blueprints (`copy`).
-    copier: Bool,
     /// How many robots the truck carries in a run.
     truck: Int,
     /// How many designs the fabricator builds for a run.
@@ -46,9 +46,10 @@ pub type Profile {
   )
 }
 
-/// A robot to fabricate: its chassis and parts, by blueprint name.
+/// A robot to fabricate: its chassis by name, and its parts as their
+/// blueprints make them (quality included).
 pub type Design {
-  Design(name: String, chassis: String, parts: List(String))
+  Design(name: String, chassis: String, parts: List(Component))
 }
 
 pub type Error {
@@ -58,9 +59,8 @@ pub type Error {
   NotResearched(Blueprint)
   /// The designs need `need` copies of a blueprint and there are `have`.
   NotEnoughCopies(blueprint: Blueprint, have: Int, need: Int)
-  /// Copying needs the blueprint copier.
-  NoCopier
-  CopierResearched
+  /// Every copy is needed by a design.
+  InUse(Blueprint)
   CantBuild(design: String, errors: List(BuildError))
   NoSuchDesign
 }
@@ -68,22 +68,10 @@ pub type Error {
 /// Data for each level whose boss is beaten for the first time.
 pub const first_boss_bonus = 25
 
-/// Researching the blueprint copier, once.
-pub const copier_cost = 60
-
-/// A copy costs this many times the blueprint's research: more than
-/// finding another one, so finding stays worth it.
-pub const copy_factor = 2
-
 /// A new player: the Tinker's blueprints and design, a truck for two
 /// robots and a fabricator for one.
 pub fn new() -> Profile {
-  let tinker =
-    Design(
-      "Tinker",
-      "Frame",
-      list.map(starters.tinker_parts(), fn(p) { p.name }),
-    )
+  let tinker = Design("Tinker", "Frame", starters.tinker_parts())
   Profile(
     data: 0,
     // One copy of each of the Tinker's parts (two Platings).
@@ -92,7 +80,6 @@ pub fn new() -> Profile {
       ..list.map(tinker.parts, PartBlueprint)
     ],
     found: [],
-    copier: False,
     truck: state.default_truck,
     fabricator: 1,
     designs: [tinker],
@@ -123,24 +110,44 @@ pub fn copies(profile: Profile, b: Blueprint) -> Int {
   list.count(profile.researched, fn(r) { r == b })
 }
 
-/// Research the blueprint copier, once, for `copier_cost`.
-pub fn research_copier(profile: Profile) -> Result(Profile, Error) {
-  use <- guard(profile.copier, CopierResearched)
-  use profile <- result.try(pay(profile, copier_cost))
-  Ok(Profile(..profile, copier: True))
+/// What selling a blueprint pays: a fifth of its research cost, at least 1.
+pub fn sell_price(b: Blueprint) -> Int {
+  int.max(1, blueprint.research_cost(b) * sell_percent / 100)
 }
 
-/// What copying a blueprint costs.
-pub fn copy_cost(b: Blueprint) -> Int {
-  blueprint.research_cost(b) * copy_factor
+pub const sell_percent = 20
+
+/// Sell a found blueprint instead of researching it.
+pub fn sell_found(profile: Profile, b: Blueprint) -> Result(Profile, Error) {
+  use <- guard(!list.contains(profile.found, b), NotFound(b))
+  Ok(
+    Profile(
+      ..profile,
+      data: profile.data + sell_price(b),
+      found: remove_one(profile.found, b),
+    ),
+  )
 }
 
-/// One more copy of a researched blueprint, with the copier.
-pub fn copy(profile: Profile, b: Blueprint) -> Result(Profile, Error) {
-  use <- guard(!profile.copier, NoCopier)
-  use <- guard(copies(profile, b) == 0, NotResearched(b))
-  use profile <- result.try(pay(profile, copy_cost(b)))
-  Ok(Profile(..profile, researched: list.append(profile.researched, [b])))
+/// Sell a component from the garage (a researched blueprint's), unless
+/// every one of it is needed by a design. The starting kit's sell too:
+/// the saved design keeps a robot that can always be fabricated.
+pub fn sell_researched(
+  profile: Profile,
+  b: Blueprint,
+) -> Result(Profile, Error) {
+  let have = copies(profile, b)
+  let needed =
+    list.flat_map(profile.designs, needs) |> list.count(fn(n) { n == b })
+  use <- guard(have == 0, NotResearched(b))
+  use <- guard(have <= needed, InUse(b))
+  Ok(
+    Profile(
+      ..profile,
+      data: profile.data + sell_price(b),
+      researched: remove_one(profile.researched, b),
+    ),
+  )
 }
 
 fn pay(profile: Profile, cost: Int) -> Result(Profile, Error) {
@@ -206,13 +213,15 @@ fn build_design(design: Design) -> Result(Bot, Error) {
   let chassis_bp = ChassisBlueprint(design.chassis)
   use <- guard(!blueprint.exists(chassis_bp), NotFound(chassis_bp))
   let assert Ok(chassis) = blueprint.chassis(design.chassis)
-  use parts <- result.try(
-    list.try_map(design.parts, fn(name) {
-      blueprint.part(name)
-      |> result.replace_error(NotFound(PartBlueprint(name)))
+  use _ <- result.try(
+    list.try_each(design.parts, fn(p) {
+      case blueprint.exists(PartBlueprint(p)) {
+        True -> Ok(Nil)
+        False -> Error(NotFound(PartBlueprint(p)))
+      }
     }),
   )
-  let bot = Bot(name: design.name, chassis:, parts:)
+  let bot = Bot(name: design.name, chassis:, parts: design.parts)
   case state.build(bot) {
     Ok(_) -> Ok(bot)
     Error(state.CantBuild(errors:, ..)) -> Error(CantBuild(design.name, errors))
@@ -280,41 +289,33 @@ pub fn finish(profile: Profile, run: Run) -> Profile {
 
 // SAVING ----------------------------------------------------------------------
 // One line per field, "key:value". Lists are separated by "|"; a blueprint
-// is "p:Name" or "c:Name"; a design is "Name/Chassis/Part;Part;...".
-// Names never contain those characters.
+// is `blueprint.to_text` ("c:Frame", "p:Laser+3=Rapid"); a design is
+// "Name/Chassis/Part;Part;..." with parts as `blueprint.part_text`. Names
+// never contain those characters.
 
 pub fn encode(profile: Profile) -> String {
-  let blueprints = fn(bs) { string.join(list.map(bs, encode_blueprint), "|") }
+  let blueprints = fn(bs) { string.join(list.map(bs, blueprint.to_text), "|") }
   [
-    "version:1",
     "data:" <> int.to_string(profile.data),
     "researched:" <> blueprints(profile.researched),
     "found:" <> blueprints(profile.found),
     "truck:" <> int.to_string(profile.truck),
     "fabricator:" <> int.to_string(profile.fabricator),
-    "copier:"
-      <> case profile.copier {
-      True -> "1"
-      False -> "0"
-    },
     "best_level:" <> int.to_string(profile.best_level),
     "runs:" <> int.to_string(profile.runs),
     "designs:"
       <> string.join(
       list.map(profile.designs, fn(d) {
-        d.name <> "/" <> d.chassis <> "/" <> string.join(d.parts, ";")
+        d.name
+        <> "/"
+        <> d.chassis
+        <> "/"
+        <> string.join(list.map(d.parts, blueprint.part_text), ";")
       }),
       "|",
     ),
   ]
   |> string.join("\n")
-}
-
-fn encode_blueprint(b: Blueprint) -> String {
-  case b {
-    PartBlueprint(name) -> "p:" <> name
-    ChassisBlueprint(name) -> "c:" <> name
-  }
 }
 
 /// A saved profile. Blueprints of things no longer in the game are
@@ -324,8 +325,7 @@ pub fn decode(text: String) -> Result(Profile, Nil) {
   let fields =
     string.split(text, "\n")
     |> list.filter_map(fn(line) { string.split_once(line, ":") })
-  use version <- result.try(list.key_find(fields, "version"))
-  use <- bool_guard(version != "1")
+  use _ <- result.try(list.key_find(fields, "data"))
   let base = new()
   let number = fn(key, default) {
     list.key_find(fields, key)
@@ -337,22 +337,17 @@ pub fn decode(text: String) -> Result(Profile, Nil) {
       Ok("") -> []
       Ok(value) ->
         string.split(value, "|")
-        |> list.filter_map(decode_blueprint)
-        |> list.filter(blueprint.exists)
+        |> list.filter_map(blueprint.from_text)
       Error(Nil) -> default
     }
   }
   let profile =
     Profile(
-      // Saved as "salvage" before it was called Data.
-      data: number("data", number("salvage", 0)),
-      // Never below the starter's copies (older saves kept one copy of
-      // each blueprint, and the Tinker has two Platings).
-      researched: top_up(blueprints("researched", []), base.researched),
+      data: number("data", 0),
+      researched: blueprints("researched", []),
       found: blueprints("found", []),
       truck: number("truck", base.truck),
       fabricator: number("fabricator", base.fabricator),
-      copier: number("copier", 0) == 1,
       designs: [],
       best_level: number("best_level", 0),
       runs: number("runs", 0),
@@ -370,36 +365,13 @@ pub fn decode(text: String) -> Result(Profile, Nil) {
   Ok(Profile(..profile, designs:))
 }
 
-/// `have` with copies of `minimum`'s blueprints added until there are at
-/// least as many of each as in `minimum`.
-fn top_up(have: List(Blueprint), minimum: List(Blueprint)) -> List(Blueprint) {
-  list.fold(list.unique(minimum), have, fn(have, b) {
-    let missing =
-      list.count(minimum, fn(m) { m == b }) - list.count(have, fn(h) { h == b })
-    list.append(have, list.repeat(b, int.max(0, missing)))
-  })
-}
-
-fn bool_guard(failed: Bool, next: fn() -> Result(a, Nil)) -> Result(a, Nil) {
-  case failed {
-    True -> Error(Nil)
-    False -> next()
-  }
-}
-
-fn decode_blueprint(text: String) -> Result(Blueprint, Nil) {
-  case string.split_once(text, ":") {
-    Ok(#("p", name)) -> Ok(PartBlueprint(name))
-    Ok(#("c", name)) -> Ok(ChassisBlueprint(name))
-    _ -> Error(Nil)
-  }
-}
-
 fn decode_design(text: String) -> Result(Design, Nil) {
   case string.split(text, "/") {
     [name, chassis, ""] -> Ok(Design(name, chassis, []))
     [name, chassis, parts] ->
-      Ok(Design(name, chassis, string.split(parts, ";")))
+      string.split(parts, ";")
+      |> list.try_map(blueprint.part_from_text)
+      |> result.map(Design(name, chassis, _))
     _ -> Error(Nil)
   }
 }
