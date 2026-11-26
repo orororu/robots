@@ -1,14 +1,14 @@
-//// What carries over between runs (see docs/META.md): Salvage, blueprints,
+//// What carries over between runs (see docs/META.md): Data, blueprints,
 //// the truck and the fabricator, and the robot designs a run starts with.
 ////
-//// - Between runs, Salvage `research`es found blueprints. Each researched
+//// - Between runs, Data `research`es found blueprints. Each researched
 ////   blueprint makes **one** part or chassis: a second Laser needs a
 ////   second Laser blueprint (found again), or a `copy` once the blueprint
 ////   copier is researched (`research_copier`). A design can only use the
 ////   copies there are, and so can all the fabricated designs together.
 //// - The fabricator builds the first `fabricator` designs into the run's
 ////   starting robots (`start`), plain: no attributes or modifiers.
-//// - When a run is over, `finish` pays out its Salvage and adds the
+//// - When a run is over, `finish` pays out its Data and adds the
 ////   blueprints it found.
 ////
 //// Saved as text (`encode`, `decode`), so the client can keep it in the
@@ -25,7 +25,7 @@ import robots/run/state.{type Bot, type Run, Bot}
 
 pub type Profile {
   Profile(
-    salvage: Int,
+    data: Int,
     /// What the fabricator can make: each entry one copy (a blueprint
     /// can be listed several times).
     researched: List(Blueprint),
@@ -53,7 +53,7 @@ pub type Design {
 
 pub type Error {
   NotFound(Blueprint)
-  NotEnoughSalvage(cost: Int, salvage: Int)
+  NotEnoughData(cost: Int, data: Int)
   /// The design uses a blueprint that isn't researched.
   NotResearched(Blueprint)
   /// The designs need `need` copies of a blueprint and there are `have`.
@@ -65,7 +65,7 @@ pub type Error {
   NoSuchDesign
 }
 
-/// Salvage for each level whose boss is beaten for the first time.
+/// Data for each level whose boss is beaten for the first time.
 pub const first_boss_bonus = 25
 
 /// Researching the blueprint copier, once.
@@ -85,7 +85,7 @@ pub fn new() -> Profile {
       list.map(starters.tinker_parts(), fn(p) { p.name }),
     )
   Profile(
-    salvage: 0,
+    data: 0,
     // One copy of each of the Tinker's parts (two Platings).
     researched: [
       ChassisBlueprint("Frame"),
@@ -103,7 +103,7 @@ pub fn new() -> Profile {
 
 // RESEARCH --------------------------------------------------------------------
 
-/// Research a found blueprint for its `blueprint.research_cost` in Salvage:
+/// Research a found blueprint for its `blueprint.research_cost` in Data:
 /// one more copy the fabricator can make.
 pub fn research(profile: Profile, b: Blueprint) -> Result(Profile, Error) {
   use <- guard(!list.contains(profile.found, b), NotFound(b))
@@ -144,8 +144,8 @@ pub fn copy(profile: Profile, b: Blueprint) -> Result(Profile, Error) {
 }
 
 fn pay(profile: Profile, cost: Int) -> Result(Profile, Error) {
-  use <- guard(cost > profile.salvage, NotEnoughSalvage(cost, profile.salvage))
-  Ok(Profile(..profile, salvage: profile.salvage - cost))
+  use <- guard(cost > profile.data, NotEnoughData(cost, profile.data))
+  Ok(Profile(..profile, data: profile.data - cost))
 }
 
 fn remove_one(items: List(a), item: a) -> List(a) {
@@ -255,15 +255,15 @@ pub fn start(profile: Profile, seed: Int) -> Result(Run, Error) {
 
 /// What a run pays out.
 pub type Earnings {
-  Earnings(salvage: Int, bonus: Int, found: List(Blueprint))
+  Earnings(data: Int, bonus: Int, found: List(Blueprint))
 }
 
-/// What `finish` would pay for this run: its Salvage, a bonus for each
+/// What `finish` would pay for this run: its Data, a bonus for each
 /// level whose boss it beat for the first time, and the blueprints it found.
 pub fn earnings(profile: Profile, run: Run) -> Earnings {
   let cleared = run.level - 1
   let bonus = int.max(0, cleared - profile.best_level) * first_boss_bonus
-  Earnings(salvage: state.salvage(run), bonus:, found: run.found)
+  Earnings(data: state.data(run), bonus:, found: run.found)
 }
 
 /// Pay out a finished run.
@@ -271,7 +271,7 @@ pub fn finish(profile: Profile, run: Run) -> Profile {
   let e = earnings(profile, run)
   Profile(
     ..profile,
-    salvage: profile.salvage + e.salvage + e.bonus,
+    data: profile.data + e.data + e.bonus,
     found: list.append(profile.found, e.found),
     best_level: int.max(profile.best_level, run.level - 1),
     runs: profile.runs + 1,
@@ -287,7 +287,7 @@ pub fn encode(profile: Profile) -> String {
   let blueprints = fn(bs) { string.join(list.map(bs, encode_blueprint), "|") }
   [
     "version:1",
-    "salvage:" <> int.to_string(profile.salvage),
+    "data:" <> int.to_string(profile.data),
     "researched:" <> blueprints(profile.researched),
     "found:" <> blueprints(profile.found),
     "truck:" <> int.to_string(profile.truck),
@@ -344,7 +344,8 @@ pub fn decode(text: String) -> Result(Profile, Nil) {
   }
   let profile =
     Profile(
-      salvage: number("salvage", 0),
+      // Saved as "salvage" before it was called Data.
+      data: number("data", number("salvage", 0)),
       // Never below the starter's copies (older saves kept one copy of
       // each blueprint, and the Tinker has two Platings).
       researched: top_up(blueprints("researched", []), base.researched),

@@ -1,4 +1,4 @@
-//// What a part is worth in credits, from what it does, what its cards cost
+//// What a part is worth in scrap, from what it does, what its cards cost
 //// and how much it weighs. Used for shops and selling loot (see docs/RUN.md).
 ////
 //// - **Cards:** each card counts its energy cost, scaled by how efficient it
@@ -19,8 +19,8 @@ import robots/construction/builder.{type Chassis}
 import robots/construction/part.{type Component}
 import robots/rules/card.{type Card}
 
-/// Credits per unit of worth.
-pub const credits = 10.0
+/// Scrap per unit of worth.
+pub const scrap = 10.0
 
 /// A typical part's weight: no bonus, no discount.
 pub const reference_weight = 3.0
@@ -39,7 +39,7 @@ pub fn of(component: Component) -> Int {
     *. hp_worth
     +. part.energy_cap(component)
     *. cap_worth
-  float.round(worth *. weight_factor(part.weight(component)) *. credits)
+  float.round(worth *. weight_factor(part.weight(component)) *. scrap)
 }
 
 /// Shops buy parts at this share of their price.
@@ -53,7 +53,7 @@ pub fn sell(component: Component) -> Int {
 /// What a repair shop charges to restore `hp` points of HP: what that HP
 /// is worth on a new plate.
 pub fn repair(hp: Float) -> Int {
-  float.round(hp *. hp_worth *. credits)
+  float.round(hp *. hp_worth *. scrap)
 }
 
 fn parts_cards_worth(component: Component) -> Float {
@@ -77,8 +77,8 @@ fn weight_factor(weight: Float) -> Float {
 
 // CHASSIS ---------------------------------------------------------------------
 
-/// Credits per unit of weight a chassis can carry. A part is worth about 15
-/// credits per unit of its weight, so a chassis' capacity is priced at
+/// Scrap per unit of weight a chassis can carry. A part is worth about 15
+/// scrap per unit of its weight, so a chassis' capacity is priced at
 /// what it lets you fill.
 pub const capacity_worth = 1.5
 
@@ -96,5 +96,5 @@ pub fn of_chassis(chassis: Chassis) -> Int {
     *. hp_worth
     +. cards_worth(chassis.cards)
     *. chassis_card_rarity
-  float.round(worth *. credits)
+  float.round(worth *. scrap)
 }

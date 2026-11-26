@@ -21,17 +21,17 @@ pub fn a_new_profile_fabricates_the_tinker_test() {
 
 pub fn research_takes_salvage_and_unlocks_the_blueprint_test() {
   let railgun = PartBlueprint("Railgun")
-  let p = Profile(..profile.new(), salvage: 1000, found: [railgun])
+  let p = Profile(..profile.new(), data: 1000, found: [railgun])
   let assert Ok(after) = profile.research(p, railgun)
-  assert after.salvage == 1000 - blueprint.research_cost(railgun)
+  assert after.data == 1000 - blueprint.research_cost(railgun)
   assert profile.copies(after, railgun) == 1
   assert after.found == []
-  // Only found blueprints, and only with the Salvage for it.
+  // Only found blueprints, and only with the Data for it.
   let assert Error(profile.NotFound(_)) = profile.research(after, railgun)
   let assert Error(profile.NotFound(_)) =
     profile.research(p, PartBlueprint("Cannon"))
-  let assert Error(profile.NotEnoughSalvage(..)) =
-    profile.research(Profile(..p, salvage: 0), railgun)
+  let assert Error(profile.NotEnoughData(..)) =
+    profile.research(Profile(..p, data: 0), railgun)
 }
 
 pub fn a_design_needs_researched_blueprints_and_a_legal_build_test() {
@@ -87,14 +87,14 @@ pub fn the_fabricator_builds_only_as_many_robots_as_it_can_test() {
 
 pub fn the_copier_copies_researched_blueprints_test() {
   let laser = PartBlueprint("Laser")
-  let p = Profile(..profile.new(), salvage: 1000)
+  let p = Profile(..profile.new(), data: 1000)
   let assert Error(profile.NoCopier) = profile.copy(p, laser)
   let assert Ok(p) = profile.research_copier(p)
-  assert p.salvage == 1000 - profile.copier_cost
+  assert p.data == 1000 - profile.copier_cost
   let assert Error(profile.CopierResearched) = profile.research_copier(p)
   let assert Ok(after) = profile.copy(p, laser)
   assert profile.copies(after, laser) == 2
-  assert after.salvage == p.salvage - profile.copy_cost(laser)
+  assert after.data == p.data - profile.copy_cost(laser)
   assert profile.copy_cost(laser) > blueprint.research_cost(laser)
   // Only blueprints it has.
   let assert Error(profile.NotResearched(_)) =
@@ -103,7 +103,7 @@ pub fn the_copier_copies_researched_blueprints_test() {
 
 pub fn a_duplicate_blueprint_is_one_more_copy_test() {
   let laser = PartBlueprint("Laser")
-  let p = Profile(..profile.new(), salvage: 1000, found: [laser])
+  let p = Profile(..profile.new(), data: 1000, found: [laser])
   let assert Ok(p) = profile.research(p, laser)
   assert profile.copies(p, laser) == 2
 }
@@ -120,12 +120,12 @@ pub fn a_finished_run_pays_salvage_and_keeps_its_blueprints_test() {
       wins: [map.Boss, map.Strong, map.Normal, map.Normal],
       found: [PartBlueprint("Railgun")],
     )
-  // Wins 10 + 3 + 1 + 1, one level past the first 5, credits 45 / 20 = 2.
-  assert state.salvage(run) == 22
+  // Wins 10 + 3 + 1 + 1, one level past the first 5, scrap 45 / 20 = 2.
+  assert state.data(run) == 22
   let e = profile.earnings(p, run)
   assert e.bonus == profile.first_boss_bonus
   let after = profile.finish(p, run)
-  assert after.salvage == 22 + profile.first_boss_bonus
+  assert after.data == 22 + profile.first_boss_bonus
   assert after.found == [PartBlueprint("Railgun")]
   assert after.best_level == 1
   assert after.runs == 1
@@ -137,7 +137,7 @@ pub fn a_profile_survives_saving_test() {
   let p =
     Profile(
       ..profile.new(),
-      salvage: 37,
+      data: 37,
       found: [PartBlueprint("Railgun"), ChassisBlueprint("Scout")],
       truck: 3,
       copier: True,
@@ -196,4 +196,11 @@ pub fn an_old_save_keeps_the_starter_blueprints_test() {
   let assert Ok(p) = profile.decode(old)
   assert profile.copies(p, PartBlueprint("Plating")) == 2
   let assert Ok(_) = profile.start(p, 1)
+}
+
+pub fn a_profile_saved_with_salvage_keeps_it_as_data_test() {
+  let old =
+    "version:1\nsalvage:42\nresearched:c:Frame|p:Laser|p:Buckler|p:Big capacitor|p:Plating|p:Plating\nfound:\ntruck:2\nfabricator:1\nbest_level:0\nruns:2\ndesigns:Tinker/Frame/Laser;Buckler;Big capacitor;Plating;Plating"
+  let assert Ok(p) = profile.decode(old)
+  assert p.data == 42
 }

@@ -132,7 +132,7 @@ pub fn the_repair_shop_restores_wear_for_money_test() {
   let #(chassis, parts) = wear.assign(tinker.chassis, tinker.parts, 2.0)
   let worn = state.Bot(..tinker, chassis:, parts:)
   let run = Run(..run, robots: [worn])
-  // 2 HP of wear at 20 credits per HP.
+  // 2 HP of wear at 20 scrap per HP.
   assert state.repair_price(worn) == 40
   assert state.repair(run, 0) == Error(state.NotEnoughMoney(40, 0))
   let assert Ok(repaired) = state.repair(Run(..run, money: 50), 0)

@@ -103,8 +103,8 @@ type Ending {
     won: Bool,
     battles: Int,
     money: Int,
-    /// What the run paid out (`state.salvage`) and blueprints found.
-    salvage: Int,
+    /// What the run paid out (`state.data`) and blueprints found.
+    data: Int,
     blueprints: Int,
     /// The most robots owned at once, and robots bought or built.
     robots: Int,
@@ -460,7 +460,7 @@ fn ending(
     won:,
     battles:,
     money: run.money,
-    salvage: state.salvage(run),
+    data: state.data(run),
     blueprints: list.length(run.found),
     robots: team.most,
     gained: team.gained,
@@ -542,8 +542,8 @@ fn report(results: List(#(Ending, List(Fight)))) -> Nil {
     ))
   }
   io.println(
-    "  salvage per run: "
-    <> average(fn(r) { r.salvage })
+    "  data per run: "
+    <> average(fn(r) { r.data })
     <> " · blueprints found per run: "
     <> average(fn(r) { r.blueprints }),
   )

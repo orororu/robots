@@ -115,7 +115,7 @@ Quick and Precise are trade-offs rather than pure gains or losses: bigger
 cards are more efficient per energy but wait longer to be affordable.
 `gleam run -m loot` prints this table, the loot charts, and sample drops and
 enemies for each level.
-- **Every part has a price** in credits (`run/price.gleam`), from what it
+- **Every part has a price** in scrap (`run/price.gleam`), from what it
   does, what its cards cost and its weight:
   - **Cards:** each counts its energy cost, scaled by how efficient it is
     against its role's goal. Cards outside the efficiency band (counters,
@@ -126,11 +126,11 @@ enemies for each level.
   - **Weight:** each unit below 3 adds 10%, each above takes 10% off.
   - **Modifiers:** Light and Overclocked raise the price.
   - Base prices run from 13 (Point defence) to 57 (Laser).
-- **Chassis are expensive** (`price.of_chassis`), about 300-360 credits,
+- **Chassis are expensive** (`price.of_chassis`), about 300-360 scrap,
   several parts' worth:
-  - **Capacity:** 15 credits per unit of weight it can carry (about what a
+  - **Capacity:** 15 scrap per unit of weight it can carry (about what a
     part costs per unit of its weight).
-  - **HP:** 20 credits per HP left (less wear).
+  - **HP:** 20 scrap per HP left (less wear).
   - **Rare cards:** chassis cards (Sidestep, Jump, Ram...) come from no part,
     so they count 3 times a part's card of the same worth.
 - `gleam run -m loot` prints chassis prices and each chart with chances and
@@ -214,7 +214,7 @@ enemies for each level.
     always keeps a weapon and a battery (a small deck plays with a warning).
     "Could pay" is the shop's budget: money plus what the spares would sell
     for (`state.budget`). If even the bare robot costs more, none is offered.
-    A level 1 robot needs about 235 credits (a stripped Scrap gunner).
+    A level 1 robot needs about 235 scrap (a stripped Scrap gunner).
   - No chassis on their own: those are farmed from strong enemies (wrecks)
     and bosses.
   - `state.buy_part`, `buy_robot`. A bought robot joins the
@@ -315,7 +315,7 @@ plate on a battered robot would also count as battered.
 
 - A run starts from the hangar (docs/META.md): the fabricator's robots, a
   truck for 2 robots (`state.TruckFull` beyond that), and the blueprints the
-  player has. When it's over it pays out `state.salvage`.
+  player has. When it's over it pays out `state.data`.
 - **Saved in the browser** (`run/save`) after every step: map moves, shops,
   workshops, battle results. Parts and chassis are saved by name with their
   wear, modifiers and attributes, and rebuilt from the content on loading,
@@ -346,7 +346,7 @@ plate on a battered robot would also count as battered.
   worth putting in.
 - **Repair shops** restore a whole robot, or one part at a time: its
   chassis, one plate, or a worn spare plate (`state.repair_one`). Each costs
-  20 credits per HP of its wear (2 per HP as the client shows it), what HP is worth on a new plate. A
+  20 scrap per HP of its wear (2 per HP as the client shows it), what HP is worth on a new plate. A
   broken plate comes back with plain cards (any attribute it had before
   breaking is gone).
 - **Selling:** at a repair shop, spare parts sell for half their price
@@ -358,7 +358,7 @@ plate on a battered robot would also count as battered.
 ### Autopilot (`gleam run -m run`)
 
 Plays whole runs (100) like a cautious player:
-- random paths, but heading for a repair shop when it has 20 credits or more;
+- random paths, but heading for a repair shop when it has 20 scrap or more;
 - AI battles, healthiest robot first;
 - at shops: repairs what it can afford (the whole robot, else part by part),
   then buys the used robot on sale if it can (selling spares to make up the
@@ -374,7 +374,7 @@ Plays whole runs (100) like a cautious player:
 With the Dump level, 12-row levels, shops and wrecks: **37% reach level 2,
 6% level 3**; 10.6 battles per run; 0.7 robots bought or built per run, and
 49% of runs had two robots at some point (most of them wrecks: the used
-robots cost about 235 credits on level 1, and runs end with about 120). The
+robots cost about 235 scrap on level 1, and runs end with about 120). The
 Compactor ends the most runs (23 of 100), then level 2's Twin beam.
 
 With workshops: 38% reach level 2, 7% level 3, within noise of the run

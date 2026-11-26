@@ -61,7 +61,7 @@ type Model {
   Model(
     /// What carries over between runs; saved in the browser.
     profile: Profile,
-    /// Between runs: the hangar, where Salvage is spent and the starting
+    /// Between runs: the hangar, where Data is spent and the starting
     /// robot designed. `run` is the last run (or a placeholder) meanwhile.
     hangar: Option(Hangar),
     /// On opening the game with a saved run: continue it or abandon it.
@@ -532,11 +532,11 @@ fn describe_profile_error(e: profile.Error) -> String {
       <> ". Each blueprint makes one."
     profile.NoCopier -> "Research the blueprint copier first."
     profile.CopierResearched -> "The blueprint copier is researched already."
-    profile.NotEnoughSalvage(cost:, salvage:) ->
+    profile.NotEnoughData(cost:, data:) ->
       "Costs "
       <> int.to_string(cost)
-      <> " Salvage; you have "
-      <> int.to_string(salvage)
+      <> " Data; you have "
+      <> int.to_string(data)
       <> "."
     profile.NotResearched(b) ->
       blueprint.describe(b) <> " isn't researched yet."
@@ -773,7 +773,7 @@ fn describe_error(error: state.Error) -> String {
     state.NotEnoughMoney(price:, money:) ->
       "Costs "
       <> int.to_string(price)
-      <> " credits; you have "
+      <> " scrap; you have "
       <> int.to_string(money)
     state.CantUpgrade -> "Every card of it is at its best already."
     state.TruckFull(robots:) ->
@@ -796,7 +796,7 @@ fn describe_reward(before: Run, after: Run, reward: state.Reward) -> String {
       lost
       <> "Victory! +"
       <> int.to_string(reward.money)
-      <> " credits. Loot: "
+      <> " scrap. Loot: "
       <> string.join(list.map(reward.parts, part.display_name), ", ")
       <> case reward.chassis {
         Some(c) -> ", and a " <> c.name <> " chassis!"
@@ -841,12 +841,12 @@ fn view(model: Model) -> Element(Msg) {
 
 fn header(model: Model) -> String {
   use <- bool.lazy_guard(model.saved != None, fn() {
-    "ROBOTS · " <> int.to_string(model.profile.salvage) <> " Salvage"
+    "ROBOTS · " <> int.to_string(model.profile.data) <> " Data"
   })
   use <- bool.lazy_guard(model.hangar != None, fn() {
     "ROBOTS · HANGAR · "
-    <> int.to_string(model.profile.salvage)
-    <> " Salvage · "
+    <> int.to_string(model.profile.data)
+    <> " Data · "
     <> int.to_string(model.profile.runs)
     <> case model.profile.runs {
       1 -> " run"
@@ -857,7 +857,7 @@ fn header(model: Model) -> String {
   <> int.to_string(model.run.level)
   <> " · "
   <> int.to_string(model.run.money)
-  <> " credits · "
+  <> " scrap · "
   <> int.to_string(list.length(model.run.robots))
   <> " of "
   <> int.to_string(model.run.truck)
@@ -956,7 +956,7 @@ fn view_report(model: Model) -> Element(Msg) {
           "",
           "REWARD: +"
             <> int.to_string(r.reward.money)
-            <> " credits\n"
+            <> " scrap\n"
             <> string.join(loot, "\n")
             <> case r.level_after > r.level_before {
             True ->
@@ -1192,7 +1192,7 @@ fn label_lines(label: String) -> List(String) {
 fn node_detail(node: map.Node) -> String {
   case node.event {
     map.Battle(enemy:, ..) -> " · " <> enemy.description
-    map.RepairShop -> " · repair your robots for credits"
+    map.RepairShop -> " · repair your robots for scrap"
     map.Workshop -> " · upgrade one component, free"
   }
 }
@@ -1274,7 +1274,7 @@ fn view_shop(model: Model) -> Element(Msg) {
               <> bot_line(s, bot)
               <> " · "
               <> int.to_string(cost)
-              <> " credits",
+              <> " scrap",
             Repair(r),
           )
       }
@@ -1284,7 +1284,7 @@ fn view_shop(model: Model) -> Element(Msg) {
       "",
       "REPAIR SHOP · "
         <> int.to_string(price.repair(1.0) / scale.value(s, 1.0))
-        <> " credits per HP · select a part or chassis below to repair or sell it",
+        <> " scrap per HP · select a part or chassis below to repair or sell it",
     ),
     html.div([attribute.class("table")], robots),
     view_stock(model),
@@ -1330,7 +1330,7 @@ fn view_stock(model: Model) -> Element(Msg) {
           <> string.join(list.map(o.parts, part.display_name), ", ")
           <> " · "
           <> int.to_string(shop.robot_price(o))
-          <> " cr",
+          <> " scrap",
         StockRobot,
         i,
       )
@@ -1347,7 +1347,7 @@ fn view_stock(model: Model) -> Element(Msg) {
   let actions = case price_of {
     Ok(cost) -> [
       html.div([attribute.class("actions")], [
-        button("[Buy · " <> int.to_string(cost) <> " credits]", Buy),
+        button("[Buy · " <> int.to_string(cost) <> " scrap]", Buy),
         button("[Cancel]", Cancel),
       ]),
     ]
@@ -1412,7 +1412,7 @@ fn view_start(model: Model) -> Element(Msg) {
     |> string.join(", ")
   let e = profile.earnings(model.profile, run)
   let where = case run.phase {
-    state.Over -> "over: its Salvage isn't paid out yet"
+    state.Over -> "over: its Data isn't paid out yet"
     state.Fighting(_) -> "before a battle"
     state.Repairing(_) -> "at a repair shop"
     state.Upgrading(_) -> "at a workshop"
@@ -1432,15 +1432,15 @@ fn view_start(model: Model) -> Element(Msg) {
       }
         <> " · "
         <> int.to_string(run.money)
-        <> " credits · "
+        <> " scrap · "
         <> int.to_string(list.length(run.wins))
         <> " battles won",
     ),
     button_class(">>> Continue the run", "banner", ContinueRun),
     button(
       "[Abandon it] and go to the hangar: it pays "
-        <> int.to_string(e.salvage + e.bonus)
-        <> " Salvage, as if lost",
+        <> int.to_string(e.data + e.bonus)
+        <> " Data, as if lost",
       AbandonRun,
     ),
   ])
@@ -1466,7 +1466,7 @@ fn view_hangar(model: Model) -> Element(Msg) {
           <> blueprint.describe(b)
           <> " · research "
           <> int.to_string(blueprint.research_cost(b))
-          <> " Salvage",
+          <> " Data",
         picked(h.pick == PickFound(b)),
         HangarSelect(PickFound(b)),
       )
@@ -1564,9 +1564,7 @@ fn view_hangar(model: Model) -> Element(Msg) {
     NoHangarPick -> []
     PickFound(b) -> [
       button(
-        "[Research · "
-          <> int.to_string(blueprint.research_cost(b))
-          <> " Salvage]",
+        "[Research · " <> int.to_string(blueprint.research_cost(b)) <> " Data]",
         Research,
       ),
     ]
@@ -1577,7 +1575,7 @@ fn view_hangar(model: Model) -> Element(Msg) {
       let copy = case p.copier {
         True -> [
           button(
-            "[Copy it · " <> int.to_string(profile.copy_cost(b)) <> " Salvage]",
+            "[Copy it · " <> int.to_string(profile.copy_cost(b)) <> " Data]",
             CopyBlueprint,
           ),
         ]
@@ -1643,7 +1641,7 @@ fn view_hangar(model: Model) -> Element(Msg) {
     button_class(">>> Start a run", "banner", StartRun),
     html.div([attribute.class("garage")], [
       html.div([], [
-        text("", "FOUND BLUEPRINTS · research them with Salvage"),
+        text("", "FOUND BLUEPRINTS · research them with Data"),
         html.div([attribute.class("table")], case found {
           [] -> [
             text(
@@ -1677,7 +1675,7 @@ fn view_hangar(model: Model) -> Element(Msg) {
               button(
                 "  Research the blueprint copier · "
                   <> int.to_string(profile.copier_cost)
-                  <> " Salvage: copy researched blueprints for twice their research cost",
+                  <> " Data: copy researched blueprints for twice their research cost",
                 ResearchCopier,
               )
           },
@@ -1721,9 +1719,9 @@ fn view_earnings(model: Model) -> Element(Msg) {
   let lines =
     list.flatten([
       [
-        "SALVAGE · +"
-        <> int.to_string(e.salvage)
-        <> " (battles won, levels reached and credits left)",
+        "DATA · +"
+        <> int.to_string(e.data)
+        <> " (battles won, levels reached and scrap left)",
       ],
       case e.bonus {
         0 -> []
@@ -1825,10 +1823,7 @@ fn view_garage(model: Model) -> Element(Msg) {
     True, Some(target) ->
       case state.repair_one_price(run, target) {
         Ok(cost) if cost > 0 -> [
-          button(
-            "[Repair · " <> int.to_string(cost) <> " credits]",
-            RepairPicked,
-          ),
+          button("[Repair · " <> int.to_string(cost) <> " scrap]", RepairPicked),
         ]
         _ -> []
       }
@@ -1859,7 +1854,7 @@ fn view_garage(model: Model) -> Element(Msg) {
         case at_shop, list.drop(run.parts, spare) {
           True, [p, ..] -> [
             button(
-              "[Sell · +" <> int.to_string(price.sell(p)) <> " credits]",
+              "[Sell · +" <> int.to_string(price.sell(p)) <> " scrap]",
               SellPicked,
             ),
           ]
@@ -2181,7 +2176,7 @@ fn fit_lines(model: Model) -> List(Element(Msg)) {
   }
 }
 
-/// "Broken plating · armor · weight 2 · HP 0/25 · 25 cr"
+/// "Broken plating · armor · weight 2 · HP 0/25 · 25 scrap"
 fn part_line(s: Scale, p: Component) -> String {
   part.display_name(p)
   <> " · "
@@ -2204,7 +2199,7 @@ fn part_line(s: Scale, p: Component) -> String {
   }
   <> " · "
   <> int.to_string(price.of(p))
-  <> " cr"
+  <> " scrap"
 }
 
 fn num(x: Float) -> String {

@@ -45,7 +45,7 @@ pub fn main() -> Nil {
       <> string.join(list.map(ch.boss_chassis, fn(x) { x.name }), " or ")
       <> " · average drop "
       <> int.to_string(float.round(average))
-      <> " credits (before modifiers)",
+      <> " scrap (before modifiers)",
     )
     io.println("  part                chance  price")
     chances

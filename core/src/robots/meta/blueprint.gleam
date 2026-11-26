@@ -1,6 +1,6 @@
 //// Blueprints (see docs/META.md): what the fabricator can make. One for each
 //// part and chassis, by name. A run can find blueprints (`roll`); between
-//// runs, Salvage researches them (`robots/meta/profile`), and from then on
+//// runs, Data researches them (`robots/meta/profile`), and from then on
 //// the fabricator builds starting robots with that part or chassis, plain
 //// (no attributes or modifiers), as many as the design needs.
 
@@ -42,10 +42,10 @@ pub fn exists(blueprint: Blueprint) -> Bool {
   }
 }
 
-/// What researching it costs in Salvage: a share of the thing's price,
+/// What researching it costs in Data: a share of the thing's price,
 /// rounded to 5, at least `min_research`.
 pub fn research_cost(blueprint: Blueprint) -> Int {
-  let #(credits, share) = case blueprint {
+  let #(scrap, share) = case blueprint {
     PartBlueprint(name) ->
       case part(name) {
         Ok(p) -> #(price.of(p), research_share)
@@ -57,15 +57,15 @@ pub fn research_cost(blueprint: Blueprint) -> Int {
         Error(Nil) -> #(0, chassis_research_share)
       }
   }
-  let rounded = float.round(int.to_float(credits) *. share /. 5.0) * 5
+  let rounded = float.round(int.to_float(scrap) *. share /. 5.0) * 5
   int.max(min_research, rounded)
 }
 
-/// Salvage per credit of price, for research: parts cost 10-35 (a run pays
+/// Data per point of price (in scrap), for research: parts cost 10-35 (a run pays
 /// about 24), chassis 55-70.
 pub const research_share = 0.5
 
-/// Chassis are priced high in credits (HP, capacity, cards): a smaller share.
+/// Chassis are priced high in scrap (HP, capacity, cards): a smaller share.
 pub const chassis_research_share = 0.2
 
 pub const min_research = 10

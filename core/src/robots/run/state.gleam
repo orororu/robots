@@ -14,7 +14,7 @@
 //// 4. A workshop (`Upgrading`): `upgrade` one component for free, once,
 ////    or `leave`.
 //// 5. When every robot is destroyed, the run is `Over`. It pays out
-////    `salvage`, and the blueprints it `found` (see docs/META.md).
+////    `data`, and the blueprints it `found` (see docs/META.md).
 ////
 //// The truck carries at most `truck` robots: assembling or buying one more
 //// fails with `TruckFull`. Spare parts and chassis are unlimited.
@@ -179,33 +179,33 @@ pub fn start(seed: Int, robots: List(Bot), truck: Int) -> Run {
   )
 }
 
-// SALVAGE ---------------------------------------------------------------------
+// DATA -------------------------------------------------------------------------
 
-pub const salvage_normal = 1
+pub const data_normal = 1
 
-pub const salvage_strong = 3
+pub const data_strong = 3
 
-pub const salvage_boss = 10
+pub const data_boss = 10
 
 /// For each level reached past the first.
-pub const salvage_level = 5
+pub const data_level = 5
 
-/// Credits left at the end, per Salvage.
-pub const credits_per_salvage = 20
+/// Scrap left at the end, per Data.
+pub const scrap_per_data = 20
 
-/// What the run has earned so far, in Salvage: its wins, the levels it
-/// reached and the credits it holds. Paid out when it's over.
-pub fn salvage(run: Run) -> Int {
+/// What the run has earned so far, in Data: its wins, the levels it
+/// reached and the scrap it holds. Paid out when it's over.
+pub fn data(run: Run) -> Int {
   let wins =
     list.map(run.wins, fn(tier) {
       case tier {
-        map.Normal -> salvage_normal
-        map.Strong -> salvage_strong
-        map.Boss -> salvage_boss
+        map.Normal -> data_normal
+        map.Strong -> data_strong
+        map.Boss -> data_boss
       }
     })
     |> int.sum
-  wins + { run.level - 1 } * salvage_level + run.money / credits_per_salvage
+  wins + { run.level - 1 } * data_level + run.money / scrap_per_data
 }
 
 // THE MAP ---------------------------------------------------------------------
