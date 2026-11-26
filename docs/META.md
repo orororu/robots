@@ -87,11 +87,12 @@ The autopilot earns about **24 Data per run** and finds 0.7 blueprints.
 - **The start menu** opens the game: Continue (the run saved in the
   browser, if any) or New run (abandoning a saved run pays it out like a
   lost one), then the hangar.
-- **The hangar** opens before every run. Its overview shows the truck,
-  the fabricator and the design (whether it can be fabricated), with Start
-  a run and two screens:
-  - the **Research lab**: blueprints found in runs, to research or sell;
-  - the **Garage**, laid out like a run's garage: the design as a robot
+- **The hangar** opens before every run, with three tabs at the top. The
+  first, **Hangar**, open by default, shows the truck, the fabricator and
+  the design (whether it can be fabricated), with Start a run. The others:
+  - **Research lab** (with the count of found blueprints): blueprints
+    found in runs, to research or sell;
+  - **Garage**, laid out like a run's garage: the design as a robot
     (chassis, installed parts by kind), and below it the FABRICATOR's
     spare components, one row per copy (no stacking), grouped by kind,
     plus spare chassis. Installing a component takes it off the list.

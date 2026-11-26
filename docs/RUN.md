@@ -287,9 +287,21 @@ plate on a battered robot would also count as battered.
   node's **row** is how deep it is in its level's map: row 0 is the start,
   row 12 the boss.
 - Each level's map is **12 rows of 2-4 nodes, then the boss** alone in a
-  last row. The player starts at any node of row 0 and moves one row at a
+  last row. The first row has 2-4 nodes; after that a row has the same
+  number as the row before, or (50%, `change_percent`) one more or one
+  fewer, within 2-4: rows with 2 paths 23%, 3 paths 46%, 4 paths 30%. The player starts at any node of row 0 and moves one row at a
   time along links. **Links never cross;** every node has a way in and a
   way on, so every path ends at the boss.
+- **Lanes weave:** between rows of the same width every lane goes
+  straight on; into a wider row one lane splits, into a narrower one two
+  neighbouring lanes rejoin. On top of that, 60% of the time
+  (`cross_percent`) one lane also links to its neighbour's next node: a
+  split and a rejoin at once. Half the steps between rows have a split,
+  half a rejoin, a third are all straight. So paths split, rejoin and
+  split again all the way to the boss, and some lanes miss a shop or the
+  workshop: that's the choice. (Tried before: random branching nearly
+  every row, about 190 paths a map, a tangle; lanes that only split, 3-4
+  columns.)
 - **Row 0** is ordinary enemies. Other rows are enemies and **strong
   enemies** (25%, not before row 2).
 - **Repair shops** stand only on the level's **shop rows** (`shop_rows`):
@@ -354,6 +366,11 @@ plate on a battered robot would also count as battered.
 - **The garage** (install, uninstall, swap, assemble a new robot from a
   spare chassis) works at any time except after the run is over; every
   change must leave a legal build.
+- **In the client, a repair shop has two tabs** at the top, Shop first
+  and open on arrival: the Shop (repair whole robots, buy parts and used
+  robots, sell spare parts, each with its cards beside it) and the Garage
+  (install, swap, assemble, repair a single part or chassis). Selling
+  happens only in the Shop tab; Leave is on both.
 
 ### Autopilot (`gleam run -m run`)
 

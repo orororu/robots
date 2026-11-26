@@ -77,6 +77,8 @@ type Model {
     order: List(Int),
     /// What's selected in the garage.
     pick: Pick,
+    /// At a repair shop: the garage screen instead of the shop's counter.
+    shop_garage: Bool,
     /// What the last battle paid, shown on the map.
     news: String,
     /// The last workshop upgrade (part name, change), shown on the map
@@ -182,6 +184,7 @@ fn new_model(
     report: None,
     order: default_order(run),
     pick: no_pick,
+    shop_garage: False,
     news: "A new run. Pick where to go.",
     upgraded: None,
     scale: scale.default(),
@@ -277,6 +280,8 @@ type Msg {
   RepairPicked
   SellPicked
   Leave
+  /// At a repair shop: to the garage (True) or back to the counter.
+  ShopGarage(Bool)
   // Workshop
   UpgradePicked
   // Garage
@@ -510,7 +515,9 @@ fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
           attempt(model, state.sell(model.run, spare), "")
         _ -> model
       }
-    Leave -> attempt(model, state.leave(model.run), "")
+    Leave ->
+      attempt(Model(..model, shop_garage: False), state.leave(model.run), "")
+    ShopGarage(on) -> Model(..model, shop_garage: on, pick: no_pick)
     UpgradePicked ->
       case upgrade_target(model.pick) {
         Some(target) ->
@@ -1462,6 +1469,25 @@ fn view_workshop(model: Model) -> Element(Msg) {
 // Repair shop
 
 fn view_shop(model: Model) -> Element(Msg) {
+  html.div([], [
+    tabs([
+      #("Shop", !model.shop_garage, ShopGarage(False)),
+      #("Garage", model.shop_garage, ShopGarage(True)),
+    ]),
+    case model.shop_garage {
+      True ->
+        html.div([], [
+          view_garage(model),
+          button_class(">>> Leave", "banner", Leave),
+        ])
+      False -> view_counter(model)
+    },
+  ])
+}
+
+/// The shop's counter: repair the robots, buy, sell spare parts. The
+/// garage (installing, swapping, assembling) is its own screen.
+fn view_counter(model: Model) -> Element(Msg) {
   let run = model.run
   let s = model.scale
   let robots =
@@ -1479,17 +1505,70 @@ fn view_shop(model: Model) -> Element(Msg) {
           )
       }
     })
+  let selling = case model.pick {
+    Picked(None, Some(i)) -> Some(i)
+    _ -> None
+  }
+  let spares =
+    by_kind(run.parts)
+    |> list.chunk(fn(pair) { { pair.1 }.kind })
+    |> list.flat_map(fn(group) {
+      let assert [#(_, first), ..] = group
+      [
+        text("dim", "  " <> string.uppercase(kind_plural(first.kind))),
+        ..list.map(group, fn(pair) {
+          let #(i, p) = pair
+          button_class(
+            "    "
+              <> part_line(s, p)
+              <> " · sells for "
+              <> int.to_string(price.sell(p)),
+            case selling == Some(i) {
+              True -> "picked"
+              False -> ""
+            },
+            ClickSpare(i),
+          )
+        })
+      ]
+    })
+  let sell_actions = case selling {
+    Some(i) ->
+      case list.drop(run.parts, i) {
+        [p, ..] -> [
+          html.div([attribute.class("actions")], [
+            button(
+              "[Sell · +" <> int.to_string(price.sell(p)) <> " scrap]",
+              SellPicked,
+            ),
+            button("[Cancel]", Cancel),
+          ]),
+        ]
+        [] -> []
+      }
+    None -> []
+  }
   html.div([], [
     text(
       "",
       "REPAIR SHOP · "
         <> int.to_string(price.repair(1.0) / scale.value(s, 1.0))
-        <> " scrap per HP · select a part or chassis below to repair or sell it",
+        <> " scrap per HP · repair one part or chassis in the Garage tab",
     ),
     html.div([attribute.class("table")], robots),
-    view_stock(model),
+    html.div([attribute.class("garage")], [
+      html.div([], [
+        view_stock(model),
+        text("", "SELL · your spare parts; select one to see its cards"),
+        html.div([attribute.class("table")], case spares {
+          [] -> [text("dim", "  none")]
+          _ -> spares
+        }),
+        ..sell_actions
+      ]),
+      view_selected(model),
+    ]),
     button_class(">>> Leave", "banner", Leave),
-    view_garage(model),
   ])
 }
 
@@ -1581,7 +1660,7 @@ fn deck_text(cards: Int) -> String {
     True ->
       " · ⚠ small deck (under "
       <> int.to_string(builder.minimum_deck)
-      <> "): the same few cards keep coming round"
+      <> "): the robot can malfunction"
     False -> ""
   }
 }
@@ -1657,11 +1736,14 @@ fn view_menu(model: Model) -> Element(Msg) {
 
 fn view_hangar(model: Model) -> Element(Msg) {
   let assert Some(h) = model.hangar
-  case h.screen {
-    Overview -> view_hangar_overview(model, h)
-    Lab -> view_lab(model, h)
-    Garage -> view_hangar_garage(model, h)
-  }
+  html.div([], [
+    hangar_tabs(model, h),
+    case h.screen {
+      Overview -> view_hangar_overview(model, h)
+      Lab -> view_lab(model, h)
+      Garage -> view_hangar_garage(model, h)
+    },
+  ])
 }
 
 fn picked(yes: Bool) -> String {
@@ -1689,8 +1771,39 @@ fn design_lines(h: Hangar) -> List(Element(Msg)) {
   }
 }
 
-fn back_to_hangar() -> Element(Msg) {
-  button("[Back to the hangar]", HangarGo(Overview))
+/// A row of tabs at the top of a screen: (label, active, message).
+fn tabs(items: List(#(String, Bool, Msg))) -> Element(Msg) {
+  html.div(
+    [attribute.class("tabs")],
+    list.map(items, fn(item) {
+      let #(label, active, msg) = item
+      button_class(
+        label,
+        case active {
+          True -> "tab active"
+          False -> "tab"
+        },
+        msg,
+      )
+    }),
+  )
+}
+
+fn hangar_tabs(model: Model, h: Hangar) -> Element(Msg) {
+  let found = list.length(model.profile.found)
+  tabs([
+    #("Hangar", h.screen == Overview, HangarGo(Overview)),
+    #(
+      "Research lab"
+        <> case found {
+        0 -> ""
+        n -> " (" <> int.to_string(n) <> ")"
+      },
+      h.screen == Lab,
+      HangarGo(Lab),
+    ),
+    #("Garage", h.screen == Garage, HangarGo(Garage)),
+  ])
 }
 
 fn with_cancel(actions: List(Element(Msg))) -> List(Element(Msg)) {
@@ -1702,7 +1815,6 @@ fn with_cancel(actions: List(Element(Msg))) -> List(Element(Msg)) {
 
 fn view_hangar_overview(model: Model, h: Hangar) -> Element(Msg) {
   let p = model.profile
-  let found = list.length(p.found)
   html.div([], [
     text(
       "",
@@ -1717,7 +1829,7 @@ fn view_hangar_overview(model: Model, h: Hangar) -> Element(Msg) {
         <> " for each run from its components",
     ),
     button_class(">>> Start a run", "banner", StartRun),
-    text("", "DESIGN · change it in the garage"),
+    text("", "DESIGN · change it in the Garage tab"),
     html.div([attribute.class("table")], [
       text(
         "ally",
@@ -1730,22 +1842,6 @@ fn view_hangar_overview(model: Model, h: Hangar) -> Element(Msg) {
       ),
       ..list.append(design_lines(h), [design_status(model, h)])
     ]),
-    button(
-      "[Research lab] · "
-        <> int.to_string(found)
-        <> case found {
-        1 -> " blueprint"
-        _ -> " blueprints"
-      }
-        <> " found in runs, to research or sell with Data",
-      HangarGo(Lab),
-    ),
-    button(
-      "[Garage] · change the design, from the fabricator's "
-        <> int.to_string(list.length(spare_parts(p, h.design)))
-        <> " spare components",
-      HangarGo(Garage),
-    ),
     button("[Menu]", ToMenu),
   ])
 }
@@ -1783,7 +1879,6 @@ fn view_lab(model: Model, h: Hangar) -> Element(Msg) {
     _ -> #([], text("dim", "Select a blueprint to see its cards."))
   }
   html.div([], [
-    back_to_hangar(),
     html.div([attribute.class("garage")], [
       html.div([], [
         text(
@@ -1949,7 +2044,6 @@ fn view_hangar_garage(model: Model, h: Hangar) -> Element(Msg) {
     _ -> "select a part or component to see its cards; a chassis to build on"
   }
   html.div([], [
-    back_to_hangar(),
     html.div([attribute.class("garage")], [
       html.div([], [
         text("", "GARAGE · " <> hint),
@@ -2134,21 +2228,12 @@ fn view_garage(model: Model) -> Element(Msg) {
   let actions = case model.pick {
     Picked(Some(_), Some(_)) -> [button("[Swap them]", Swap)]
     Picked(Some(_), None) -> [button("[Remove part]", Remove), ..repair]
-    Picked(None, Some(spare)) ->
+    Picked(None, Some(_)) ->
       list.flatten([
         list.index_map(run.robots, fn(bot, r) {
           button("[Install on " <> bot.name <> "]", Install(r))
         }),
         repair,
-        case at_shop, list.drop(run.parts, spare) {
-          True, [p, ..] -> [
-            button(
-              "[Sell · +" <> int.to_string(price.sell(p)) <> " scrap]",
-              SellPicked,
-            ),
-          ]
-          _, _ -> []
-        },
       ])
     Picked(None, None) -> []
     Draft(..) -> [button("[Assemble robot]", Assemble)]
@@ -2429,11 +2514,12 @@ fn mounts_line(bot: Bot) -> String {
   "Weapon mounts: "
   <> builder.mounts(bot.chassis, bot.parts)
   |> list.map(fn(m) {
-    "["
+    "[up to "
     <> num(m.0)
     <> "] "
     <> case m.1 {
-      Some(w) -> part.display_name(w) <> " (" <> num(part.weight(w)) <> ")"
+      Some(w) ->
+        part.display_name(w) <> " (weight " <> num(part.weight(w)) <> ")"
       None -> "empty"
     }
   })
@@ -2570,4 +2656,9 @@ pre { margin: 0 0 0.75rem; white-space: pre-wrap; font: inherit; }
   text-align: left; padding: 2px 4px; cursor: pointer; white-space: pre-wrap; }
 .card:hover { background: #1f2a1f; }
 .picked { background: #2a3a2a; }
+.tabs { display: flex; gap: 0.25rem; margin-bottom: 0.75rem;
+  border-bottom: 1px solid #2a302a; }
+.tab { padding: 0.3rem 1rem; border: 1px solid #2a302a; border-bottom: none;
+  border-radius: 6px 6px 0 0; opacity: 0.6; }
+.tab.active { opacity: 1; background: #2a3a2a; color: #f0d060; }
 "
