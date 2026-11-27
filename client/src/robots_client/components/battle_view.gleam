@@ -14,7 +14,7 @@ import robots/rules/card
 import robots/rules/energy
 import robots/rules/game.{type Combatant, type Game}
 import robots/rules/scale.{type Scale}
-import robots_client/card_view
+import robots_client/components/card_view
 
 pub fn view(
   state: Game,
