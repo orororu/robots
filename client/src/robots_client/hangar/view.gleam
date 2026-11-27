@@ -14,11 +14,11 @@ import robots/meta/blueprint.{type Blueprint, ChassisBlueprint, PartBlueprint}
 import robots/meta/profile.{type Profile}
 import robots/rules/scale.{type Scale}
 
+import robots_client/common/kinds.{robot_table, spare_table}
 import robots_client/common/preview.{preview_section}
 import robots_client/common/ui.{button, button_class, picked, tabs, text}
 import robots_client/common/wording.{
-  bot_line, by_kind, describe_profile_error, kind_plural, mounts_line, num,
-  own_chassis_line, part_line, weight_line,
+  describe_profile_error, num, robot_title, weight_line,
 }
 import robots_client/hangar/model.{
   type Hangar, type Msg, AddPart, AssembleDesign, HangarGo, HangarInstalled,
@@ -60,7 +60,6 @@ pub fn design_lines(d: profile.Design) -> List(Element(Msg)) {
   case design_bot(d) {
     Some(b) -> [
       text("", "    " <> weight_line(b)),
-      text("", "    " <> mounts_line(b)),
     ]
     None -> []
   }
@@ -192,35 +191,16 @@ pub fn view_lab(v: HangarView) -> Element(Msg) {
   ])
 }
 
-/// The garage between runs: the design as a robot, as in a run's garage,
-/// and the fabricator's spare components below it, one per copy, grouped
-/// by kind. Installing one takes it off the list.
-/// The fabricator's spare components, grouped by kind; `chosen` selected.
+/// The fabricator's spare components, one per copy, in a table grouped by
+/// kind; `chosen` are selected. Installing one takes it off the list.
 pub fn fabricator_spare_rows(
   v: HangarView,
   chosen: List(Int),
 ) -> List(Element(Msg)) {
   let h = v.hangar
-  let rows =
-    by_kind(spare_parts(v.profile, h.designs))
-    |> list.chunk(fn(pair) { { pair.1 }.kind })
-    |> list.flat_map(fn(group) {
-      let assert [#(_, first), ..] = group
-      [
-        text("dim", "  " <> string.uppercase(kind_plural(first.kind))),
-        ..list.map(group, fn(pair) {
-          let #(i, c) = pair
-          button_class(
-            "    " <> part_line(v.scale, c),
-            picked(list.contains(chosen, i)),
-            HangarSpare(i),
-          )
-        })
-      ]
-    })
-  case rows {
+  case spare_parts(v.profile, h.designs) {
     [] -> [text("dim", "  none: research blueprints in the research lab")]
-    _ -> rows
+    parts -> [spare_table(v.scale, parts, chosen, HangarSpare)]
   }
 }
 
@@ -271,25 +251,16 @@ pub fn design_room(v: HangarView) -> Element(Msg) {
   let robot = case design_bot(d) {
     Some(bot) ->
       html.div([attribute.class("robot")], [
-        text("ally", bot_line(s, bot)),
+        text("ally", robot_title(s, bot)),
         ..list.flatten([
-          design_lines(d),
           [
-            button_class(
-              "    " <> own_chassis_line(s, bot),
-              picked(h.pick == PickDesignChassis),
-              HangarOwnChassis,
+            robot_table(
+              s,
+              bot,
+              #(h.pick == PickDesignChassis, HangarOwnChassis),
+              fn(i) { #(installed == Some(i), HangarInstalled(i)) },
             ),
           ],
-          by_kind(bot.parts)
-            |> list.map(fn(pair) {
-              let #(i, c) = pair
-              button_class(
-                "    " <> part_line(s, c),
-                picked(installed == Some(i)),
-                HangarInstalled(i),
-              )
-            }),
           [design_status(v.profile, d)],
         ])
       ])

@@ -144,6 +144,14 @@ pub fn deck_text(cards: Int) -> String {
   }
 }
 
+/// A robot's title in its room: "Tinker (Frame) HP [######....] 9/12 · 17
+/// cards" (with a warning for a small deck).
+pub fn robot_title(s: Scale, bot: Bot) -> String {
+  bot_line(s, bot)
+  <> " · "
+  <> deck_text(builder.deck_size(bot.chassis, bot.parts))
+}
+
 /// "Tinker (Frame) HP [######....] 9/12"
 pub fn bot_line(s: Scale, bot: Bot) -> String {
   case state.build(bot) {
@@ -196,15 +204,6 @@ pub fn kind_plural(kind: part.Kind) -> String {
   }
 }
 
-/// "Frame chassis · HP 28/45"
-pub fn own_chassis_line(s: Scale, bot: Bot) -> String {
-  bot.chassis.name
-  <> " chassis · HP "
-  <> int.to_string(scale.value(s, builder.chassis_hp(bot.chassis)))
-  <> "/"
-  <> int.to_string(scale.value(s, bot.chassis.hp))
-}
-
 /// "Weight 11 of max 12 · 1 free · 18 cards" (with a warning for a deck
 /// below the minimum).
 pub fn weight_line(bot: Bot) -> String {
@@ -219,24 +218,6 @@ pub fn weight_line(bot: Bot) -> String {
   <> deck_text(builder.deck_size(bot.chassis, bot.parts))
 }
 
-/// "Weapon mounts: [4] Laser (3) · [4] empty": a weapon fits a mount at
-/// least as big as its weight.
-pub fn mounts_line(bot: Bot) -> String {
-  "Weapon mounts: "
-  <> builder.mounts(bot.chassis, bot.parts)
-  |> list.map(fn(m) {
-    "[up to "
-    <> num(m.0)
-    <> "] "
-    <> case m.1 {
-      Some(w) ->
-        part.display_name(w) <> " (weight " <> num(part.weight(w)) <> ")"
-      None -> "empty"
-    }
-  })
-  |> string.join(" · ")
-}
-
 /// "Broken plating · armor · weight 2 · HP 0/25 · 25 scrap"
 pub fn part_line(s: Scale, p: Component) -> String {
   part.display_name(p)
@@ -244,9 +225,19 @@ pub fn part_line(s: Scale, p: Component) -> String {
   <> part.kind_name(p.kind)
   <> " · weight "
   <> num(part.weight(p))
-  <> case p.kind {
+  <> " · "
+  <> part_stat(s, p)
+  <> " · "
+  <> int.to_string(price.of(p))
+  <> " scrap"
+}
+
+/// What a part has besides its weight: armor's HP, a battery's store, or
+/// how many cards it adds. "HP 0/25 BROKEN", "stores 90", "4 cards"
+pub fn part_stat(s: Scale, p: Component) -> String {
+  case p.kind {
     part.Armor ->
-      " · HP "
+      "HP "
       <> int.to_string(scale.value(s, part.remaining_hp(p)))
       <> "/"
       <> int.to_string(scale.value(s, part.hp(p)))
@@ -255,12 +246,37 @@ pub fn part_line(s: Scale, p: Component) -> String {
         False -> ""
       }
     part.Battery ->
-      " · stores " <> int.to_string(scale.energy(s, part.energy_cap(p)))
-    _ -> " · " <> int.to_string(list.length(p.cards)) <> " cards"
+      "stores " <> int.to_string(scale.energy(s, part.energy_cap(p)))
+    _ -> int.to_string(list.length(p.cards)) <> " cards"
   }
-  <> " · "
-  <> int.to_string(price.of(p))
-  <> " scrap"
+}
+
+/// Parts grouped by kind (weapons first, as `by_kind`), each with its index
+/// in `parts`.
+pub fn kind_groups(
+  parts: List(Component),
+) -> List(#(part.Kind, List(#(Int, Component)))) {
+  by_kind(parts)
+  |> list.chunk(fn(pair) { { pair.1 }.kind })
+  |> list.map(fn(group) {
+    let assert [#(_, first), ..] = group
+    #(first.kind, group)
+  })
+}
+
+/// A robot's parts by kind, a line per kind: "weapons: Laser, Fist".
+pub fn parts_by_kind(parts: List(Component)) -> String {
+  kind_groups(parts)
+  |> list.map(fn(group) {
+    let #(kind, items) = group
+    kind_plural(kind)
+    <> ": "
+    <> string.join(
+      list.map(items, fn(pair) { part.display_name(pair.1) }),
+      ", ",
+    )
+  })
+  |> string.join("\n")
 }
 
 pub fn num(x: Float) -> String {

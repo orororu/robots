@@ -1,4 +1,4 @@
-//// The run's garage (and the shop's counter): what's selected, the open
+//// The run's garage (and the shop's Buy and Sell tabs): what's selected, the open
 //// tab, and their messages.
 
 import gleam/list
@@ -11,7 +11,7 @@ pub type Garage {
 }
 
 pub fn new_garage() -> Garage {
-  Garage(pick: no_pick, tab: ShopTab)
+  Garage(pick: no_pick, tab: BuyTab)
 }
 
 /// What's selected in the garage; the selected parts' cards are shown.
@@ -30,10 +30,13 @@ pub type Pick {
   SpareChassis(index: Int)
 }
 
-/// The tabs over the garage: the shop's counter (at a repair shop), a
+/// The tabs over the garage: Buy and Sell (at a repair shop), a
 /// room per robot, and one to assemble a new robot.
 pub type Tab {
-  ShopTab
+  /// At a shop: what it sells.
+  BuyTab
+  /// At a shop: sell spare parts and chassis.
+  SellTab
   RobotTab(robot: Int)
   NewRobotTab
 }
@@ -98,7 +101,7 @@ pub fn at_shop(run: Run) -> Bool {
   }
 }
 
-/// The open tab, made valid: the shop's counter only at a shop, a robot
+/// The open tab, made valid: the shop's Buy and Sell only at a shop, a robot
 /// that's still there (else the first, or New robot when there's none).
 pub fn current_tab(run: Run, tab: Tab) -> Tab {
   let robots = list.length(run.robots)
@@ -107,9 +110,9 @@ pub fn current_tab(run: Run, tab: Tab) -> Tab {
     _ -> RobotTab(0)
   }
   case tab {
-    ShopTab ->
+    BuyTab | SellTab ->
       case at_shop(run) {
-        True -> ShopTab
+        True -> tab
         False -> first
       }
     RobotTab(r) if r >= 0 && r < robots -> tab

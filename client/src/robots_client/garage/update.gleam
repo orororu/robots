@@ -11,11 +11,11 @@ import robots/construction/part
 import robots/run/state.{type Run}
 import robots/run/upgrade
 import robots_client/garage/model.{
-  type Garage, type Msg, type Pick, type Tab, Assemble, Buy, Cancel,
+  type Garage, type Msg, type Pick, type Tab, Assemble, Buy, BuyTab, Cancel,
   ClickChassis, ClickForSale, ClickInstalled, ClickOwnChassis, ClickSpare, Draft,
   ForSale, Garage, GoTab, Install, Leave, NewRobotTab, OwnChassis, Picked,
-  Rebuild, Remove, Repair, RepairPicked, RobotTab, SellPicked, ShopTab,
-  SpareChassis, StockPart, StockRobot, Swap, UpgradePicked, current_tab, no_pick,
+  Rebuild, Remove, Repair, RepairPicked, RobotTab, SellPicked, SpareChassis,
+  StockPart, StockRobot, Swap, UpgradePicked, current_tab, no_pick,
   repair_target, upgrade_target,
 }
 
@@ -45,7 +45,7 @@ pub fn update(g: Garage, run: Run, msg: Msg) -> #(Garage, Outcome) {
     | ClickForSale(..)
     | ClickOwnChassis(_)
     | Cancel -> #(Garage(..g, pick: select(g.pick, tab, msg)), Nothing)
-    Leave -> #(Garage(..g, tab: ShopTab), done(state.leave(run)))
+    Leave -> #(Garage(..g, tab: BuyTab), done(state.leave(run)))
     _ ->
       case act(run, g.pick, tab, msg) {
         #(Changed(..) as outcome, change) -> #(

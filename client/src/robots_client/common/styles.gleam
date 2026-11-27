@@ -75,5 +75,12 @@ pre { margin: 0 0 0.75rem; white-space: pre-wrap; font: inherit; }
   border-bottom: 1px solid #2a302a; }
 .tab { padding: 0.3rem 1rem; border: 1px solid #2a302a; border-bottom: none;
   border-radius: 6px 6px 0 0; opacity: 0.6; }
+table.list { border-collapse: collapse; width: 100%; margin-bottom: 0.75rem; }
+table.list th { text-align: left; font-weight: normal; opacity: 0.6; padding: 2px 8px;
+  border-bottom: 1px solid #2a302a; }
+table.list td { padding: 3px 8px; vertical-align: top; white-space: pre-line; }
+table.list th:last-child, table.list td:last-child { text-align: right; white-space: nowrap; }
+table.list tr.clickable:hover { background: #1f2a1f; }
+table.list tr.group td { opacity: 0.45; padding-top: 0.5rem; text-align: left; }
 .tab.active { opacity: 1; background: #2a3a2a; color: #f0d060; }
 "

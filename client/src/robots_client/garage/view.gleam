@@ -14,18 +14,18 @@ import robots/rules/scale.{type Scale}
 
 import robots/run/state.{type Run}
 import robots/run/upgrade
+import robots_client/common/kinds.{robot_table, spare_table}
 import robots_client/common/preview.{preview_section}
 import robots_client/common/ui.{button, button_class, picked, tabs, text}
 import robots_client/common/wording.{
-  bot_line, by_kind, describe_error, kind_plural, mounts_line, num, offer_deck,
-  own_chassis_line, part_line, weight_line,
+  describe_error, num, offer_deck, robot_title,
 }
 import robots_client/garage/model.{
-  type Garage, type Msg, type Pick, type Tab, Assemble, Cancel, ClickChassis,
-  ClickInstalled, ClickOwnChassis, ClickSpare, Draft, ForSale, GoTab, Install,
-  NewRobotTab, OwnChassis, Picked, Rebuild, Remove, RepairPicked, RobotTab,
-  ShopTab, SpareChassis, StockPart, StockRobot, Swap, UpgradePicked, at_shop,
-  current_tab, repair_target, upgrade_target,
+  type Garage, type Msg, type Pick, type Tab, Assemble, BuyTab, Cancel,
+  ClickChassis, ClickInstalled, ClickOwnChassis, ClickSpare, Draft, ForSale,
+  GoTab, Install, NewRobotTab, OwnChassis, Picked, Rebuild, Remove, Repair,
+  RepairPicked, RobotTab, SellTab, SpareChassis, StockPart, StockRobot, Swap,
+  UpgradePicked, at_shop, current_tab, repair_target, upgrade_target,
 }
 
 /// What the garage shows: the run, what's selected, the open tab (made
@@ -38,13 +38,16 @@ pub fn view_of(run: Run, garage: Garage, scale: Scale) -> GarageView {
   GarageView(run:, pick: garage.pick, tab: current_tab(run, garage.tab), scale:)
 }
 
-/// Shop (at a shop) | a tab per robot | + New robot.
+/// Buy | Sell (at a shop) | a tab per robot | + New robot.
 pub fn garage_tabs(g: GarageView) -> Element(Msg) {
   let open = g.tab
   tabs(
     list.flatten([
       case at_shop(g.run) {
-        True -> [#("Shop", open == ShopTab, GoTab(ShopTab))]
+        True -> [
+          #("Buy", open == BuyTab, GoTab(BuyTab)),
+          #("Sell", open == SellTab, GoTab(SellTab)),
+        ]
         False -> []
       },
       list.index_map(g.run.robots, fn(bot, r) {
@@ -63,34 +66,16 @@ pub fn view_garage(g: GarageView) -> Element(Msg) {
     garage_tabs(g),
     case g.tab {
       RobotTab(r) -> robot_room(g, r)
-      NewRobotTab | ShopTab -> new_robot_room(g)
+      NewRobotTab | BuyTab | SellTab -> new_robot_room(g)
     },
   ])
 }
 
-/// Spare parts grouped by kind, a heading per kind; `chosen` are shown
-/// as selected.
+/// Spare parts in a table grouped by kind; `chosen` are shown as selected.
 pub fn spare_rows(g: GarageView, chosen: List(Int)) -> List(Element(Msg)) {
-  let rows =
-    by_kind(g.run.parts)
-    |> list.chunk(fn(pair) { { pair.1 }.kind })
-    |> list.flat_map(fn(group) {
-      let assert [#(_, first), ..] = group
-      [
-        text("dim", "  " <> string.uppercase(kind_plural(first.kind))),
-        ..list.map(group, fn(pair) {
-          let #(i, p) = pair
-          button_class(
-            "    " <> part_line(g.scale, p),
-            picked(list.contains(chosen, i)),
-            ClickSpare(i),
-          )
-        })
-      ]
-    })
-  case rows {
+  case g.run.parts {
     [] -> [text("dim", "  none")]
-    _ -> rows
+    parts -> [spare_table(g.scale, parts, chosen, ClickSpare)]
   }
 }
 
@@ -163,23 +148,13 @@ pub fn robot_room(g: GarageView, r: Int) -> Element(Msg) {
   }
   let robot =
     html.div([attribute.class("robot")], [
-      text("ally", bot_line(g.scale, bot)),
-      text("", "    " <> weight_line(bot)),
-      text("", "    " <> mounts_line(bot)),
-      button_class(
-        "    " <> own_chassis_line(g.scale, bot),
-        picked(g.pick == OwnChassis(r)),
-        ClickOwnChassis(r),
+      text("ally", robot_title(g.scale, bot)),
+      robot_table(
+        g.scale,
+        bot,
+        #(g.pick == OwnChassis(r), ClickOwnChassis(r)),
+        fn(i) { #(installed == Some(#(r, i)), ClickInstalled(r, i)) },
       ),
-      ..by_kind(bot.parts)
-      |> list.map(fn(pair) {
-        let #(i, p) = pair
-        button_class(
-          "    " <> part_line(g.scale, p),
-          picked(installed == Some(#(r, i))),
-          ClickInstalled(r, i),
-        )
-      })
     ])
   let chosen_chassis = case g.pick {
     SpareChassis(c) -> Some(c)
@@ -197,11 +172,27 @@ pub fn robot_room(g: GarageView, r: Int) -> Element(Msg) {
   let actions =
     list.append(service_actions(g), actions)
     |> with_cancel_run(g.pick)
+  // At a shop: repair the whole robot.
+  let repair_all = case at_shop(run), state.repair_price(bot) {
+    False, _ -> []
+    True, 0 -> [text("dim", "    as new: nothing to repair")]
+    True, cost -> [
+      button(
+        "[Repair all of "
+          <> bot.name
+          <> " · "
+          <> int.to_string(cost)
+          <> " scrap]",
+        Repair(r),
+      ),
+    ]
+  }
   let chassis = chassis_rows(g, chosen_chassis)
   html.div([attribute.class("garage")], [
     html.div([], [
       text("", bot.name <> " · " <> hint(g.pick)),
       html.div([attribute.class("table")], [robot]),
+      html.div([attribute.class("actions")], repair_all),
       text("", "SPARE PARTS"),
       html.div(
         [attribute.class("table")],
