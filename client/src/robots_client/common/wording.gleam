@@ -204,20 +204,6 @@ pub fn kind_plural(kind: part.Kind) -> String {
   }
 }
 
-/// "Weight 11 of max 12 · 1 free · 18 cards" (with a warning for a deck
-/// below the minimum).
-pub fn weight_line(bot: Bot) -> String {
-  let used = part.total_weight(bot.parts)
-  "Weight "
-  <> num(used)
-  <> " of max "
-  <> num(bot.chassis.capacity)
-  <> " · "
-  <> num(float.max(0.0, bot.chassis.capacity -. used))
-  <> " free · "
-  <> deck_text(builder.deck_size(bot.chassis, bot.parts))
-}
-
 /// "Broken plating · armor · weight 2 · HP 0/25 · 25 scrap"
 pub fn part_line(s: Scale, p: Component) -> String {
   part.display_name(p)

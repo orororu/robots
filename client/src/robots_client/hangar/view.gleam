@@ -19,9 +19,7 @@ import robots/run/price
 import robots_client/common/kinds.{chassis_table, robot_table, spare_table}
 import robots_client/common/preview.{preview_section}
 import robots_client/common/ui.{button, button_class, picked, tabs, text}
-import robots_client/common/wording.{
-  describe_profile_error, robot_title, weight_line,
-}
+import robots_client/common/wording.{describe_profile_error, robot_title}
 import robots_client/hangar/model.{
   type Hangar, type Msg, AddPart, AssembleDesign, HangarGo, HangarInstalled,
   HangarOwnChassis, HangarSelect, HangarSpare, HangarSpareChassis, Lab, NewRoom,
@@ -55,15 +53,6 @@ pub fn design_status(p: Profile, d: profile.Design) -> Element(Msg) {
   case profile.fabricate(p, d) {
     Ok(_) -> text("ally", "✓ ready to fabricate")
     Error(e) -> text("foe", "✗ " <> describe_profile_error(e))
-  }
-}
-
-pub fn design_lines(d: profile.Design) -> List(Element(Msg)) {
-  case design_bot(d) {
-    Some(b) -> [
-      text("", "    " <> weight_line(b)),
-    ]
-    None -> []
   }
 }
 
@@ -107,25 +96,20 @@ pub fn view_hangar_overview(v: HangarView) -> Element(Msg) {
         <> " for each run from its components",
     ),
     button_class(">>> Start a run", "banner", StartRun),
-    text("", "ROBOTS · change each in its tab"),
-    html.div(
-      [attribute.class("table")],
-      list.flat_map(h.designs, fn(d) {
-        [
-          text(
-            "ally",
-            "  "
-              <> d.name
-              <> " ("
-              <> d.chassis
-              <> "): "
-              <> string.join(list.map(d.parts, part.display_name), ", "),
-          ),
-          ..list.append(design_lines(d), [design_status(v.profile, d)])
-        ]
-      }),
-    ),
-    button("[Menu]", ToMenu),
+    text("", "ROBOTS · click one to change it in its tab"),
+    ..list.index_map(h.designs, fn(d, i) {
+      let open = HangarGo(Room(i))
+      case design_bot(d) {
+        Some(bot) ->
+          html.div([attribute.class("robot")], [
+            button_class(robot_title(v.scale, bot), "ally", open),
+            robot_table(v.scale, bot, #(False, open), fn(_) { #(False, open) }),
+            design_status(v.profile, d),
+          ])
+        None -> text("foe", "  " <> d.name <> ": unknown chassis " <> d.chassis)
+      }
+    })
+    |> list.append([button("[Menu]", ToMenu)])
   ])
 }
 
