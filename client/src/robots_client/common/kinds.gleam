@@ -4,7 +4,7 @@
 
 import gleam/int
 import gleam/list
-import gleam/option.{None, Some}
+import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import lustre/element.{type Element}
@@ -13,7 +13,9 @@ import robots/construction/part.{type Component, Weapon}
 import robots/rules/scale.{type Scale}
 import robots/run/price
 import robots/run/state.{type Bot}
-import robots_client/common/ui.{table, table_group, table_note, table_row}
+import robots_client/common/ui.{
+  table, table_group, table_note, table_plain, table_row,
+}
 import robots_client/common/wording.{kind_groups, kind_plural, num, part_stat}
 
 /// Parts in a table grouped by kind: Part, Weight, Stats, and a price
@@ -28,7 +30,7 @@ pub fn part_table(
 ) -> Element(msg) {
   table(
     headers(price_header),
-    part_rows(s, parts, price, select, fn(_) { True }),
+    part_rows(s, parts, price, fn(i) { Some(select(i)) }, fn(_) { True }),
   )
 }
 
@@ -43,12 +45,25 @@ pub fn robot_table(
   chassis: #(Bool, msg),
   select: fn(Int) -> #(Bool, msg),
 ) -> Element(msg) {
+  robot_rows(s, bot, Some(chassis), fn(i) { Some(select(i)) })
+}
+
+/// A robot's table to look at: no row can be selected.
+pub fn robot_summary(s: Scale, bot: Bot) -> Element(msg) {
+  robot_rows(s, bot, None, fn(_) { None })
+}
+
+fn robot_rows(
+  s: Scale,
+  bot: Bot,
+  chassis: Option(#(Bool, msg)),
+  select: fn(Int) -> Option(#(Bool, msg)),
+) -> Element(msg) {
   let headers = headers("Value")
-  let #(selected, msg) = chassis
   let frame = bot.chassis
   table(headers, [
     table_group("CHASSIS", list.length(headers)),
-    table_row(
+    choice_row(
       [
         frame.name,
         num(part.total_weight(bot.parts)) <> "/" <> num(frame.capacity),
@@ -58,8 +73,7 @@ pub fn robot_table(
           <> int.to_string(scale.value(s, frame.hp)),
         scrap(price.of_chassis(frame)),
       ],
-      selected,
-      msg,
+      chassis,
     ),
     ..list.append(
       weapon_rows(s, bot, select),
@@ -74,17 +88,15 @@ pub fn robot_table(
 fn weapon_rows(
   s: Scale,
   bot: Bot,
-  select: fn(Int) -> #(Bool, msg),
+  select: fn(Int) -> Option(#(Bool, msg)),
 ) -> List(Element(msg)) {
   let weapons =
     list.index_map(bot.parts, fn(p, i) { #(i, p) })
     |> list.filter(fn(pair) { { pair.1 }.kind == Weapon })
   let row = fn(i, p, fit) {
-    let #(selected, msg) = select(i)
-    table_row(
+    choice_row(
       [part.display_name(p), fit, part_stat(s, p), scrap(price.of(p))],
-      selected,
-      msg,
+      select(i),
     )
   }
   let #(left, mounted) =
@@ -150,7 +162,7 @@ fn part_rows(
   s: Scale,
   parts: List(Component),
   price: fn(Component) -> Int,
-  select: fn(Int) -> #(Bool, msg),
+  select: fn(Int) -> Option(#(Bool, msg)),
   show: fn(part.Kind) -> Bool,
 ) -> List(Element(msg)) {
   kind_groups(parts)
@@ -161,20 +173,29 @@ fn part_rows(
       table_group(string.uppercase(kind_plural(kind)), 4),
       ..list.map(items, fn(pair) {
         let #(i, p) = pair
-        let #(selected, msg) = select(i)
-        table_row(
+        choice_row(
           [
             part.display_name(p),
             num(part.weight(p)),
             part_stat(s, p),
             scrap(price(p)),
           ],
-          selected,
-          msg,
+          select(i),
         )
       })
     ]
   })
+}
+
+/// A row to select (`Some(#(selected, msg))`), or just to read.
+fn choice_row(
+  cells: List(String),
+  choice: Option(#(Bool, msg)),
+) -> Element(msg) {
+  case choice {
+    Some(#(selected, msg)) -> table_row(cells, selected, msg)
+    None -> table_plain(cells)
+  }
 }
 
 fn scrap(amount: Int) -> String {

@@ -88,3 +88,8 @@ pub fn table_note(cells: List(String)) -> Element(msg) {
     list.map(cells, fn(c) { html.td([], [element.text(c)]) }),
   )
 }
+
+/// A row only to read.
+pub fn table_plain(cells: List(String)) -> Element(msg) {
+  html.tr([], list.map(cells, fn(c) { html.td([], [element.text(c)]) }))
+}

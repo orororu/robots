@@ -13,9 +13,10 @@ import lustre/event
 import robots/rules/scale.{type Scale}
 import robots/run/map
 import robots/run/state.{type Run}
+import robots_client/common/kinds.{robot_summary}
 import robots_client/common/preview.{view_upgrade}
 import robots_client/common/ui.{button_class, text}
-import robots_client/common/wording.{bot_line}
+import robots_client/common/wording.{robot_title}
 import robots_client/map/model.{type Journal, type Msg, Go}
 
 pub fn view_map(run: Run, j: Journal, s: Scale) -> Element(Msg) {
@@ -46,10 +47,12 @@ pub fn view_map(run: Run, j: Journal, s: Scale) -> Element(Msg) {
       }),
     ),
     text("", "YOUR ROBOTS · change parts in the garage before a fight"),
-    html.div(
-      [attribute.class("table")],
-      list.map(run.robots, fn(bot) { text("ally", "  " <> bot_line(s, bot)) }),
-    ),
+    ..list.map(run.robots, fn(bot) {
+      html.div([attribute.class("robot")], [
+        text("ally", robot_title(s, bot)),
+        robot_summary(s, bot),
+      ])
+    })
   ])
 }
 
