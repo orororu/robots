@@ -9,6 +9,7 @@ import gleam/float
 import gleam/list
 import robots/balance/efficiency
 import robots/rules/card.{type Card, Burn, Card, Launch, NoEffect}
+import robots/rules/scale
 
 pub type Attribute {
   Attribute(name: String, effect: Effect)
@@ -54,35 +55,35 @@ pub fn crude() -> Attribute {
 }
 
 pub fn tuned() -> Attribute {
-  Attribute("Tuned", Scale(value: 1.1, cost: 1.0))
+  Attribute("Tuned", Scale(value: 1.2, cost: 1.0))
 }
 
 pub fn strong() -> Attribute {
-  Attribute("Strong", Scale(value: 1.2, cost: 1.0))
+  Attribute("Strong", Scale(value: 1.4, cost: 1.0))
 }
 
 pub fn masterwork() -> Attribute {
-  Attribute("Masterwork", Scale(value: 1.4, cost: 1.0))
+  Attribute("Masterwork", Scale(value: 1.7, cost: 1.0))
 }
 
 pub fn efficient() -> Attribute {
-  Attribute("Efficient", Scale(value: 1.0, cost: 0.9))
+  Attribute("Efficient", Scale(value: 1.0, cost: 0.8))
 }
 
 pub fn rapid() -> Attribute {
-  Attribute("Rapid", Scale(value: 1.0, cost: 0.8))
+  Attribute("Rapid", Scale(value: 1.0, cost: 0.65))
 }
 
 pub fn overcharged() -> Attribute {
-  Attribute("Overcharged", Scale(value: 1.5, cost: 1.25))
+  Attribute("Overcharged", Scale(value: 1.8, cost: 1.3))
 }
 
 pub fn precise() -> Attribute {
-  Attribute("Precise", Resize(cost: 1.2))
+  Attribute("Precise", Resize(cost: 1.3))
 }
 
 pub fn quick() -> Attribute {
-  Attribute("Quick", Resize(cost: 0.8))
+  Attribute("Quick", Resize(cost: 0.7))
 }
 
 /// Every attribute, worst to best.
@@ -110,14 +111,23 @@ pub fn all() -> List(Attribute) {
 
 /// Whether the attribute does anything to this card. Value changes need a
 /// card whose value matters (not a drone launch, Ignite or Fire); cost
-/// changes need a cost.
+/// changes need a cost. And the change must show: an attribute that leaves
+/// the card's numbers as the player sees them (`scale.default`) never goes
+/// on it.
 pub fn applies_to(attribute: Attribute, c: Card) -> Bool {
   let value_matters = value_matters(c)
-  case attribute.effect {
+  let does_something = case attribute.effect {
     Scale(value:, cost:) ->
       { value == 1.0 || value_matters } && { cost == 1.0 || c.cost >. 0.0 }
     Resize(_) -> value_matters && c.cost >. 0.0
   }
+  does_something && shows(c, apply(attribute, c))
+}
+
+fn shows(before: Card, after: Card) -> Bool {
+  let s = scale.default()
+  scale.value(s, before.value) != scale.value(s, after.value)
+  || scale.cost(s, before.cost) != scale.cost(s, after.cost)
 }
 
 fn value_matters(c: Card) -> Bool {

@@ -219,7 +219,7 @@ pub fn hp(component: Component) -> Float {
   component.hp *. strength(component) *. toughness(component)
 }
 
-pub const toughness_factor = 2.5
+pub const toughness_factor = 1.25
 
 fn toughness(component: Component) -> Float {
   case list.length(component.cards) {

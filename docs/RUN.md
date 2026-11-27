@@ -75,28 +75,40 @@ undecided ones under "Open questions".
   - Value attributes skip cards whose value does nothing (drone launches,
     Ignite, Fire); cost attributes apply to any card with a cost.
 
-Card attributes. Shown on a Laser card (cost 10, value 10); "worth" is the
-change in what the card is worth, which also changes the part's price. The
-last column is the attribute's loot weight on levels 1/2/3 (– means it
-never drops as loot).
+Card attributes. Shown on a Laser card (cost 10, value 10); "Laser price"
+is how much the attribute on one of its five cards changes the part's price
+(57 scrap plain). The last column is the attribute's loot weight on levels
+1/2/3 (– means it never drops as loot).
 
-| Attribute | Effect | Laser card cost/value | Worth | Weights 1/2/3 |
+| Attribute | Effect | Laser card cost/value | Laser price | Weights 1/2/3 |
 |---|---|---|---|---|
-| Broken | value −80% | 10 / 2 | −80% | –/–/– |
-| Damaged | value −40% | 10 / 6 | −40% | –/–/– |
-| Wasteful | cost +50% | 15 / 10 | −20% | –/–/– |
-| Crude | value −20%, cost +10% | 11 / 8 | −24% | –/–/– |
-| Weak | value −20% | 10 / 8 | −20% | –/–/– |
-| Sluggish | cost +20% | 12 / 10 | −9% | 3/2/– |
-| Worn | value −10% | 10 / 9 | −10% | 4/2/– |
-| Quick | cost −20%, value rescaled to stay on the band | 8 / 7 | −20% | 6/5/4 |
-| Precise | cost +20%, value rescaled to stay on the band | 12 / 13 | +20% | 6/6/6 |
-| Tuned | value +10% | 10 / 11 | +10% | 10/8/5 |
-| Efficient | cost −10% | 9 / 10 | +5% | 8/7/5 |
-| Strong | value +20% | 10 / 12 | +20% | 5/8/9 |
-| Rapid | cost −20% | 8 / 10 | +11% | 3/6/8 |
-| Overcharged | value +50%, cost +25% | 13 / 15 | +33% | 1/3/5 |
-| Masterwork | value +40% | 10 / 14 | +40% | –/1/3 |
+| Broken | value −80% | 10 / 2 | −8 | –/–/– |
+| Damaged | value −40% | 10 / 6 | −4 | –/–/– |
+| Wasteful | cost +50% | 15 / 10 | −2 | –/–/– |
+| Crude | value −20%, cost +10% | 11 / 8 | −2 | –/–/– |
+| Weak | value −20% | 10 / 8 | −2 | –/–/– |
+| Sluggish | cost +20% | 12 / 10 | −1 | 3/2/– |
+| Worn | value −10% | 10 / 9 | −1 | 4/2/– |
+| Quick | cost −30%, value rescaled to stay on the band | 7 / 6 | −3 | 6/5/4 |
+| Precise | cost +30%, value rescaled to stay on the band | 13 / 15 | +3 | 6/6/6 |
+| Tuned | value +20% | 10 / 12 | +2 | 10/8/5 |
+| Efficient | cost −20% | 8 / 10 | +1 | 8/7/5 |
+| Strong | value +40% | 10 / 14 | +4 | 5/8/9 |
+| Rapid | cost −35% | 7 / 10 | +2 | 3/6/8 |
+| Overcharged | value +80%, cost +30% | 13 / 18 | +6 | 1/3/5 |
+| Masterwork | value +70% | 10 / 17 | +7 | –/1/3 |
+
+**Good attributes are steep: every step is felt.** Each good tier changes
+a card by at least 20% (Tuned → Strong → Masterwork: +20%, +40%, +70%;
+Efficient → Rapid: −20%, −35% cost). They were ±10% steps before, and
+about a quarter of cards showed no change (a Tuned Nick: 0.48 → 0.53,
+shown 5 either way). The bad tiers stay as they were: making them steeper
+too made early enemies, who mostly carry bad attributes, much weaker (the
+autopilot reached level 2 in 43% of runs instead of 26%).
+
+**An attribute always shows** (`attribute.applies_to`): one that wouldn't
+change the card's numbers as shown (`scale.default`) never goes on it, e.g.
+Tuned on the Needle (2.8 → 3.4, both 3), or Worn on small cards.
 
 **Words depend on the part.** "Precise" fits a gun, not a plate. On armor,
 attributes speak of condition and toughness: Damaged is **Dented**, Weak

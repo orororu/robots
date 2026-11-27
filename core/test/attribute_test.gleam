@@ -7,6 +7,7 @@ import robots/content/components
 import robots/content/enemies
 import robots/rules/card.{type Card}
 import robots/rules/rng
+import robots/rules/scale
 import robots/run/loot
 import robots/run/price
 
@@ -20,7 +21,7 @@ pub fn an_attribute_changes_the_card_and_its_name_test() {
   let gun = part.attach(components.laser(), 1, attribute.rapid())
   let c = nth(part.cards(gun), 1)
   assert c.name == "Rapid Laser"
-  assert c.cost == 0.8
+  assert c.cost == 0.65
   assert c.value == 1.0
   // The other cards are untouched.
   assert nth(part.cards(gun), 2) == nth(components.laser().cards, 2)
@@ -148,4 +149,23 @@ pub fn attributes_scale_a_growing_cards_growth_test() {
   let assert Ok(#(per_second, cap)) = card.growth(broken)
   assert float.loosely_equals(per_second, 0.022, 0.0001)
   assert float.loosely_equals(cap, 1.0, 0.0001)
+}
+
+pub fn every_attribute_shows_on_the_cards_it_goes_on_test() {
+  let s = scale.default()
+  let all_cards = list.flat_map(components.all(), fn(p) { p.cards })
+  list.each(attribute.all(), fn(a) {
+    list.each(all_cards, fn(c) {
+      case attribute.applies_to(a, c) {
+        True -> {
+          let d = attribute.apply(a, c)
+          assert scale.value(s, d.value) != scale.value(s, c.value)
+            || scale.cost(s, d.cost) != scale.cost(s, c.cost)
+        }
+        False -> Nil
+      }
+    })
+  })
+  // Tuned would turn the Needle's 2.8 into 3.4: both show as 3.
+  assert !attribute.applies_to(attribute.tuned(), cards.needle())
 }

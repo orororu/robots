@@ -113,10 +113,10 @@ the biggest value per energy, while machine guns give many cheap cards.
   per weight is the price of weight: a part weighing 4 should be worth about
   what 4 weight of armor gives. The build tournament checks this.
 - **Armor quality adds HP** (`part.hp`): a good attribute on a plate's
-  card also raises its HP, 2.5 times what it adds to the card
+  card also raises its HP, 1.25 times what it adds to the card
   (`toughness_factor`), shared over the plate's cards: Hardened +25%,
-  Thick +50%, Masterwork +100%. Hardened Plating has 25 HP, Thick 30;
-  one Thick card on Heavy plating, 50 for 40. Bad ones (Dented, Thin, Broken) only weaken the card; wear is what
+  Thick +50%, Masterwork +87.5%. Hardened Plating has 25 HP, Thick 30,
+  Masterwork 37.5; one Thick card on Heavy plating, 50 for 40. Bad ones (Dented, Thin, Broken) only weaken the card; wear is what
   takes HP. A broken plate loses its extra HP with the card. (Before,
   Hardened only made Block 0.30 → 0.33, which shows as 3 either way.)
 
