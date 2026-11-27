@@ -264,21 +264,6 @@ pub fn kind_groups(
   })
 }
 
-/// A robot's parts by kind, a line per kind: "weapons: Laser, Fist".
-pub fn parts_by_kind(parts: List(Component)) -> String {
-  kind_groups(parts)
-  |> list.map(fn(group) {
-    let #(kind, items) = group
-    kind_plural(kind)
-    <> ": "
-    <> string.join(
-      list.map(items, fn(pair) { part.display_name(pair.1) }),
-      ", ",
-    )
-  })
-  |> string.join("\n")
-}
-
 pub fn num(x: Float) -> String {
   let rounded = float.to_precision(x, 1)
   case rounded == float.floor(rounded) {

@@ -13,9 +13,10 @@ import lustre/element/html
 import robots/rules/scale
 import robots/run/price
 import robots/run/shop
-import robots_client/common/kinds.{chassis_table, part_table}
-import robots_client/common/ui.{button, button_class, table, table_row, text}
-import robots_client/common/wording.{parts_by_kind}
+import robots/run/state
+import robots_client/common/kinds.{chassis_table, part_table, robot_table}
+import robots_client/common/ui.{button, button_class, picked, text}
+import robots_client/common/wording.{robot_title}
 import robots_client/garage/model.{
   type Msg, Buy, BuyTab, Cancel, ClickChassis, ClickForSale, ClickSpare, ForSale,
   Leave, Picked, SellPicked, SellTab, SpareChassis, StockPart, StockRobot,
@@ -50,21 +51,19 @@ pub fn view_buy(g: GarageView) -> Element(Msg) {
     [] -> []
     stock -> [
       text("", "ROBOTS · used"),
-      table(
-        ["Robot", "Chassis", "Components", "Price"],
-        list.index_map(stock, fn(o, i) {
-          table_row(
-            [
-              o.name,
-              o.chassis.name,
-              parts_by_kind(o.parts),
-              scrap(shop.robot_price(o)),
-            ],
-            g.pick == ForSale(StockRobot, i),
+      ..list.index_map(stock, fn(o, i) {
+        let bot = state.Bot(name: o.name, chassis: o.chassis, parts: o.parts)
+        let selected = g.pick == ForSale(StockRobot, i)
+        let select = #(selected, ClickForSale(StockRobot, i))
+        html.div([attribute.class("robot")], [
+          button_class(
+            robot_title(g.scale, bot) <> " · " <> scrap(shop.robot_price(o)),
+            "ally " <> picked(selected),
             ClickForSale(StockRobot, i),
-          )
-        }),
-      ),
+          ),
+          robot_table(g.scale, bot, select, fn(_) { select }),
+        ])
+      })
     ]
   }
   let cost = case g.pick {
