@@ -4,6 +4,7 @@
 import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}
+import gleam/result
 import gleam/string
 import lustre/attribute
 import lustre/element.{type Element}
@@ -14,11 +15,12 @@ import robots/meta/blueprint.{type Blueprint, ChassisBlueprint, PartBlueprint}
 import robots/meta/profile.{type Profile}
 import robots/rules/scale.{type Scale}
 
-import robots_client/common/kinds.{robot_table, spare_table}
+import robots/run/price
+import robots_client/common/kinds.{chassis_table, robot_table, spare_table}
 import robots_client/common/preview.{preview_section}
 import robots_client/common/ui.{button, button_class, picked, tabs, text}
 import robots_client/common/wording.{
-  describe_profile_error, num, robot_title, weight_line,
+  describe_profile_error, robot_title, weight_line,
 }
 import robots_client/hangar/model.{
   type Hangar, type Msg, AddPart, AssembleDesign, HangarGo, HangarInstalled,
@@ -204,29 +206,27 @@ pub fn fabricator_spare_rows(
   }
 }
 
+/// The fabricator's spare chassis in a table (none: no rows); `chosen` is
+/// selected.
 pub fn fabricator_chassis_rows(
   v: HangarView,
   chosen: Option(Int),
 ) -> List(Element(Msg)) {
   let h = v.hangar
-  list.index_map(spare_chassis(v.profile, h.designs), fn(name, i) {
-    case blueprint.chassis(name) {
-      Ok(c) ->
-        button_class(
-          "  "
-            <> c.name
-            <> " chassis · "
-            <> int.to_string(scale.value(v.scale, c.hp))
-            <> " HP · max weight "
-            <> num(c.capacity)
-            <> " · weapon mounts up to "
-            <> string.join(list.map(c.weapon_mounts, num), ", "),
-          picked(chosen == Some(i)),
-          HangarSpareChassis(i),
-        )
-      Error(Nil) -> text("dim", "  " <> name)
-    }
-  })
+  let spares =
+    spare_chassis(v.profile, h.designs)
+    |> list.index_map(fn(name, i) {
+      blueprint.chassis(name) |> result.map(fn(c) { #(i, c) })
+    })
+    |> result.values
+  case spares {
+    [] -> []
+    _ -> [
+      chassis_table(v.scale, spares, "Value", price.of_chassis, fn(i) {
+        #(chosen == Some(i), HangarSpareChassis(i))
+      }),
+    ]
+  }
 }
 
 pub fn spare_chassis_at(v: HangarView, i: Int) -> Option(builder.Chassis) {

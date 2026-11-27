@@ -12,14 +12,13 @@ import robots/construction/builder
 import robots/construction/part
 import robots/rules/scale.{type Scale}
 
+import robots/run/price
 import robots/run/state.{type Run}
 import robots/run/upgrade
-import robots_client/common/kinds.{robot_table, spare_table}
+import robots_client/common/kinds.{chassis_table, robot_table, spare_table}
 import robots_client/common/preview.{preview_section}
-import robots_client/common/ui.{button, button_class, picked, tabs, text}
-import robots_client/common/wording.{
-  describe_error, num, offer_deck, robot_title,
-}
+import robots_client/common/ui.{button, tabs, text}
+import robots_client/common/wording.{describe_error, offer_deck, robot_title}
 import robots_client/garage/model.{
   type Garage, type Msg, type Pick, type Tab, Assemble, BuyTab, Cancel,
   ClickChassis, ClickInstalled, ClickOwnChassis, ClickSpare, Draft, ForSale,
@@ -79,24 +78,20 @@ pub fn spare_rows(g: GarageView, chosen: List(Int)) -> List(Element(Msg)) {
   }
 }
 
+/// Spare chassis in a table (none: no rows); `chosen` is selected.
 pub fn chassis_rows(g: GarageView, chosen: Option(Int)) -> List(Element(Msg)) {
-  list.index_map(g.run.chassis, fn(c, i) {
-    button_class(
-      "  "
-        <> c.name
-        <> " chassis · "
-        <> int.to_string(scale.value(g.scale, builder.chassis_hp(c)))
-        <> " HP · max weight "
-        <> num(c.capacity)
-        <> " · weapon mounts up to "
-        <> string.join(
-        list.map(builder.mounts(c, []), fn(m) { num(m.0) }),
-        ", ",
+  case g.run.chassis {
+    [] -> []
+    spares -> [
+      chassis_table(
+        g.scale,
+        list.index_map(spares, fn(c, i) { #(i, c) }),
+        "Value",
+        price.of_chassis,
+        fn(i) { #(chosen == Some(i), ClickChassis(i)) },
       ),
-      picked(chosen == Some(i)),
-      ClickChassis(i),
-    )
-  })
+    ]
+  }
 }
 
 /// Repair (at a shop) and upgrade (at a workshop) for what's selected.

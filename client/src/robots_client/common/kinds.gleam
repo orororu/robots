@@ -1,6 +1,6 @@
 //// Components in tables: grouped by kind, a heading row per kind
 //// (WEAPONS, BATTERIES...) and a row per component; a robot's table starts
-//// with its chassis.
+//// with its chassis. Spare chassis have a table of their own.
 
 import gleam/int
 import gleam/list
@@ -8,7 +8,7 @@ import gleam/option.{None, Some}
 import gleam/result
 import gleam/string
 import lustre/element.{type Element}
-import robots/construction/builder
+import robots/construction/builder.{type Chassis}
 import robots/construction/part.{type Component, Weapon}
 import robots/rules/scale.{type Scale}
 import robots/run/price
@@ -191,4 +191,38 @@ pub fn spare_table(
   part_table(s, parts, "Value", price.of, fn(i) {
     #(list.contains(chosen, i), click(i))
   })
+}
+
+/// Spare chassis in a table: HP, max weight, weapon mounts, and a price
+/// column (`price_header`, `price`). Each comes with its index, which
+/// `select(index)` gets.
+pub fn chassis_table(
+  s: Scale,
+  chassis: List(#(Int, Chassis)),
+  price_header: String,
+  price: fn(Chassis) -> Int,
+  select: fn(Int) -> #(Bool, msg),
+) -> Element(msg) {
+  table(
+    ["Chassis", "HP", "Max weight", "Weapon mounts", price_header],
+    list.map(chassis, fn(pair) {
+      let #(i, c) = pair
+      let #(selected, msg) = select(i)
+      table_row(
+        [
+          c.name,
+          int.to_string(scale.value(s, builder.chassis_hp(c))),
+          num(c.capacity),
+          "up to "
+            <> string.join(
+            list.map(builder.mounts(c, []), fn(m) { num(m.0) }),
+            ", ",
+          ),
+          scrap(price(c)),
+        ],
+        selected,
+        msg,
+      )
+    }),
+  )
 }

@@ -5,18 +5,17 @@ import gleam/int
 import gleam/list
 import gleam/option.{None, Some}
 import gleam/result
-import gleam/string
+
 import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
-import robots/construction/builder
 
 import robots/rules/scale
 import robots/run/price
 import robots/run/shop
-import robots_client/common/kinds.{part_table}
+import robots_client/common/kinds.{chassis_table, part_table}
 import robots_client/common/ui.{button, button_class, table, table_row, text}
-import robots_client/common/wording.{num, parts_by_kind}
+import robots_client/common/wording.{parts_by_kind}
 import robots_client/garage/model.{
   type Msg, Buy, BuyTab, Cancel, ClickChassis, ClickForSale, ClickSpare, ForSale,
   Leave, Picked, SellPicked, SellTab, SpareChassis, StockPart, StockRobot,
@@ -123,25 +122,12 @@ pub fn view_sell(g: GarageView) -> Element(Msg) {
     [] -> []
     spares -> [
       text("", "SPARE CHASSIS"),
-      table(
-        ["Chassis", "HP", "Max weight", "Weapon mounts", "Sells for"],
-        list.index_map(spares, fn(c, i) {
-          table_row(
-            [
-              c.name,
-              int.to_string(scale.value(g.scale, builder.chassis_hp(c))),
-              num(c.capacity),
-              "up to "
-                <> string.join(
-                list.map(builder.mounts(c, []), fn(m) { num(m.0) }),
-                ", ",
-              ),
-              scrap(price.sell_chassis(c)),
-            ],
-            g.pick == SpareChassis(i),
-            ClickChassis(i),
-          )
-        }),
+      chassis_table(
+        g.scale,
+        list.index_map(spares, fn(c, i) { #(i, c) }),
+        "Sells for",
+        price.sell_chassis,
+        fn(i) { #(g.pick == SpareChassis(i), ClickChassis(i)) },
       ),
     ]
   }
