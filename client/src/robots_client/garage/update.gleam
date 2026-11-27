@@ -131,6 +131,7 @@ fn act(
         None -> #(Nothing, same)
       }
     SellPicked, Picked(None, Some(spare)) -> plain(state.sell(run, spare))
+    SellPicked, SpareChassis(c) -> plain(state.sell_chassis(run, c))
     Buy, ForSale(StockPart, i) -> plain(state.buy_part(run, i))
     Buy, ForSale(StockRobot, i) -> plain(state.buy_robot(run, i))
     Install(robot), Picked(_, Some(spare)) ->

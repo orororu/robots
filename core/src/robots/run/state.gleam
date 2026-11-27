@@ -478,6 +478,23 @@ pub fn sell(run: Run, spare: Int) -> Result(Run, Error) {
   )
 }
 
+/// Sell spare chassis `chassis` to the shop for `price.sell_chassis`.
+pub fn sell_chassis(run: Run, chassis: Int) -> Result(Run, Error) {
+  use <- require(at_shop(run), WrongPhase)
+  use frame <- result.try(
+    list.drop(run.chassis, chassis)
+    |> list.first
+    |> result.replace_error(NoSuchChassis),
+  )
+  Ok(
+    Run(
+      ..run,
+      money: run.money + price.sell_chassis(frame),
+      chassis: remove_at(run.chassis, chassis),
+    ),
+  )
+}
+
 fn at_shop(run: Run) -> Bool {
   case run.phase {
     Repairing(_) -> True

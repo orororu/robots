@@ -8,16 +8,19 @@ import gleam/string
 import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
+import robots/construction/builder
 import robots/construction/part
 import robots/rules/scale
 import robots/run/price
 import robots/run/shop
 import robots/run/state
-import robots_client/common/ui.{button, button_class, text}
-import robots_client/common/wording.{bot_line, by_kind, kind_plural, part_line}
+import robots_client/common/ui.{button, button_class, picked, text}
+import robots_client/common/wording.{
+  bot_line, by_kind, kind_plural, num, part_line,
+}
 import robots_client/garage/model.{
-  type Msg, Buy, Cancel, ClickForSale, ClickSpare, ForSale, Leave, Picked,
-  Repair, SellPicked, ShopTab, StockPart, StockRobot,
+  type Msg, Buy, Cancel, ClickChassis, ClickForSale, ClickSpare, ForSale, Leave,
+  Picked, Repair, SellPicked, ShopTab, SpareChassis, StockPart, StockRobot,
 }
 import robots_client/garage/view.{
   type GarageView, garage_tabs, view_garage, view_selected,
@@ -34,7 +37,7 @@ pub fn view_shop(g: GarageView) -> Element(Msg) {
   }
 }
 
-/// The shop's counter: repair the robots, buy, sell spare parts. The
+/// The shop's counter: repair the robots, buy, sell spare parts and chassis. The
 /// garage (installing, swapping, assembling) is its own screen.
 pub fn view_counter(g: GarageView) -> Element(Msg) {
   let run = g.run
@@ -81,21 +84,42 @@ pub fn view_counter(g: GarageView) -> Element(Msg) {
         })
       ]
     })
-  let sell_actions = case selling {
-    Some(i) ->
-      case list.drop(run.parts, i) {
-        [p, ..] -> [
-          html.div([attribute.class("actions")], [
-            button(
-              "[Sell · +" <> int.to_string(price.sell(p)) <> " scrap]",
-              SellPicked,
-            ),
-            button("[Cancel]", Cancel),
-          ]),
-        ]
-        [] -> []
-      }
-    None -> []
+  let chassis = case run.chassis {
+    [] -> []
+    _ -> [
+      text("dim", "  CHASSIS"),
+      ..list.index_map(run.chassis, fn(c, i) {
+        button_class(
+          "    "
+            <> c.name
+            <> " chassis · "
+            <> int.to_string(scale.value(s, builder.chassis_hp(c)))
+            <> " HP · max weight "
+            <> num(c.capacity)
+            <> " · sells for "
+            <> int.to_string(price.sell_chassis(c)),
+          picked(g.pick == SpareChassis(i)),
+          ClickChassis(i),
+        )
+      })
+    ]
+  }
+  // What the shop pays for the selected spare part or chassis.
+  let offer = case g.pick {
+    Picked(None, Some(i)) ->
+      list.drop(run.parts, i) |> list.first |> result.map(price.sell)
+    SpareChassis(i) ->
+      list.drop(run.chassis, i) |> list.first |> result.map(price.sell_chassis)
+    _ -> Error(Nil)
+  }
+  let sell_actions = case offer {
+    Ok(scrap) -> [
+      html.div([attribute.class("actions")], [
+        button("[Sell · +" <> int.to_string(scrap) <> " scrap]", SellPicked),
+        button("[Cancel]", Cancel),
+      ]),
+    ]
+    Error(Nil) -> []
   }
   html.div([], [
     text(
@@ -108,10 +132,13 @@ pub fn view_counter(g: GarageView) -> Element(Msg) {
     html.div([attribute.class("garage")], [
       html.div([], [
         view_stock(g),
-        text("", "SELL · your spare parts; select one to see its cards"),
-        html.div([attribute.class("table")], case spares {
+        text(
+          "",
+          "SELL · your spare parts and chassis; select one to see its cards",
+        ),
+        html.div([attribute.class("table")], case list.append(spares, chassis) {
           [] -> [text("dim", "  none")]
-          _ -> spares
+          rows -> rows
         }),
         ..sell_actions
       ]),

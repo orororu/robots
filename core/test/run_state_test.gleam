@@ -8,6 +8,7 @@ import robots/construction/wear
 import robots/content/components
 import robots/content/enemies
 import robots/content/starters
+import robots/meta/blueprint
 import robots/rules/game
 import robots/rules/rng
 import robots/run/loot
@@ -188,6 +189,23 @@ pub fn spare_parts_sell_for_half_their_price_at_a_shop_test() {
   assert sold.parts == [components.cell()]
   assert state.sell(run, 2) == Error(state.NoSuchPart)
   assert state.sell(Run(..run, phase: state.Choosing), 0)
+    == Error(state.WrongPhase)
+}
+
+pub fn spare_chassis_sell_for_half_their_price_at_a_shop_test() {
+  let assert Ok(scout) = blueprint.chassis("Scout")
+  let assert Ok(frame) = blueprint.chassis("Frame")
+  let run =
+    Run(..at(state.new(1), fn(e) { e == map.RepairShop }), money: 5, chassis: [
+      frame,
+      scout,
+    ])
+  let assert Ok(sold) = state.sell_chassis(run, 1)
+  assert sold.money == 5 + price.sell_chassis(scout)
+  assert price.sell_chassis(scout) * 2 - price.of_chassis(scout) <= 1
+  assert sold.chassis == [frame]
+  assert state.sell_chassis(run, 2) == Error(state.NoSuchChassis)
+  assert state.sell_chassis(Run(..run, phase: state.Choosing), 0)
     == Error(state.WrongPhase)
 }
 

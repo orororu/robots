@@ -98,3 +98,8 @@ pub fn of_chassis(chassis: Chassis) -> Int {
     *. chassis_card_rarity
   float.round(worth *. scrap)
 }
+
+/// What a shop pays for a spare chassis: half its price, like a part.
+pub fn sell_chassis(chassis: Chassis) -> Int {
+  float.round(int.to_float(of_chassis(chassis)) *. sell_share)
+}
