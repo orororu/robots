@@ -23,11 +23,13 @@ import robots/meta/profile
 import robots/run/save
 import robots/run/state
 import robots_client/browser
+import robots_client/components/garage.{view_of}
 import robots_client/model.{
-  type Model, type Msg, Frame, KeyDown, Model, frame_ms, new_model,
+  type Model, type Msg, BattleMsg, Frame, GarageMsg, HangarMsg, KeyDown, Model,
+  frame_ms, new_model,
 }
 import robots_client/screens/battle_screen.{view_battle, view_report}
-import robots_client/screens/hangar_screen.{view_hangar}
+import robots_client/screens/hangar_screen.{HangarView, view_hangar}
 import robots_client/screens/map_screen.{view_map}
 import robots_client/screens/menu_screen.{view_menu}
 import robots_client/screens/over_screen.{view_over}
@@ -69,17 +71,7 @@ fn view(model: Model) -> Element(Msg) {
   html.div([attribute.class("screen")], [
     html.style([], css),
     html.pre([], [element.text(header(model))]),
-    case model.battle, model.run.phase {
-      _, _ if model.menu -> view_menu(model)
-      _, _ if model.hangar != None -> view_hangar(model)
-      _, _ if model.report != None -> view_report(model)
-      Some(b), _ -> view_battle(model, b)
-      None, state.Over -> view_over(model)
-      None, state.Fighting(_) -> view_prebattle(model)
-      None, state.Repairing(_) -> view_shop(model)
-      None, state.Upgrading(_) -> view_workshop(model)
-      None, state.Choosing -> view_map(model)
-    },
+    view_screen(model),
     html.pre([attribute.class("banner")], [
       element.text(case model.now < model.flash_until {
         True -> "! " <> model.flash
@@ -87,6 +79,29 @@ fn view(model: Model) -> Element(Msg) {
       }),
     ]),
   ])
+}
+
+/// The screen for where the player is. A feature's screen sends its own
+/// messages, wrapped here.
+fn view_screen(model: Model) -> Element(Msg) {
+  let garage = view_of(model.run, model.garage, model.scale)
+  let combat = model.combat
+  case model.hangar, combat.report, combat.battle, model.run.phase {
+    _, _, _, _ if model.menu -> view_menu(model)
+    Some(h), _, _, _ ->
+      HangarView(profile: model.profile, hangar: h, scale: model.scale)
+      |> view_hangar
+      |> element.map(HangarMsg)
+    _, Some(r), _, _ -> view_report(r, model.scale) |> element.map(BattleMsg)
+    _, _, Some(b), _ ->
+      view_battle(b, model.scale, model.now) |> element.map(BattleMsg)
+    _, _, _, state.Over -> view_over(model)
+    _, _, _, state.Fighting(_) -> view_prebattle(garage, combat.order)
+    _, _, _, state.Repairing(_) -> view_shop(garage) |> element.map(GarageMsg)
+    _, _, _, state.Upgrading(_) ->
+      view_workshop(garage) |> element.map(GarageMsg)
+    _, _, _, state.Choosing -> view_map(model)
+  }
 }
 
 fn header(model: Model) -> String {

@@ -16,13 +16,13 @@ import robots/rules/scale.{type Scale}
 
 import robots_client/components/preview.{preview_section}
 import robots_client/components/ui.{button, button_class, picked, tabs, text}
-import robots_client/model.{
-  type Hangar, type Model, type Msg, AddPart, AssembleDesign, HangarGo,
-  HangarInstalled, HangarOwnChassis, HangarSelect, HangarSpare,
-  HangarSpareChassis, Lab, NewRoom, NoHangarPick, Overview, PickDesignChassis,
-  PickDraft, PickFound, PickGarage, PickSpareChassis, RemovePart, Research, Room,
-  SellBlueprint, StartRun, SwapPart, ToMenu, UseChassis, at, blueprint_component,
-  design_bot, room, spare_chassis, spare_parts,
+import robots_client/hangar_model.{
+  type Hangar, type Msg, AddPart, AssembleDesign, HangarGo, HangarInstalled,
+  HangarOwnChassis, HangarSelect, HangarSpare, HangarSpareChassis, Lab, NewRoom,
+  NoHangarPick, Overview, PickDesignChassis, PickDraft, PickFound, PickGarage,
+  PickSpareChassis, RemovePart, Research, Room, SellBlueprint, StartRun,
+  SwapPart, ToMenu, UseChassis, at, blueprint_component, design_bot, room,
+  spare_chassis, spare_parts,
 }
 import robots_client/wording.{
   bot_line, by_kind, describe_profile_error, kind_plural, mounts_line, num,
@@ -35,9 +35,8 @@ pub type HangarView {
   HangarView(profile: Profile, hangar: Hangar, scale: Scale)
 }
 
-pub fn view_hangar(model: Model) -> Element(Msg) {
-  let assert Some(h) = model.hangar
-  let v = HangarView(profile: model.profile, hangar: h, scale: model.scale)
+pub fn view_hangar(v: HangarView) -> Element(Msg) {
+  let h = v.hangar
   html.div([], [
     hangar_tabs(v),
     case h.screen {

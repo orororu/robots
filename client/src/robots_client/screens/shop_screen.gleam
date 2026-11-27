@@ -14,17 +14,16 @@ import robots/run/price
 import robots/run/shop
 import robots/run/state
 import robots_client/components/garage.{
-  type Garage, garage_tabs, view_garage, view_selected,
+  type GarageView, garage_tabs, view_garage, view_selected,
 }
 import robots_client/components/ui.{button, button_class, text}
-import robots_client/model.{
-  type Model, type Msg, Buy, Cancel, ClickForSale, ClickSpare, ForSale, Leave,
-  Picked, Repair, SellPicked, ShopTab, StockPart, StockRobot,
+import robots_client/garage_model.{
+  type Msg, Buy, Cancel, ClickForSale, ClickSpare, ForSale, Leave, Picked,
+  Repair, SellPicked, ShopTab, StockPart, StockRobot,
 }
 import robots_client/wording.{bot_line, by_kind, kind_plural, part_line}
 
-pub fn view_shop(model: Model) -> Element(Msg) {
-  let g = garage.from_model(model)
+pub fn view_shop(g: GarageView) -> Element(Msg) {
   case g.tab {
     ShopTab -> html.div([], [garage_tabs(g), view_counter(g)])
     _ ->
@@ -37,7 +36,7 @@ pub fn view_shop(model: Model) -> Element(Msg) {
 
 /// The shop's counter: repair the robots, buy, sell spare parts. The
 /// garage (installing, swapping, assembling) is its own screen.
-pub fn view_counter(g: Garage) -> Element(Msg) {
+pub fn view_counter(g: GarageView) -> Element(Msg) {
   let run = g.run
   let s = g.scale
   let robots =
@@ -123,7 +122,7 @@ pub fn view_counter(g: Garage) -> Element(Msg) {
 }
 
 /// What the shop sells, by kind; select one to see its cards, then buy it.
-pub fn view_stock(g: Garage) -> Element(Msg) {
+pub fn view_stock(g: GarageView) -> Element(Msg) {
   let run = g.run
   let s = g.scale
   let item = fn(label, stock, i) {

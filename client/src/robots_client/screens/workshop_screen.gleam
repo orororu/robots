@@ -2,11 +2,11 @@
 
 import lustre/element.{type Element}
 import lustre/element/html
-import robots_client/components/garage.{view_garage}
+import robots_client/components/garage.{type GarageView, view_garage}
 import robots_client/components/ui.{button_class, text}
-import robots_client/model.{type Model, type Msg, Leave}
+import robots_client/garage_model.{type Msg, Leave}
 
-pub fn view_workshop(model: Model) -> Element(Msg) {
+pub fn view_workshop(g: GarageView) -> Element(Msg) {
   html.div([], [
     text(
       "",
@@ -14,6 +14,6 @@ pub fn view_workshop(model: Model) -> Element(Msg) {
         <> "good attribute, or a good one goes up a tier. Free, once.",
     ),
     button_class(">>> Leave without upgrading", "banner", Leave),
-    view_garage(garage.from_model(model)),
+    view_garage(g),
   ])
 }

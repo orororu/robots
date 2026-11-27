@@ -1,6 +1,6 @@
-//// A battle's steps, pure: start it, let time pass (the AI acts), play a
-//// card, and once it's over, report it to the run. `update` supplies the
-//// clock and the random seeds, and saves the run.
+//// Battles, pure: the order, starting a battle, letting time pass (the AI
+//// acts), playing cards, and reporting a finished battle to the run. The
+//// root supplies the clock and the seeds, saves the run and shows messages.
 
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -9,10 +9,87 @@ import robots/ai/brain
 import robots/content/enemies
 import robots/rules/game.{P1, P2}
 import robots/run/state.{type Run}
-import robots_client/model.{type Battle, type Report, Battle, Report}
+import robots_client/battle_model.{
+  type Battle, type Combat, type Msg, type Report, Battle, Combat, Continue,
+  Fight, First, Play, Report, default_order,
+}
+
+/// What a message did beyond the combat state.
+pub type Outcome {
+  Nothing
+  /// A card was played.
+  Played
+  Rejected(game.Rejection)
+  Failed(state.Error)
+  /// The battle is over: the run after it (damage, losses, loot) and its
+  /// report.
+  Over(run: Run, report: Report)
+}
+
+/// The clock and the seeds a message may use.
+pub type Env {
+  Env(now: Int, seed: Int, brain_seed: Int)
+}
+
+pub fn update(c: Combat, run: Run, msg: Msg, env: Env) -> #(Combat, Outcome) {
+  case msg {
+    First(robot) -> #(
+      Combat(..c, order: [robot, ..list.filter(c.order, fn(i) { i != robot })]),
+      Nothing,
+    )
+    Continue -> #(Combat(..c, report: None), Nothing)
+    Fight ->
+      case start(run, c.order, env.now, env.seed, env.brain_seed) {
+        Ok(b) -> #(Combat(..c, battle: Some(b)), Nothing)
+        Error(e) -> #(c, Failed(e))
+      }
+    Play(slot) ->
+      // Catch up to now first: the last frame may be up to 50ms old.
+      case advance(c, run, env.now) {
+        #(Combat(battle: Some(b), ..) as c, Nothing) ->
+          case play(b, slot, env.now) {
+            Ok(b) ->
+              case end_if_over(Combat(..c, battle: Some(b)), run, env.now) {
+                #(c, Nothing) -> #(c, Played)
+                over -> over
+              }
+            Error(rejection) -> #(c, Rejected(rejection))
+          }
+        other -> other
+      }
+  }
+}
+
+/// Let time pass: the AI acts, and a battle that's over is reported.
+pub fn advance(c: Combat, run: Run, now: Int) -> #(Combat, Outcome) {
+  case c.battle {
+    Some(b) -> end_if_over(Combat(..c, battle: Some(tick(b, now))), run, now)
+    None -> #(c, Nothing)
+  }
+}
+
+/// A finished battle stops (no more ticking) and is reported.
+fn end_if_over(c: Combat, run: Run, now: Int) -> #(Combat, Outcome) {
+  case c.battle {
+    None -> #(c, Nothing)
+    Some(b) ->
+      case finish(run, b, now) {
+        Ok(None) -> #(c, Nothing)
+        Ok(Some(#(after, report))) -> #(
+          Combat(
+            order: default_order(after),
+            battle: None,
+            report: Some(report),
+          ),
+          Over(after, report),
+        )
+        Error(e) -> #(c, Failed(e))
+      }
+  }
+}
 
 /// The battle at the run's current node, with the robots in `order`.
-pub fn start(
+fn start(
   run: Run,
   order: List(Int),
   now: Int,
@@ -40,20 +117,20 @@ pub fn start(
 }
 
 /// Let time pass and give the AI a chance to act.
-pub fn tick(b: Battle, now: Int) -> Battle {
+fn tick(b: Battle, now: Int) -> Battle {
   let #(brain, game) = brain.act(b.brain, b.game, now)
   Battle(..b, game:, brain:)
 }
 
 /// The player plays the card in `slot`.
-pub fn play(b: Battle, slot: Int, now: Int) -> Result(Battle, game.Rejection) {
+fn play(b: Battle, slot: Int, now: Int) -> Result(Battle, game.Rejection) {
   use game <- result.map(game.update(b.game, game.PlayCard(P1, slot, now)))
   Battle(..b, game:)
 }
 
 /// Once the battle is over: the run after it (damage, losses, loot) and the
 /// report. `None` while it's still running.
-pub fn finish(
+fn finish(
   run: Run,
   b: Battle,
   now: Int,

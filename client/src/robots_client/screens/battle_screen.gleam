@@ -7,20 +7,20 @@ import gleam/string
 import lustre/element.{type Element}
 import lustre/element/html
 import robots/meta/blueprint
-import robots/rules/scale
+import robots/rules/scale.{type Scale}
+import robots_client/battle_model.{
+  type Battle, type Msg, type Report, Continue, Play,
+}
 import robots_client/components/battle_view
 import robots_client/components/ui.{button_class, text}
-import robots_client/model.{type Battle, type Model, type Msg, Continue, Play}
 import robots_client/wording.{part_line}
 
-pub fn view_battle(model: Model, b: Battle) -> Element(Msg) {
+pub fn view_battle(b: Battle, s: Scale, now: Int) -> Element(Msg) {
   let banner = text("dim", "[1-9] play a card")
-  battle_view.view(b.game, model.scale, model.now, banner, Play)
+  battle_view.view(b.game, s, now, banner, Play)
 }
 
-pub fn view_report(model: Model) -> Element(Msg) {
-  let assert Some(r) = model.report
-  let s = model.scale
+pub fn view_report(r: Report, s: Scale) -> Element(Msg) {
   let hp = fn(x) { int.to_string(scale.value(s, x)) }
   let robots =
     list.map(r.robots, fn(entry) {

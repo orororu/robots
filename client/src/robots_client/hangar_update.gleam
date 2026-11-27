@@ -5,8 +5,8 @@
 //// - `spend`: the profile too (research, selling);
 //// - `start`: a run from the designs.
 ////
-//// They're pure; `update` saves the profile, flashes messages and rolls the
-//// run's seed.
+//// They're pure; the root saves the profile and the run, and shows the
+//// messages.
 
 import gleam/int
 import gleam/list
@@ -20,58 +20,59 @@ import robots/meta/blueprint.{
 }
 import robots/meta/profile.{type Profile}
 import robots/run/state.{type Run}
-import robots_client/actions.{flash, keep}
-import robots_client/browser
-import robots_client/model.{
-  type Hangar, type Model, type Msg, AddPart, AssembleDesign, Hangar, HangarGo,
+import robots_client/hangar_model.{
+  type Hangar, type Msg, AddPart, AssembleDesign, Hangar, HangarGo,
   HangarInstalled, HangarOwnChassis, HangarSelect, HangarSpare,
-  HangarSpareChassis, Model, NewRoom, NoHangarPick, PickDesignChassis, PickDraft,
+  HangarSpareChassis, NewRoom, NoHangarPick, PickDesignChassis, PickDraft,
   PickFound, PickGarage, PickSpareChassis, RemovePart, Research, Room,
-  SellBlueprint, StartRun, SwapPart, UseChassis, at, new_model, room, set_room,
+  SellBlueprint, StartRun, SwapPart, ToMenu, UseChassis, at, room, set_room,
   spare_chassis, spare_parts, tidy, toggle,
 }
 import robots_client/wording.{describe_profile_error}
 
-/// Apply a hangar message to the model: the pure steps below, then saving
-/// and messages.
-pub fn update(model: Model, msg: Msg) -> Model {
-  case model.hangar {
-    None -> model
-    Some(h) ->
-      case msg {
-        StartRun ->
-          case start(model.profile, h, browser.random_seed()) {
-            Ok(#(p, run)) -> {
-              browser.save_profile(profile.encode(p))
-              keep(run)
-              new_model(run, p, None, model.now)
-            }
-            Error(e) -> flash(model, describe_profile_error(e))
-          }
-        Research | SellBlueprint ->
-          case spend(model.profile, h, msg) {
-            Ok(#(p, h, message)) -> {
-              browser.save_profile(profile.encode(p))
-              flash(
-                Model(..model, profile: p, hangar: Some(h), news: message),
-                message,
-              )
-            }
-            Error(e) -> flash(model, describe_profile_error(e))
-          }
-        AddPart | RemovePart | SwapPart | UseChassis | AssembleDesign ->
-          case edit(model.profile, h, msg) {
-            Ok(#(h, "")) -> Model(..model, hangar: Some(h))
-            Ok(#(h, message)) -> flash(Model(..model, hangar: Some(h)), message)
-            Error(reason) -> flash(model, reason)
-          }
-        _ -> Model(..model, hangar: Some(select(h, msg)))
+/// What a hangar message did.
+pub type Outcome {
+  /// The hangar and the profile after it, and what to tell the player (""
+  /// for nothing).
+  Changed(hangar: Hangar, profile: Profile, message: String)
+  /// It can't be done, and why.
+  Refused(reason: String)
+  /// A run started with the fabricated robots.
+  Started(profile: Profile, run: Run)
+  /// Back to the start menu.
+  Menu
+}
+
+/// `seed` seeds a run, if one starts.
+pub fn update(h: Hangar, p: Profile, msg: Msg, seed: Int) -> Outcome {
+  case msg {
+    ToMenu -> Menu
+    StartRun ->
+      case start(p, h, seed) {
+        Ok(#(p, run)) -> Started(p, run)
+        Error(e) -> Refused(describe_profile_error(e))
       }
+    Research | SellBlueprint ->
+      case spend(p, h, msg) {
+        Ok(#(p, h, message)) -> Changed(h, p, message)
+        Error(e) -> Refused(describe_profile_error(e))
+      }
+    AddPart | RemovePart | SwapPart | UseChassis | AssembleDesign ->
+      case edit(p, h, msg) {
+        Ok(#(h, message)) -> Changed(h, p, message)
+        Error(reason) -> Refused(reason)
+      }
+    HangarSelect(_)
+    | HangarGo(_)
+    | HangarOwnChassis
+    | HangarInstalled(_)
+    | HangarSpare(_)
+    | HangarSpareChassis(_) -> Changed(select(h, msg), p, "")
   }
 }
 
 /// Selecting and switching tabs.
-pub fn select(h: Hangar, msg: Msg) -> Hangar {
+fn select(h: Hangar, msg: Msg) -> Hangar {
   let toggle_pick = fn(pick) {
     case h.pick == pick {
       True -> NoHangarPick
@@ -114,11 +115,7 @@ pub fn select(h: Hangar, msg: Msg) -> Hangar {
 
 /// Changes to the designs, from the fabricator's spares. `Ok` carries a
 /// message to show ("" for none); `Error` why it can't be done.
-pub fn edit(
-  p: Profile,
-  h: Hangar,
-  msg: Msg,
-) -> Result(#(Hangar, String), String) {
+fn edit(p: Profile, h: Hangar, msg: Msg) -> Result(#(Hangar, String), String) {
   let d = room(h)
   let spares = spare_parts(p, h.designs)
   let quiet = fn(h) { Ok(#(h, "")) }
@@ -199,7 +196,7 @@ pub fn edit(
 
 /// Research a found blueprint, or sell the selected one. Returns the new
 /// profile, the hangar and what to tell the player.
-pub fn spend(
+fn spend(
   p: Profile,
   h: Hangar,
   msg: Msg,
@@ -259,7 +256,7 @@ fn sold(
 
 /// Save the designs into the profile and start a run with the fabricated
 /// robots.
-pub fn start(
+fn start(
   p: Profile,
   h: Hangar,
   seed: Int,

@@ -16,8 +16,8 @@ import robots/run/state.{type Run}
 import robots/run/upgrade
 import robots_client/components/preview.{preview_section}
 import robots_client/components/ui.{button, button_class, picked, tabs, text}
-import robots_client/model.{
-  type Model, type Msg, type Pick, type Tab, Assemble, Cancel, ClickChassis,
+import robots_client/garage_model.{
+  type Garage, type Msg, type Pick, type Tab, Assemble, Cancel, ClickChassis,
   ClickInstalled, ClickOwnChassis, ClickSpare, Draft, ForSale, GoTab, Install,
   NewRobotTab, OwnChassis, Picked, Rebuild, Remove, RepairPicked, RobotTab,
   ShopTab, SpareChassis, StockPart, StockRobot, Swap, UpgradePicked, at_shop,
@@ -30,21 +30,16 @@ import robots_client/wording.{
 
 /// What the garage shows: the run, what's selected, the open tab (made
 /// valid, see `model.current_tab`) and the display scale.
-pub type Garage {
-  Garage(run: Run, pick: Pick, tab: Tab, scale: Scale)
+pub type GarageView {
+  GarageView(run: Run, pick: Pick, tab: Tab, scale: Scale)
 }
 
-pub fn from_model(model: Model) -> Garage {
-  Garage(
-    run: model.run,
-    pick: model.pick,
-    tab: current_tab(model.run, model.tab),
-    scale: model.scale,
-  )
+pub fn view_of(run: Run, garage: Garage, scale: Scale) -> GarageView {
+  GarageView(run:, pick: garage.pick, tab: current_tab(run, garage.tab), scale:)
 }
 
 /// Shop (at a shop) | a tab per robot | + New robot.
-pub fn garage_tabs(g: Garage) -> Element(Msg) {
+pub fn garage_tabs(g: GarageView) -> Element(Msg) {
   let open = g.tab
   tabs(
     list.flatten([
@@ -63,7 +58,7 @@ pub fn garage_tabs(g: Garage) -> Element(Msg) {
 /// The garage: a tab per robot, where it's modified or rebuilt on another
 /// chassis, and one to assemble a new robot from a spare chassis. The
 /// spare parts are shared.
-pub fn view_garage(g: Garage) -> Element(Msg) {
+pub fn view_garage(g: GarageView) -> Element(Msg) {
   html.div([], [
     garage_tabs(g),
     case g.tab {
@@ -75,7 +70,7 @@ pub fn view_garage(g: Garage) -> Element(Msg) {
 
 /// Spare parts grouped by kind, a heading per kind; `chosen` are shown
 /// as selected.
-pub fn spare_rows(g: Garage, chosen: List(Int)) -> List(Element(Msg)) {
+pub fn spare_rows(g: GarageView, chosen: List(Int)) -> List(Element(Msg)) {
   let rows =
     by_kind(g.run.parts)
     |> list.chunk(fn(pair) { { pair.1 }.kind })
@@ -99,7 +94,7 @@ pub fn spare_rows(g: Garage, chosen: List(Int)) -> List(Element(Msg)) {
   }
 }
 
-pub fn chassis_rows(g: Garage, chosen: Option(Int)) -> List(Element(Msg)) {
+pub fn chassis_rows(g: GarageView, chosen: Option(Int)) -> List(Element(Msg)) {
   list.index_map(g.run.chassis, fn(c, i) {
     button_class(
       "  "
@@ -120,7 +115,7 @@ pub fn chassis_rows(g: Garage, chosen: Option(Int)) -> List(Element(Msg)) {
 }
 
 /// Repair (at a shop) and upgrade (at a workshop) for what's selected.
-pub fn service_actions(g: Garage) -> List(Element(Msg)) {
+pub fn service_actions(g: GarageView) -> List(Element(Msg)) {
   let run = g.run
   let repair = case at_shop(g.run), repair_target(g.pick) {
     True, Some(target) ->
@@ -159,7 +154,7 @@ pub fn with_cancel_run(
 
 /// One robot's room: the robot, the shared spare parts, and spare chassis
 /// to rebuild it on.
-pub fn robot_room(g: Garage, r: Int) -> Element(Msg) {
+pub fn robot_room(g: GarageView, r: Int) -> Element(Msg) {
   let run = g.run
   let assert [bot, ..] = list.drop(run.robots, r)
   let #(installed, spare) = case g.pick {
@@ -228,7 +223,7 @@ pub fn robot_room(g: Garage, r: Int) -> Element(Msg) {
 }
 
 /// Assemble a new robot: a spare chassis and spare parts.
-pub fn new_robot_room(g: Garage) -> Element(Msg) {
+pub fn new_robot_room(g: GarageView) -> Element(Msg) {
   let run = g.run
   let #(chassis, drafted) = case g.pick {
     Draft(c, parts, _) -> #(Some(c), parts)
@@ -285,7 +280,7 @@ pub fn new_robot_room(g: Garage) -> Element(Msg) {
 
 /// The cards of what's selected: an installed part, a spare, both (what
 /// goes out and what comes in), or a chassis being built on.
-pub fn view_selected(g: Garage) -> Element(Msg) {
+pub fn view_selected(g: GarageView) -> Element(Msg) {
   let run = g.run
   let installed_part = fn(r, i) {
     case list.drop(run.robots, r) {
@@ -376,7 +371,7 @@ pub fn hint(pick: Pick) -> String {
 
 /// What the selected change would do to each robot it could apply to:
 /// "✓ fits on Tinker" or "✗ Tinker: Too heavy: 14, max weight 12".
-pub fn fit_lines(g: Garage) -> List(Element(Msg)) {
+pub fn fit_lines(g: GarageView) -> List(Element(Msg)) {
   let run = g.run
   let line = fn(name, result) {
     case result {
