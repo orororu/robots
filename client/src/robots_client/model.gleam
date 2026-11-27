@@ -369,8 +369,8 @@ pub fn blueprint_component(b: Blueprint) -> Option(Component) {
   }
 }
 
-pub fn at_shop(model: Model) -> Bool {
-  case model.run.phase {
+pub fn at_shop(run: Run) -> Bool {
+  case run.phase {
     state.Repairing(_) -> True
     _ -> False
   }
@@ -378,19 +378,19 @@ pub fn at_shop(model: Model) -> Bool {
 
 /// The open tab, made valid: the shop's counter only at a shop, a robot
 /// that's still there (else the first, or New robot when there's none).
-pub fn current_tab(model: Model) -> Tab {
-  let robots = list.length(model.run.robots)
+pub fn current_tab(run: Run, tab: Tab) -> Tab {
+  let robots = list.length(run.robots)
   let first = case robots {
     0 -> NewRobotTab
     _ -> RobotTab(0)
   }
-  case model.tab {
+  case tab {
     ShopTab ->
-      case at_shop(model) {
+      case at_shop(run) {
         True -> ShopTab
         False -> first
       }
-    RobotTab(r) if r >= 0 && r < robots -> model.tab
+    RobotTab(r) if r >= 0 && r < robots -> tab
     RobotTab(_) -> first
     NewRobotTab -> NewRobotTab
   }

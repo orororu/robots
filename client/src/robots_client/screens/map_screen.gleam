@@ -22,7 +22,7 @@ pub fn view_map(model: Model) -> Element(Msg) {
   let choices = state.choices(run)
   html.div([], [
     text("news", model.news),
-    view_upgrade(model),
+    view_upgrade(model.scale, model.upgraded),
     text(
       "",
       "MAP · level "

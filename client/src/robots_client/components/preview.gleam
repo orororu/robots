@@ -3,20 +3,17 @@
 
 import gleam/int
 import gleam/list
-import gleam/option.{None, Some}
+import gleam/option.{type Option, None, Some}
 import lustre/element.{type Element}
 import lustre/element/html
 import robots/construction/part.{type Component}
 import robots/rules/card
+import robots/rules/scale.{type Scale}
+import robots/run/upgrade
 import robots_client/components/card_view
 import robots_client/components/ui.{text}
-import robots_client/model.{type Model, type Msg}
 
-pub fn preview_section(
-  model: Model,
-  label: String,
-  p: Component,
-) -> Element(Msg) {
+pub fn preview_section(s: Scale, label: String, p: Component) -> Element(msg) {
   let title = case label {
     "" -> ""
     _ -> label <> ": "
@@ -37,13 +34,13 @@ pub fn preview_section(
     card_view.row(
       list.index_map(list.zip(cards, part.plain_cards(p)), fn(pair, i) {
         let #(c, plain) = pair
-        let shown = plain_card(model, c)
+        let shown = plain_card(s, c)
         // An attribute: what it is and what it does to the plain card.
         case part.attribute_at(p, i) {
           Ok(#(word, good)) ->
             card_view.noted(
               shown,
-              word <> ": " <> card_view.change_text(model.scale, plain, c),
+              word <> ": " <> card_view.change_text(s, plain, c),
               good,
             )
           Error(Nil) -> shown
@@ -53,9 +50,9 @@ pub fn preview_section(
   ])
 }
 
-pub fn plain_card(model: Model, c: card.Card) -> Element(Msg) {
+pub fn plain_card(s: Scale, c: card.Card) -> Element(msg) {
   card_view.view(
-    model.scale,
+    s,
     c,
     current: c.value,
     key: None,
@@ -66,8 +63,12 @@ pub fn plain_card(model: Model, c: card.Card) -> Element(Msg) {
 }
 
 /// The last upgrade: the card before and after, with what changed.
-pub fn view_upgrade(model: Model) -> Element(Msg) {
-  case model.upgraded {
+/// The last workshop upgrade (part name, change): the card before and after.
+pub fn view_upgrade(
+  s: Scale,
+  upgraded: Option(#(String, upgrade.Change)),
+) -> Element(msg) {
+  case upgraded {
     None -> text("", "")
     Some(#(name, change)) ->
       html.div([], [
@@ -85,11 +86,10 @@ pub fn view_upgrade(model: Model) -> Element(Msg) {
           },
         ),
         card_view.row([
-          card_view.noted(plain_card(model, change.before), "before", False),
+          card_view.noted(plain_card(s, change.before), "before", False),
           card_view.noted(
-            plain_card(model, change.after),
-            "after: "
-              <> card_view.change_text(model.scale, change.before, change.after),
+            plain_card(s, change.after),
+            "after: " <> card_view.change_text(s, change.before, change.after),
             True,
           ),
         ]),

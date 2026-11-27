@@ -104,7 +104,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
     Leave -> attempt(Model(..model, tab: ShopTab), state.leave(model.run), "")
     GoTab(tab) -> Model(..model, tab:, pick: no_pick)
     Rebuild ->
-      case model.pick, current_tab(model) {
+      case model.pick, current_tab(model.run, model.tab) {
         SpareChassis(c), RobotTab(r) ->
           case state.rebuild(model.run, r, c) {
             Ok(#(run, dropped)) -> {
@@ -160,7 +160,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
     }
     ClickSpare(spare) -> click_spare(model, spare)
     ClickChassis(chassis) ->
-      Model(..model, pick: case current_tab(model), model.pick {
+      Model(..model, pick: case current_tab(model.run, model.tab), model.pick {
         NewRobotTab, Draft(c, _, _) if c == chassis -> no_pick
         NewRobotTab, _ -> Draft(chassis, [], None)
         _, SpareChassis(c) if c == chassis -> no_pick

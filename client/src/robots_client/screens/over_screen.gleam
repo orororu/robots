@@ -6,7 +6,8 @@ import gleam/string
 import lustre/element.{type Element}
 import lustre/element/html
 import robots/meta/blueprint
-import robots/meta/profile
+import robots/meta/profile.{type Profile}
+import robots/run/state.{type Run}
 import robots_client/components/ui.{button_class, text}
 import robots_client/model.{type Model, type Msg, ToHangar}
 
@@ -19,14 +20,14 @@ pub fn view_over(model: Model) -> Element(Msg) {
         <> int.to_string(model.run.level)
         <> ".",
     ),
-    view_earnings(model),
+    view_earnings(model.profile, model.run),
     button_class(">>> To the hangar", "banner", ToHangar),
   ])
 }
 
 /// What the run that just ended pays out.
-pub fn view_earnings(model: Model) -> Element(Msg) {
-  let e = profile.earnings(model.profile, model.run)
+pub fn view_earnings(p: Profile, run: Run) -> Element(msg) {
+  let e = profile.earnings(p, run)
   let lines =
     list.flatten([
       [

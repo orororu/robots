@@ -45,7 +45,7 @@ pub fn view_prebattle(model: Model) -> Element(Msg) {
           }),
         ),
         button_class(">>> FIGHT!", "banner", Fight),
-        view_garage(model),
+        view_garage(garage.from_model(model)),
       ])
     }
   }

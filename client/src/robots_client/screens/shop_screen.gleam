@@ -13,20 +13,23 @@ import robots/rules/scale
 import robots/run/price
 import robots/run/shop
 import robots/run/state
-import robots_client/components/garage.{garage_tabs, view_garage, view_selected}
+import robots_client/components/garage.{
+  type Garage, garage_tabs, view_garage, view_selected,
+}
 import robots_client/components/ui.{button, button_class, text}
 import robots_client/model.{
   type Model, type Msg, Buy, Cancel, ClickForSale, ClickSpare, ForSale, Leave,
-  Picked, Repair, SellPicked, ShopTab, StockPart, StockRobot, current_tab,
+  Picked, Repair, SellPicked, ShopTab, StockPart, StockRobot,
 }
 import robots_client/wording.{bot_line, by_kind, kind_plural, part_line}
 
 pub fn view_shop(model: Model) -> Element(Msg) {
-  case current_tab(model) {
-    ShopTab -> html.div([], [garage_tabs(model), view_counter(model)])
+  let g = garage.from_model(model)
+  case g.tab {
+    ShopTab -> html.div([], [garage_tabs(g), view_counter(g)])
     _ ->
       html.div([], [
-        view_garage(model),
+        view_garage(g),
         button_class(">>> Leave", "banner", Leave),
       ])
   }
@@ -34,9 +37,9 @@ pub fn view_shop(model: Model) -> Element(Msg) {
 
 /// The shop's counter: repair the robots, buy, sell spare parts. The
 /// garage (installing, swapping, assembling) is its own screen.
-pub fn view_counter(model: Model) -> Element(Msg) {
-  let run = model.run
-  let s = model.scale
+pub fn view_counter(g: Garage) -> Element(Msg) {
+  let run = g.run
+  let s = g.scale
   let robots =
     list.index_map(run.robots, fn(bot, r) {
       case state.repair_price(bot) {
@@ -52,7 +55,7 @@ pub fn view_counter(model: Model) -> Element(Msg) {
           )
       }
     })
-  let selling = case model.pick {
+  let selling = case g.pick {
     Picked(None, Some(i)) -> Some(i)
     _ -> None
   }
@@ -105,7 +108,7 @@ pub fn view_counter(model: Model) -> Element(Msg) {
     html.div([attribute.class("table")], robots),
     html.div([attribute.class("garage")], [
       html.div([], [
-        view_stock(model),
+        view_stock(g),
         text("", "SELL · your spare parts; select one to see its cards"),
         html.div([attribute.class("table")], case spares {
           [] -> [text("dim", "  none")]
@@ -113,20 +116,20 @@ pub fn view_counter(model: Model) -> Element(Msg) {
         }),
         ..sell_actions
       ]),
-      view_selected(model),
+      view_selected(g),
     ]),
     button_class(">>> Leave", "banner", Leave),
   ])
 }
 
 /// What the shop sells, by kind; select one to see its cards, then buy it.
-pub fn view_stock(model: Model) -> Element(Msg) {
-  let run = model.run
-  let s = model.scale
+pub fn view_stock(g: Garage) -> Element(Msg) {
+  let run = g.run
+  let s = g.scale
   let item = fn(label, stock, i) {
     button_class(
       "    " <> label,
-      case model.pick == ForSale(stock, i) {
+      case g.pick == ForSale(stock, i) {
         True -> "picked"
         False -> ""
       },
@@ -161,7 +164,7 @@ pub fn view_stock(model: Model) -> Element(Msg) {
         i,
       )
     })
-  let price_of = case model.pick {
+  let price_of = case g.pick {
     ForSale(StockPart, i) ->
       list.drop(run.shop.parts, i) |> list.first |> result.map(shop.part_price)
     ForSale(StockRobot, i) ->

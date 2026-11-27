@@ -1,25 +1,25 @@
-//// Small building blocks: buttons, text lines, tab rows.
+//// Small building blocks: buttons, text lines, tab rows. They work with any
+//// message type.
 
 import gleam/list
 import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
 import lustre/event
-import robots_client/model.{type Msg, HangarSelect, NoHangarPick}
 
-pub fn button(label: String, msg: Msg) -> Element(Msg) {
+pub fn button(label: String, msg: msg) -> Element(msg) {
   html.button([attribute.class("card"), event.on_click(msg)], [
     element.text(label),
   ])
 }
 
-pub fn button_class(label: String, class: String, msg: Msg) -> Element(Msg) {
+pub fn button_class(label: String, class: String, msg: msg) -> Element(msg) {
   html.button([attribute.class("card " <> class), event.on_click(msg)], [
     element.text(label),
   ])
 }
 
-pub fn text(class: String, content: String) -> Element(Msg) {
+pub fn text(class: String, content: String) -> Element(msg) {
   html.pre([attribute.class(class)], [element.text(content)])
 }
 
@@ -31,7 +31,7 @@ pub fn picked(yes: Bool) -> String {
 }
 
 /// A row of tabs at the top of a screen: (label, active, message).
-pub fn tabs(items: List(#(String, Bool, Msg))) -> Element(Msg) {
+pub fn tabs(items: List(#(String, Bool, msg))) -> Element(msg) {
   html.div(
     [attribute.class("tabs")],
     list.map(items, fn(item) {
@@ -46,11 +46,4 @@ pub fn tabs(items: List(#(String, Bool, Msg))) -> Element(Msg) {
       )
     }),
   )
-}
-
-pub fn with_cancel(actions: List(Element(Msg))) -> List(Element(Msg)) {
-  case actions {
-    [] -> []
-    _ -> list.append(actions, [button("[Cancel]", HangarSelect(NoHangarPick))])
-  }
 }

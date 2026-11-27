@@ -14,6 +14,6 @@ pub fn view_workshop(model: Model) -> Element(Msg) {
         <> "good attribute, or a good one goes up a tier. Free, once.",
     ),
     button_class(">>> Leave without upgrading", "banner", Leave),
-    view_garage(model),
+    view_garage(garage.from_model(model)),
   ])
 }
