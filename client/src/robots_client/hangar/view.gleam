@@ -14,19 +14,19 @@ import robots/meta/blueprint.{type Blueprint, ChassisBlueprint, PartBlueprint}
 import robots/meta/profile.{type Profile}
 import robots/rules/scale.{type Scale}
 
-import robots_client/components/preview.{preview_section}
-import robots_client/components/ui.{button, button_class, picked, tabs, text}
-import robots_client/hangar_model.{
+import robots_client/common/preview.{preview_section}
+import robots_client/common/ui.{button, button_class, picked, tabs, text}
+import robots_client/common/wording.{
+  bot_line, by_kind, describe_profile_error, kind_plural, mounts_line, num,
+  own_chassis_line, part_line, weight_line,
+}
+import robots_client/hangar/model.{
   type Hangar, type Msg, AddPart, AssembleDesign, HangarGo, HangarInstalled,
   HangarOwnChassis, HangarSelect, HangarSpare, HangarSpareChassis, Lab, NewRoom,
   NoHangarPick, Overview, PickDesignChassis, PickDraft, PickFound, PickGarage,
   PickSpareChassis, RemovePart, Research, Room, SellBlueprint, StartRun,
   SwapPart, ToMenu, UseChassis, at, blueprint_component, design_bot, room,
   spare_chassis, spare_parts,
-}
-import robots_client/wording.{
-  bot_line, by_kind, describe_profile_error, kind_plural, mounts_line, num,
-  own_chassis_line, part_line, weight_line,
 }
 
 /// What the hangar's views need: the profile, the hangar being edited, and

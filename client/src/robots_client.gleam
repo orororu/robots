@@ -22,21 +22,22 @@ import lustre/element/html
 import robots/meta/profile
 import robots/run/save
 import robots/run/state
-import robots_client/browser
-import robots_client/components/garage.{view_of}
+import robots_client/battle/prebattle.{view_prebattle}
+import robots_client/battle/view.{view_battle, view_report} as _
+import robots_client/common/browser
+import robots_client/common/styles.{css}
+import robots_client/garage/shop.{view_shop}
+import robots_client/garage/view.{view_of} as _
+import robots_client/garage/workshop.{view_workshop}
+import robots_client/hangar/view.{HangarView, view_hangar} as _
+import robots_client/map/over.{view_over}
+import robots_client/map/view.{view_map} as _
+import robots_client/menu/model.{Menu} as _
+import robots_client/menu/view.{view_menu} as _
 import robots_client/model.{
-  type Model, type Msg, BattleMsg, Frame, GarageMsg, HangarMsg, KeyDown, Model,
-  frame_ms, new_model,
+  type Model, type Msg, BattleMsg, Frame, GarageMsg, HangarMsg, KeyDown, MapMsg,
+  MenuMsg, Model, frame_ms, new_model,
 }
-import robots_client/screens/battle_screen.{view_battle, view_report}
-import robots_client/screens/hangar_screen.{HangarView, view_hangar}
-import robots_client/screens/map_screen.{view_map}
-import robots_client/screens/menu_screen.{view_menu}
-import robots_client/screens/over_screen.{view_over}
-import robots_client/screens/prebattle_screen.{view_prebattle}
-import robots_client/screens/shop_screen.{view_shop}
-import robots_client/screens/workshop_screen.{view_workshop}
-import robots_client/styles.{css}
 import robots_client/update.{update}
 
 pub fn main() -> Nil {
@@ -61,8 +62,9 @@ fn init(_: Nil) -> #(Model, Effect(Msg)) {
         None,
         browser.now(),
       ),
-      menu: True,
-      saved: save.decode(browser.load_run()) |> option.from_result,
+      menu: Some(Menu(
+        saved: save.decode(browser.load_run()) |> option.from_result,
+      )),
     )
   #(model, subscriptions)
 }
@@ -86,26 +88,33 @@ fn view(model: Model) -> Element(Msg) {
 fn view_screen(model: Model) -> Element(Msg) {
   let garage = view_of(model.run, model.garage, model.scale)
   let combat = model.combat
-  case model.hangar, combat.report, combat.battle, model.run.phase {
-    _, _, _, _ if model.menu -> view_menu(model)
-    Some(h), _, _, _ ->
+  case model.menu, model.hangar, combat.report, combat.battle {
+    Some(menu), _, _, _ ->
+      view_menu(menu, model.profile) |> element.map(MenuMsg)
+    _, Some(h), _, _ ->
       HangarView(profile: model.profile, hangar: h, scale: model.scale)
       |> view_hangar
       |> element.map(HangarMsg)
-    _, Some(r), _, _ -> view_report(r, model.scale) |> element.map(BattleMsg)
-    _, _, Some(b), _ ->
+    _, _, Some(r), _ -> view_report(r, model.scale) |> element.map(BattleMsg)
+    _, _, _, Some(b) ->
       view_battle(b, model.scale, model.now) |> element.map(BattleMsg)
-    _, _, _, state.Over -> view_over(model)
-    _, _, _, state.Fighting(_) -> view_prebattle(garage, combat.order)
-    _, _, _, state.Repairing(_) -> view_shop(garage) |> element.map(GarageMsg)
-    _, _, _, state.Upgrading(_) ->
-      view_workshop(garage) |> element.map(GarageMsg)
-    _, _, _, state.Choosing -> view_map(model)
+    None, None, None, None ->
+      case model.run.phase {
+        state.Over ->
+          view_over(model.run, model.journal, model.profile)
+          |> element.map(MapMsg)
+        state.Fighting(_) -> view_prebattle(garage, combat.order)
+        state.Repairing(_) -> view_shop(garage) |> element.map(GarageMsg)
+        state.Upgrading(_) -> view_workshop(garage) |> element.map(GarageMsg)
+        state.Choosing ->
+          view_map(model.run, model.journal, model.scale)
+          |> element.map(MapMsg)
+      }
   }
 }
 
 fn header(model: Model) -> String {
-  use <- bool.lazy_guard(model.menu, fn() {
+  use <- bool.lazy_guard(model.menu != None, fn() {
     "ROBOTS · "
     <> int.to_string(model.profile.data)
     <> " Data · "

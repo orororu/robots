@@ -4,16 +4,14 @@
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import robots/run/state.{type Run}
-import robots/run/upgrade
 
-/// The garage's state during a run: what's selected, the open tab, and the
-/// last workshop upgrade (shown on the map until the next step).
+/// The garage's state during a run: what's selected and the open tab.
 pub type Garage {
-  Garage(pick: Pick, tab: Tab, upgraded: Option(#(String, upgrade.Change)))
+  Garage(pick: Pick, tab: Tab)
 }
 
 pub fn new_garage() -> Garage {
-  Garage(pick: no_pick, tab: ShopTab, upgraded: None)
+  Garage(pick: no_pick, tab: ShopTab)
 }
 
 /// What's selected in the garage; the selected parts' cards are shown.

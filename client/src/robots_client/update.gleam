@@ -1,5 +1,5 @@
-//// The root update. A feature's messages go to its own update
-//// (`hangar_update`, `garage_update`, `battle_update`) with just its state
+//// The root update. A feature's messages go to its own update (`menu`,
+//// `hangar`, `map`, `garage`, `battle`) with just its state
 //// and what it reads; the outcome is applied here, along with everything
 //// impure: the clock, random seeds, saving, and messages to the player.
 
@@ -9,19 +9,23 @@ import lustre/effect.{type Effect}
 import robots/meta/profile.{type Profile}
 import robots/run/save
 import robots/run/state.{type Run}
-import robots_client/battle_model.{Combat, Continue, Play, default_order}
-import robots_client/battle_update.{Env}
-import robots_client/browser
-import robots_client/garage_model.{Cancel, Garage, no_pick}
-import robots_client/garage_update
-import robots_client/hangar_model.{hangar_for}
-import robots_client/hangar_update
-import robots_client/model.{
-  type Model, type Msg, BattleMsg, ContinueRun, Frame, GarageMsg, Go, HangarMsg,
-  KeyDown, Model, NewGame, ToHangar, flash_ms, new_model,
-}
-import robots_client/wording.{
+import robots_client/battle/model.{Combat, Continue, Play, default_order} as battle_model
+import robots_client/battle/update.{Env} as battle_update
+import robots_client/common/browser
+import robots_client/common/wording.{
   describe_error, describe_rejection, describe_reward,
+}
+import robots_client/garage/model.{Cancel, Garage, no_pick} as _
+import robots_client/garage/update as garage_update
+import robots_client/hangar/model.{hangar_for} as _
+import robots_client/hangar/update as hangar_update
+import robots_client/map/model.{Journal} as _
+import robots_client/map/update as map_update
+import robots_client/menu/model.{Menu} as _
+import robots_client/menu/update as menu_update
+import robots_client/model.{
+  type Model, type Msg, BattleMsg, Frame, GarageMsg, HangarMsg, KeyDown, MapMsg,
+  MenuMsg, Model, flash_ms, new_model,
 }
 
 pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
@@ -49,8 +53,11 @@ fn step(model: Model, msg: Msg) -> Model {
           {
             hangar_update.Changed(hangar:, profile:, message:) -> {
               save_profile(model.profile, profile)
-              Model(..model, hangar: Some(hangar), profile:)
-              |> tell(message, True)
+              let model = Model(..model, hangar: Some(hangar), profile:)
+              case message {
+                "" -> model
+                _ -> flash(model, message)
+              }
             }
             hangar_update.Refused(reason) -> flash(model, reason)
             hangar_update.Started(profile:, run:) -> {
@@ -58,7 +65,7 @@ fn step(model: Model, msg: Msg) -> Model {
               keep(run)
               new_model(run, profile, None, model.now)
             }
-            hangar_update.Menu -> Model(..model, menu: True)
+            hangar_update.Menu -> Model(..model, menu: Some(Menu(saved: None)))
           }
         None -> model
       }
@@ -69,8 +76,14 @@ fn step(model: Model, msg: Msg) -> Model {
       case outcome {
         garage_update.Nothing -> model
         garage_update.Failed(e) -> flash(model, describe_error(e))
-        garage_update.Changed(run:, message:, loud:) ->
+        garage_update.Changed(run:, message:, loud:, upgraded:) -> {
+          let model = case upgraded {
+            Some(_) ->
+              Model(..model, journal: Journal(..model.journal, upgraded:))
+            None -> model
+          }
           model |> change_run(run) |> tell(message, loud)
+        }
       }
     }
     BattleMsg(msg) -> {
@@ -86,36 +99,33 @@ fn step(model: Model, msg: Msg) -> Model {
         battle_update.update(model.combat, model.run, msg, env)
       battle_outcome(Model(..model, combat:), outcome)
     }
-    ContinueRun ->
-      case model.saved {
-        Some(run) ->
-          Model(
-            ..new_model(run, model.profile, None, model.now),
-            news: "Run continued.",
-          )
+    MenuMsg(msg) ->
+      case model.menu {
+        Some(menu) ->
+          case menu_update.update(menu, model.profile, msg) {
+            menu_update.Nothing -> model
+            menu_update.Continued(run) ->
+              new_model(run, model.profile, None, model.now)
+              |> tell("Run continued.", False)
+            menu_update.ToHangar(p) ->
+              open_hangar(Model(..model, menu: None), p)
+          }
         None -> model
       }
-    // A saved run is abandoned: paid out like a lost one.
-    NewGame ->
-      case model.saved {
-        Some(run) ->
-          open_hangar(
-            Model(..model, menu: False, saved: None),
-            profile.finish(model.profile, run),
-          )
-        None ->
-          Model(..model, menu: False, hangar: Some(hangar_for(model.profile)))
-      }
-    ToHangar -> open_hangar(model, profile.finish(model.profile, model.run))
-    Go(node) ->
-      case state.go(model.run, node) {
-        Ok(run) ->
+    MapMsg(msg) -> {
+      let #(journal, outcome) =
+        map_update.update(model.journal, model.run, model.profile, msg)
+      let model = Model(..model, journal:)
+      case outcome {
+        map_update.Went(run) ->
           Model(
             ..change_run(model, run),
-            garage: Garage(..model.garage, pick: no_pick, upgraded: None),
+            garage: Garage(..model.garage, pick: no_pick),
           )
-        Error(e) -> flash(model, describe_error(e))
+        map_update.Failed(e) -> flash(model, describe_error(e))
+        map_update.Finished(p) -> open_hangar(model, p)
       }
+    }
   }
 }
 
@@ -148,7 +158,7 @@ fn battle_outcome(model: Model, outcome: battle_update.Outcome) -> Model {
         ..model,
         run:,
         garage: Garage(..model.garage, pick: no_pick),
-        news:,
+        journal: Journal(..model.journal, news:),
         flash: "",
         flash_until: 0,
       )
@@ -171,8 +181,12 @@ fn change_run(model: Model, run: Run) -> Model {
 fn tell(model: Model, message: String, loud: Bool) -> Model {
   case message, loud {
     "", _ -> model
-    _, False -> Model(..model, news: message)
-    _, True -> flash(Model(..model, news: message), message)
+    _, False -> Model(..model, journal: Journal(..model.journal, news: message))
+    _, True ->
+      flash(
+        Model(..model, journal: Journal(..model.journal, news: message)),
+        message,
+      )
   }
 }
 

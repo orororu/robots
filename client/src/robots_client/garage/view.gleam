@@ -14,18 +14,18 @@ import robots/rules/scale.{type Scale}
 
 import robots/run/state.{type Run}
 import robots/run/upgrade
-import robots_client/components/preview.{preview_section}
-import robots_client/components/ui.{button, button_class, picked, tabs, text}
-import robots_client/garage_model.{
+import robots_client/common/preview.{preview_section}
+import robots_client/common/ui.{button, button_class, picked, tabs, text}
+import robots_client/common/wording.{
+  bot_line, by_kind, describe_error, kind_plural, mounts_line, num, offer_deck,
+  own_chassis_line, part_line, weight_line,
+}
+import robots_client/garage/model.{
   type Garage, type Msg, type Pick, type Tab, Assemble, Cancel, ClickChassis,
   ClickInstalled, ClickOwnChassis, ClickSpare, Draft, ForSale, GoTab, Install,
   NewRobotTab, OwnChassis, Picked, Rebuild, Remove, RepairPicked, RobotTab,
   ShopTab, SpareChassis, StockPart, StockRobot, Swap, UpgradePicked, at_shop,
   current_tab, repair_target, upgrade_target,
-}
-import robots_client/wording.{
-  bot_line, by_kind, describe_error, kind_plural, mounts_line, num, offer_deck,
-  own_chassis_line, part_line, weight_line,
 }
 
 /// What the garage shows: the run, what's selected, the open tab (made

@@ -20,7 +20,8 @@ import robots/meta/blueprint.{
 }
 import robots/meta/profile.{type Profile}
 import robots/run/state.{type Run}
-import robots_client/hangar_model.{
+import robots_client/common/wording.{describe_profile_error}
+import robots_client/hangar/model.{
   type Hangar, type Msg, AddPart, AssembleDesign, Hangar, HangarGo,
   HangarInstalled, HangarOwnChassis, HangarSelect, HangarSpare,
   HangarSpareChassis, NewRoom, NoHangarPick, PickDesignChassis, PickDraft,
@@ -28,7 +29,6 @@ import robots_client/hangar_model.{
   SellBlueprint, StartRun, SwapPart, ToMenu, UseChassis, at, room, set_room,
   spare_chassis, spare_parts, tidy, toggle,
 }
-import robots_client/wording.{describe_profile_error}
 
 /// What a hangar message did.
 pub type Outcome {

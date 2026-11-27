@@ -9,7 +9,7 @@ import robots/ai/brain
 import robots/content/enemies
 import robots/rules/game.{P1, P2}
 import robots/run/state.{type Run}
-import robots_client/battle_model.{
+import robots_client/battle/model.{
   type Battle, type Combat, type Msg, type Report, Battle, Combat, Continue,
   Fight, First, Play, Report, default_order,
 }

@@ -4,12 +4,13 @@
 
 import gleam/int
 import gleam/list
-import gleam/option.{None, Some}
+import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import robots/construction/part
 import robots/run/state.{type Run}
-import robots_client/garage_model.{
+import robots/run/upgrade
+import robots_client/garage/model.{
   type Garage, type Msg, type Pick, type Tab, Assemble, Buy, Cancel,
   ClickChassis, ClickForSale, ClickInstalled, ClickOwnChassis, ClickSpare, Draft,
   ForSale, Garage, GoTab, Install, Leave, NewRobotTab, OwnChassis, Picked,
@@ -24,14 +25,20 @@ pub type Outcome {
   Nothing
   Failed(state.Error)
   /// The run after it, and what to tell the player ("" for nothing); `loud`
-  /// also flashes it.
-  Changed(run: Run, message: String, loud: Bool)
+  /// also flashes it. `upgraded`: a workshop upgrade, for the map to show
+  /// (the part's name and the card before and after).
+  Changed(
+    run: Run,
+    message: String,
+    loud: Bool,
+    upgraded: Option(#(String, upgrade.Change)),
+  )
 }
 
 pub fn update(g: Garage, run: Run, msg: Msg) -> #(Garage, Outcome) {
   let tab = current_tab(run, g.tab)
   case msg {
-    GoTab(tab) -> #(Garage(..g, tab:, pick: no_pick), Nothing)
+    GoTab(tab) -> #(Garage(tab:, pick: no_pick), Nothing)
     ClickInstalled(..)
     | ClickSpare(_)
     | ClickChassis(_)
@@ -155,6 +162,7 @@ fn act(
                 }
                   <> " The old chassis is a spare.",
                 True,
+                None,
               ),
               same,
             )
@@ -182,8 +190,9 @@ fn act(
                   <> change.after.name
                   <> ".",
                 False,
+                Some(#(name, change)),
               ),
-              fn(g) { Garage(..g, upgraded: Some(#(name, change))) },
+              same,
             )
             Error(e) -> #(Failed(e), same)
           }
@@ -196,7 +205,7 @@ fn act(
 
 fn done(result: Result(Run, state.Error)) -> Outcome {
   case result {
-    Ok(run) -> Changed(run, "", False)
+    Ok(run) -> Changed(run, "", False, None)
     Error(e) -> Failed(e)
   }
 }

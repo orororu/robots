@@ -10,11 +10,11 @@ import robots/content/enemies
 import robots/rules/scale
 import robots/run/map
 import robots/run/state
-import robots_client/battle_model.{Fight, First}
-import robots_client/components/garage.{type GarageView, view_garage}
-import robots_client/components/ui.{button, button_class, text}
+import robots_client/battle/model.{Fight, First} as _
+import robots_client/common/ui.{button, button_class, text}
+import robots_client/common/wording.{bot_line}
+import robots_client/garage/view.{type GarageView, view_garage}
 import robots_client/model.{type Msg, BattleMsg, GarageMsg}
-import robots_client/wording.{bot_line}
 
 pub fn view_prebattle(g: GarageView, order: List(Int)) -> Element(Msg) {
   case state.battle(g.run) {

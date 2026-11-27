@@ -8,19 +8,17 @@ import lustre/element/html
 import robots/meta/blueprint
 import robots/meta/profile.{type Profile}
 import robots/run/state.{type Run}
-import robots_client/components/ui.{button_class, text}
-import robots_client/model.{type Model, type Msg, ToHangar}
+import robots_client/common/ui.{button_class, text}
+import robots_client/map/model.{type Journal, type Msg, ToHangar}
 
-pub fn view_over(model: Model) -> Element(Msg) {
+pub fn view_over(run: Run, j: Journal, p: Profile) -> Element(Msg) {
   html.div([], [
-    text("news", model.news),
+    text("news", j.news),
     text(
       "foe",
-      "THE RUN IS OVER. You reached level "
-        <> int.to_string(model.run.level)
-        <> ".",
+      "THE RUN IS OVER. You reached level " <> int.to_string(run.level) <> ".",
     ),
-    view_earnings(model.profile, model.run),
+    view_earnings(p, run),
     button_class(">>> To the hangar", "banner", ToHangar),
   ])
 }

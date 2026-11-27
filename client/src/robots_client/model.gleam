@@ -1,14 +1,17 @@
 //// The client's state and messages. Each feature keeps its own part
-//// (`hangar_model`, `garage_model`, `battle_model`); the root holds them
-//// and what's shared: the profile, the run, the clock and messages.
+//// (`menu/model`, `hangar/model`, `map/model`, `garage/model`,
+//// `battle/model`); the root holds them and what's shared: the profile, the
+//// run, the clock and the banner.
 
 import gleam/option.{type Option, None}
 import robots/meta/profile.{type Profile}
 import robots/rules/scale.{type Scale}
 import robots/run/state.{type Run}
-import robots_client/battle_model.{type Combat}
-import robots_client/garage_model.{type Garage}
-import robots_client/hangar_model.{type Hangar}
+import robots_client/battle/model.{type Combat} as battle_model
+import robots_client/garage/model.{type Garage} as garage_model
+import robots_client/hangar/model.{type Hangar} as hangar_model
+import robots_client/map/model.{type Journal} as map_model
+import robots_client/menu/model.{type Menu} as menu_model
 
 pub const frame_ms = 50
 
@@ -21,16 +24,12 @@ pub type Model {
     /// Between runs: the hangar, where Data is spent and the starting
     /// robots designed. `run` is the last run (or a placeholder) meanwhile.
     hangar: Option(Hangar),
-    /// The start menu: continue the saved run, or a new one.
-    menu: Bool,
-    /// The run saved in the browser, while the menu can continue it.
-    saved: Option(Run),
+    /// The start menu, while it's open.
+    menu: Option(Menu),
     run: Run,
+    journal: Journal,
     garage: Garage,
     combat: Combat,
-    /// What the last step did (a battle's pay, an upgrade), shown on the
-    /// map.
-    news: String,
     scale: Scale,
     now: Int,
     flash: String,
@@ -41,13 +40,8 @@ pub type Model {
 pub type Msg {
   Frame(now: Int)
   KeyDown(key: String)
-  // The start menu
-  ContinueRun
-  NewGame
-  /// After a run: pay it out and go to the hangar.
-  ToHangar
-  // Map
-  Go(node: Int)
+  MenuMsg(menu_model.Msg)
+  MapMsg(map_model.Msg)
   HangarMsg(hangar_model.Msg)
   GarageMsg(garage_model.Msg)
   BattleMsg(battle_model.Msg)
@@ -63,12 +57,11 @@ pub fn new_model(
   Model(
     profile:,
     hangar:,
-    menu: False,
-    saved: None,
+    menu: None,
     run:,
+    journal: map_model.new_journal("A new run. Pick where to go."),
     garage: garage_model.new_garage(),
     combat: battle_model.new_combat(run),
-    news: "A new run. Pick where to go.",
     scale: scale.default(),
     now:,
     flash: "",

@@ -10,8 +10,8 @@ import robots/construction/part.{type Component}
 import robots/rules/card
 import robots/rules/scale.{type Scale}
 import robots/run/upgrade
-import robots_client/components/card_view
-import robots_client/components/ui.{text}
+import robots_client/common/card_view
+import robots_client/common/ui.{text}
 
 pub fn preview_section(s: Scale, label: String, p: Component) -> Element(msg) {
   let title = case label {

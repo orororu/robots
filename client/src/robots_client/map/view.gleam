@@ -10,19 +10,19 @@ import lustre/element.{type Element}
 import lustre/element/html
 import lustre/element/svg
 import lustre/event
+import robots/rules/scale.{type Scale}
 import robots/run/map
 import robots/run/state.{type Run}
-import robots_client/components/preview.{view_upgrade}
-import robots_client/components/ui.{button_class, text}
-import robots_client/model.{type Model, type Msg, Go}
-import robots_client/wording.{bot_line}
+import robots_client/common/preview.{view_upgrade}
+import robots_client/common/ui.{button_class, text}
+import robots_client/common/wording.{bot_line}
+import robots_client/map/model.{type Journal, type Msg, Go}
 
-pub fn view_map(model: Model) -> Element(Msg) {
-  let run = model.run
+pub fn view_map(run: Run, j: Journal, s: Scale) -> Element(Msg) {
   let choices = state.choices(run)
   html.div([], [
-    text("news", model.news),
-    view_upgrade(model.scale, model.garage.upgraded),
+    text("news", j.news),
+    view_upgrade(s, j.upgraded),
     text(
       "",
       "MAP · level "
@@ -48,9 +48,7 @@ pub fn view_map(model: Model) -> Element(Msg) {
     text("", "YOUR ROBOTS · change parts in the garage before a fight"),
     html.div(
       [attribute.class("table")],
-      list.map(run.robots, fn(bot) {
-        text("ally", "  " <> bot_line(model.scale, bot))
-      }),
+      list.map(run.robots, fn(bot) { text("ally", "  " <> bot_line(s, bot)) }),
     ),
   ])
 }

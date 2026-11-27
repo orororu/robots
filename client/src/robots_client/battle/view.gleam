@@ -8,12 +8,12 @@ import lustre/element.{type Element}
 import lustre/element/html
 import robots/meta/blueprint
 import robots/rules/scale.{type Scale}
-import robots_client/battle_model.{
+import robots_client/battle/board as battle_view
+import robots_client/battle/model.{
   type Battle, type Msg, type Report, Continue, Play,
 }
-import robots_client/components/battle_view
-import robots_client/components/ui.{button_class, text}
-import robots_client/wording.{part_line}
+import robots_client/common/ui.{button_class, text}
+import robots_client/common/wording.{part_line}
 
 pub fn view_battle(b: Battle, s: Scale, now: Int) -> Element(Msg) {
   let banner = text("dim", "[1-9] play a card")

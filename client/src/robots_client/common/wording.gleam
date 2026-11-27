@@ -17,7 +17,7 @@ import robots/rules/scale.{type Scale}
 import robots/run/price
 import robots/run/shop
 import robots/run/state.{type Bot, type Run}
-import robots_client/components/battle_view
+import robots_client/battle/board as battle_view
 
 pub fn describe_profile_error(e: profile.Error) -> String {
   case e {

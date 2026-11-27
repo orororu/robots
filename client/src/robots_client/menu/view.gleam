@@ -6,13 +6,13 @@ import gleam/option.{None, Some}
 import gleam/string
 import lustre/element.{type Element}
 import lustre/element/html
-import robots/meta/profile
+import robots/meta/profile.{type Profile}
 import robots/run/state
-import robots_client/components/ui.{button, button_class, text}
-import robots_client/model.{type Model, type Msg, ContinueRun, NewGame}
+import robots_client/common/ui.{button, button_class, text}
+import robots_client/menu/model.{type Menu, type Msg, ContinueRun, NewGame}
 
-pub fn view_menu(model: Model) -> Element(Msg) {
-  let continue = case model.saved {
+pub fn view_menu(menu: Menu, p: Profile) -> Element(Msg) {
+  let continue = case menu.saved {
     Some(run) -> {
       let robots = run.robots |> list.map(fn(b) { b.name }) |> string.join(", ")
       let where = case run.phase {
@@ -45,9 +45,9 @@ pub fn view_menu(model: Model) -> Element(Msg) {
     }
     None -> [text("dim", "    Continue: no run in progress")]
   }
-  let new = case model.saved {
+  let new = case menu.saved {
     Some(run) -> {
-      let e = profile.earnings(model.profile, run)
+      let e = profile.earnings(p, run)
       button(
         ">>> New run · abandons the current one (it pays "
           <> int.to_string(e.data + e.bonus)

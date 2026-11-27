@@ -2,9 +2,9 @@
 
 import lustre/element.{type Element}
 import lustre/element/html
-import robots_client/components/garage.{type GarageView, view_garage}
-import robots_client/components/ui.{button_class, text}
-import robots_client/garage_model.{type Msg, Leave}
+import robots_client/common/ui.{button_class, text}
+import robots_client/garage/model.{type Msg, Leave}
+import robots_client/garage/view.{type GarageView, view_garage}
 
 pub fn view_workshop(g: GarageView) -> Element(Msg) {
   html.div([], [

@@ -13,15 +13,15 @@ import robots/rules/scale
 import robots/run/price
 import robots/run/shop
 import robots/run/state
-import robots_client/components/garage.{
-  type GarageView, garage_tabs, view_garage, view_selected,
-}
-import robots_client/components/ui.{button, button_class, text}
-import robots_client/garage_model.{
+import robots_client/common/ui.{button, button_class, text}
+import robots_client/common/wording.{bot_line, by_kind, kind_plural, part_line}
+import robots_client/garage/model.{
   type Msg, Buy, Cancel, ClickForSale, ClickSpare, ForSale, Leave, Picked,
   Repair, SellPicked, ShopTab, StockPart, StockRobot,
 }
-import robots_client/wording.{bot_line, by_kind, kind_plural, part_line}
+import robots_client/garage/view.{
+  type GarageView, garage_tabs, view_garage, view_selected,
+}
 
 pub fn view_shop(g: GarageView) -> Element(Msg) {
   case g.tab {
